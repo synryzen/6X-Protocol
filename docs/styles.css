@@ -139,6 +139,30 @@ p {
   gap: 10px;
 }
 
+.maker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.maker-card {
+  border: 1px solid rgba(141, 189, 255, 0.28);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(14, 28, 51, 0.78);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:hover {
+  color: #9bd4ff;
+}
+
 ul {
   margin: 0;
   padding-left: 18px;

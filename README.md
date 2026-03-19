@@ -76,6 +76,18 @@ The project page content is in [`docs/index.html`](docs/index.html) and auto-dep
 Planned Pages URL:
 `https://synryzen.github.io/6X-Protocol/`
 
+## Creator + Support
+- Developer: `Matthew C Elliott`
+- Website: `https://synryzen.com`
+- GitHub: `https://github.com/synryzen/6X-Protocol`
+- Support Email: `6X-Protocol@gmail.com`
+
+## Marketing Funnel (Free -> Paid Apps)
+- Use this repo and GitHub Releases as the free Linux download entry point.
+- Keep a dedicated "Explore Matthew's Apps" section on the Pages site.
+- Add one page per iOS/macOS app (best for search visibility and clearer call-to-action).
+- Cross-link every app page back to this repo for trust and audience growth.
+
 ## Release Plan
 See:
 - [`APP_FINISH_PLAN.md`](APP_FINISH_PLAN.md)

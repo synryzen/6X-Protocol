@@ -19,6 +19,7 @@ from src.views.runs_view import RunsView
 from src.views.integrations_view import IntegrationsView
 from src.views.marketplace_view import MarketplaceView
 from src.views.settings_view import SettingsView
+from src.views.about_view import AboutView
 
 
 class MainWindow(Adw.ApplicationWindow):
@@ -42,6 +43,7 @@ class MainWindow(Adw.ApplicationWindow):
         ("marketplace", "Marketplace", "folder-download-symbolic"),
         ("daemon", "Daemon", "system-run-symbolic"),
         ("settings", "Settings", "emblem-system-symbolic"),
+        ("about", "About", "help-about-symbolic"),
     ]
 
     def __init__(self, application):
@@ -114,6 +116,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.marketplace_view = MarketplaceView()
         self.daemon_view = DaemonView(application=application)
         self.settings_view = SettingsView()
+        self.about_view = AboutView()
 
         self.stack.add_titled(
             self.wrap_view_for_stack(self.dashboard_view), "dashboard", "Dashboard"
@@ -134,6 +137,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.stack.add_titled(
             self.wrap_view_for_stack(self.settings_view), "settings", "Settings"
         )
+        self.stack.add_titled(self.wrap_view_for_stack(self.about_view), "about", "About")
         self.stack.connect("notify::visible-child-name", self.on_visible_child_changed)
 
         sidebar = self.build_navigation_sidebar()
@@ -348,6 +352,9 @@ class MainWindow(Adw.ApplicationWindow):
             self.daemon_view.refresh_view()
         elif visible_name == "settings":
             self.settings_view.reload_settings()
+        elif visible_name == "about":
+            # About view is static but remains selectable from refresh and palette flows.
+            pass
 
     def refresh_daemon_controls(self):
         systemd_status = self.systemd_service.status()

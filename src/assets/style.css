@@ -6589,3 +6589,55 @@ window.app-window .canvas-inspector textview.node-test-result-output {
 window.app-window.theme-light .canvas-inspector textview.node-test-result-output {
   color: #20314a;
 }
+
+/* About view */
+.about-root {
+  padding: 2px;
+}
+
+.about-hero {
+  background-image:
+    linear-gradient(150deg, alpha(#2b6de7, 0.22), alpha(#0ea5e9, 0.12)),
+    linear-gradient(180deg, alpha(#111d31, 0.18), alpha(#0f172a, 0.12));
+  border-color: alpha(#60a5fa, 0.44);
+}
+
+.about-grid > * {
+  min-width: 300px;
+}
+
+.about-card {
+  border-radius: 14px;
+}
+
+.about-info-row {
+  border: 1px solid alpha(@border, 0.55);
+  border-radius: 10px;
+  background: alpha(@surface_soft, 0.82);
+  padding: 8px;
+}
+
+.about-value {
+  color: @text_secondary;
+}
+
+.about-bullet {
+  border-left: 2px solid alpha(@accent, 0.72);
+  padding-left: 8px;
+}
+
+window.theme-dark .about-hero {
+  background-image:
+    linear-gradient(150deg, alpha(#2563eb, 0.28), alpha(#22d3ee, 0.17)),
+    linear-gradient(180deg, alpha(#0b1220, 0.35), alpha(#111827, 0.24));
+  border-color: alpha(#60a5fa, 0.5);
+}
+
+window.theme-dark .about-info-row {
+  border-color: alpha(#475569, 0.9);
+  background: alpha(#162338, 0.8);
+}
+
+window.theme-dark .about-value {
+  color: #c8d7ef;
+}
