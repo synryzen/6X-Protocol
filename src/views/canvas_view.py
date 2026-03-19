@@ -41,6 +41,7 @@ class CanvasView(Gtk.Box):
         "balanced": {"retry_max": 1, "retry_backoff_ms": 250, "timeout_sec": 60.0},
         "aggressive": {"retry_max": 3, "retry_backoff_ms": 500, "timeout_sec": 120.0},
     }
+    NODE_EXECUTION_PRESET_KEYS = ["fast", "standard", "heavy", "approval"]
     ACTION_FAST_INTEGRATIONS = {
         "slack_webhook",
         "discord_webhook",
@@ -158,6 +159,8 @@ class CanvasView(Gtk.Box):
         self.preflight_issue_items: list[dict[str, str]] = []
         self.loading_graph_settings = False
         self.execution_preset_buttons: dict[str, Gtk.ToggleButton] = {}
+        self.node_execution_preset_buttons: dict[str, Gtk.ToggleButton] = {}
+        self.loading_node_execution_preset = False
         self.node_drag_active = False
         self.suppress_next_node_click = False
         self.zoom_factor = 1.0
@@ -1216,11 +1219,49 @@ class CanvasView(Gtk.Box):
         self.node_test_status_label.add_css_class("dim-label")
         self.node_test_status_label.add_css_class("inline-status")
 
+        self.node_test_result_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.node_test_result_card.add_css_class("node-test-result-card")
+
+        self.node_test_result_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.node_test_result_header.add_css_class("node-test-result-header")
+        self.node_test_result_state_chip = Gtk.Label(label="IDLE")
+        self.node_test_result_state_chip.add_css_class("node-test-state-chip")
+        self.node_test_result_state_chip.add_css_class("node-test-state-idle")
+        self.node_test_result_summary_label = Gtk.Label(label="No node test has been run yet.")
+        self.node_test_result_summary_label.set_halign(Gtk.Align.START)
+        self.node_test_result_summary_label.set_hexpand(True)
+        self.node_test_result_summary_label.set_wrap(True)
+        self.node_test_result_summary_label.add_css_class("dim-label")
+        self.node_test_result_header.append(self.node_test_result_state_chip)
+        self.node_test_result_header.append(self.node_test_result_summary_label)
+
+        self.node_test_result_output_buffer = Gtk.TextBuffer()
+        self.node_test_result_output_view = Gtk.TextView.new_with_buffer(
+            self.node_test_result_output_buffer
+        )
+        self.node_test_result_output_view.set_editable(False)
+        self.node_test_result_output_view.set_cursor_visible(False)
+        self.node_test_result_output_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.node_test_result_output_view.add_css_class("node-test-result-output")
+        self.node_test_result_output_scroll = Gtk.ScrolledWindow()
+        self.node_test_result_output_scroll.set_policy(
+            Gtk.PolicyType.NEVER,
+            Gtk.PolicyType.AUTOMATIC,
+        )
+        self.node_test_result_output_scroll.set_min_content_height(120)
+        self.node_test_result_output_scroll.set_child(self.node_test_result_output_view)
+        self.node_test_result_output_scroll.add_css_class("node-test-result-scroll")
+
+        self.node_test_result_card.append(self.node_test_result_header)
+        self.node_test_result_card.append(self.node_test_result_output_scroll)
+        self.node_test_result_card.set_visible(False)
+
         test_node_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         test_node_row.add_css_class("compact-action-row")
         test_node_row.append(self.test_node_button)
         self.action_integration_section.append(test_node_row)
         self.action_integration_section.append(self.node_test_status_label)
+        self.action_integration_section.append(self.node_test_result_card)
 
         self.provider_label = Gtk.Label(label="Provider Override")
         self.provider_label.set_halign(Gtk.Align.START)
@@ -1409,6 +1450,25 @@ class CanvasView(Gtk.Box):
         node_exec_grid.attach(node_backoff_box, 1, 0, 1, 1)
         node_exec_grid.attach(node_timeout_box, 0, 1, 2, 1)
 
+        self.node_execution_preset_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.node_execution_preset_row.add_css_class("segmented-row")
+        self.node_execution_preset_row.add_css_class("compact-segmented-row")
+        self.node_execution_preset_row.add_css_class("canvas-node-execution-preset-row")
+        self.node_execution_preset_row.set_halign(Gtk.Align.FILL)
+
+        preset_labels = {
+            "fast": "Fast",
+            "standard": "Standard",
+            "heavy": "Heavy",
+            "approval": "Approval",
+        }
+        for preset_key in self.NODE_EXECUTION_PRESET_KEYS:
+            button = Gtk.ToggleButton(label=preset_labels.get(preset_key, preset_key.title()))
+            button.add_css_class("compact-action-button")
+            button.connect("toggled", self.on_node_execution_preset_toggled, preset_key)
+            self.node_execution_preset_row.append(button)
+            self.node_execution_preset_buttons[preset_key] = button
+
         node_exec_action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         node_exec_action_row.add_css_class("compact-action-row")
         self.node_execution_defaults_button = Gtk.Button(label="Use Recommended Defaults")
@@ -1488,6 +1548,7 @@ class CanvasView(Gtk.Box):
         self.inspector_box.append(self.condition_min_len_row)
         self.inspector_box.append(self.node_execution_title)
         self.inspector_box.append(node_exec_grid)
+        self.inspector_box.append(self.node_execution_preset_row)
         self.inspector_box.append(node_exec_action_row)
         self.inspector_box.append(self.node_execution_hint_label)
         self.inspector_box.append(self.apply_node_button)
@@ -3156,6 +3217,122 @@ class CanvasView(Gtk.Box):
                 return True
         return False
 
+    def suggested_node_execution_preset(self, node_type: str, integration: str = "") -> str:
+        node_key = self.node_type_key(node_type)
+        target = str(integration).strip().lower()
+        if node_key in {"trigger", "condition"}:
+            return "fast"
+        if node_key == "ai":
+            return "heavy"
+        if node_key in {"action", "template"}:
+            if target == "approval_gate":
+                return "approval"
+            if target in self.ACTION_FAST_INTEGRATIONS:
+                return "fast"
+            if target in self.ACTION_HEAVY_INTEGRATIONS:
+                return "heavy"
+            return "standard"
+        return "standard"
+
+    def node_execution_preset_profile(
+        self,
+        preset_key: str,
+        node_type: str,
+        integration: str = "",
+    ) -> dict[str, float]:
+        node_key = self.node_type_key(node_type)
+        normalized = str(preset_key).strip().lower()
+        target = str(integration).strip().lower()
+        recommended = self.node_execution_profile(node_type, integration)
+
+        if normalized == "approval":
+            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 0.0}
+
+        if normalized == "fast":
+            if node_key == "trigger":
+                return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 12.0}
+            if node_key == "condition":
+                return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 6.0}
+            if node_key == "ai":
+                return {"retry_max": 1.0, "retry_backoff_ms": 240.0, "timeout_sec": 90.0}
+            if node_key in {"action", "template"}:
+                if target in self.ACTION_FAST_INTEGRATIONS:
+                    return dict(recommended)
+                return {"retry_max": 1.0, "retry_backoff_ms": 180.0, "timeout_sec": 28.0}
+            return dict(recommended)
+
+        if normalized == "heavy":
+            if node_key == "trigger":
+                return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 24.0}
+            if node_key == "condition":
+                return {"retry_max": 1.0, "retry_backoff_ms": 120.0, "timeout_sec": 20.0}
+            if node_key == "ai":
+                return {"retry_max": 2.0, "retry_backoff_ms": 420.0, "timeout_sec": 180.0}
+            if node_key in {"action", "template"}:
+                if target in self.ACTION_HEAVY_INTEGRATIONS:
+                    return dict(recommended)
+                return {"retry_max": 2.0, "retry_backoff_ms": 520.0, "timeout_sec": 120.0}
+            return dict(recommended)
+
+        # Standard follows the recommended profile for current node context.
+        return dict(recommended)
+
+    def current_node_execution_preset(self, node_type: str, integration: str = "") -> str | None:
+        retry_value = self.node_retry_spin.get_value_as_int()
+        backoff_value = self.node_backoff_spin.get_value_as_int()
+        timeout_value = round(self.node_timeout_spin.get_value(), 1)
+
+        for preset_key in self.NODE_EXECUTION_PRESET_KEYS:
+            profile = self.node_execution_preset_profile(preset_key, node_type, integration)
+            if (
+                retry_value == int(profile.get("retry_max", 0))
+                and backoff_value == int(profile.get("retry_backoff_ms", 0))
+                and abs(timeout_value - float(profile.get("timeout_sec", 0.0))) < 0.05
+            ):
+                return preset_key
+        return None
+
+    def sync_node_execution_preset_buttons(self, node_type: str, integration: str = ""):
+        active_key = self.current_node_execution_preset(node_type, integration)
+        self.loading_node_execution_preset = True
+        for preset_key, button in self.node_execution_preset_buttons.items():
+            button.set_active(active_key == preset_key)
+        self.loading_node_execution_preset = False
+
+    def on_node_execution_preset_toggled(self, button: Gtk.ToggleButton, preset_key: str):
+        if self.loading_node_execution_preset:
+            return
+        if not button.get_active():
+            if any(item.get_active() for item in self.node_execution_preset_buttons.values()):
+                return
+            node = self.get_selected_node()
+            if node:
+                integration = (
+                    self.selected_action_integration()
+                    if self.node_type_key(node.node_type) in {"action", "template"}
+                    else ""
+                )
+                self.update_node_execution_hint(node.node_type, integration)
+            return
+
+        node = self.get_selected_node()
+        if not node:
+            return
+        integration = (
+            self.selected_action_integration()
+            if self.node_type_key(node.node_type) in {"action", "template"}
+            else ""
+        )
+        profile = self.node_execution_preset_profile(preset_key, node.node_type, integration)
+        self.loading_node_execution_preset = True
+        self.node_retry_spin.set_value(float(profile.get("retry_max", 0.0)))
+        self.node_backoff_spin.set_value(float(profile.get("retry_backoff_ms", 0.0)))
+        self.node_timeout_spin.set_value(float(profile.get("timeout_sec", 0.0)))
+        self.loading_node_execution_preset = False
+        self.sync_node_execution_preset_buttons(node.node_type, integration)
+        self.update_node_execution_hint(node.node_type, integration)
+        self.set_status(f"Node execution preset applied: {preset_key.title()}.")
+
     def apply_node_execution_defaults_for_context(
         self,
         node_type: str,
@@ -3164,9 +3341,12 @@ class CanvasView(Gtk.Box):
         announce: bool = True,
     ):
         defaults = self.node_execution_profile(node_type, integration)
+        self.loading_node_execution_preset = True
         self.node_retry_spin.set_value(float(defaults.get("retry_max", 1.0)))
         self.node_backoff_spin.set_value(float(defaults.get("retry_backoff_ms", 250.0)))
         self.node_timeout_spin.set_value(float(defaults.get("timeout_sec", 60.0)))
+        self.loading_node_execution_preset = False
+        self.sync_node_execution_preset_buttons(node_type, integration)
         self.update_node_execution_hint(node_type, integration)
         if announce:
             self.set_status("Recommended node execution defaults applied.")
@@ -3183,13 +3363,18 @@ class CanvasView(Gtk.Box):
             merged_config.get("timeout_sec", ""),
             float(defaults["timeout_sec"]),
         )
+        self.loading_node_execution_preset = True
         self.node_retry_spin.set_value(float(max(0, retry_max)))
         self.node_backoff_spin.set_value(float(max(0, backoff_ms)))
         self.node_timeout_spin.set_value(float(max(0.0, timeout_sec)))
+        self.loading_node_execution_preset = False
+        self.sync_node_execution_preset_buttons(node_type, integration)
         self.update_node_execution_hint(node_type, integration)
 
     def update_node_execution_hint(self, node_type: str, integration: str = ""):
         defaults = self.node_execution_profile(node_type, integration)
+        suggested_preset = self.suggested_node_execution_preset(node_type, integration)
+        active_preset = self.current_node_execution_preset(node_type, integration)
         retry_value = self.node_retry_spin.get_value_as_int()
         backoff_value = self.node_backoff_spin.get_value_as_int()
         timeout_value = round(self.node_timeout_spin.get_value(), 1)
@@ -3198,13 +3383,17 @@ class CanvasView(Gtk.Box):
             or backoff_value != int(defaults["retry_backoff_ms"])
             or abs(timeout_value - float(defaults["timeout_sec"])) > 0.05
         ) else "Recommended"
+        if active_preset:
+            mode = f"Preset {active_preset.title()}"
         node_label = self.node_type_chip_text(node_type)
         target = str(integration).strip().lower()
         integration_label = f" • {target}" if target else ""
         self.node_execution_hint_label.set_text(
-            f"{mode} profile for {node_label}{integration_label}: "
-            f"retry {retry_value}, backoff {backoff_value}ms, timeout {timeout_value:.1f}s."
+            f"{mode} profile for {node_label}{integration_label} "
+            f"(recommended: {suggested_preset.title()}): retry {retry_value}, "
+            f"backoff {backoff_value}ms, timeout {timeout_value:.1f}s."
         )
+        self.sync_node_execution_preset_buttons(node_type, integration)
 
     def on_node_execution_defaults_clicked(self, _button):
         node = self.get_selected_node()
@@ -3216,6 +3405,8 @@ class CanvasView(Gtk.Box):
         self.apply_node_execution_defaults_for_context(node.node_type, integration, announce=True)
 
     def on_node_execution_value_changed(self, _spin: Gtk.SpinButton):
+        if self.loading_node_execution_preset:
+            return
         node = self.get_selected_node()
         if not node:
             return
@@ -4890,6 +5081,8 @@ class CanvasView(Gtk.Box):
         ]:
             field.set_sensitive(has_workflow and has_selected)
         self.node_execution_defaults_button.set_sensitive(has_workflow and has_selected)
+        for button in self.node_execution_preset_buttons.values():
+            button.set_sensitive(has_workflow and has_selected)
         self.action_integration_section.set_sensitive(has_workflow and has_selected)
         selected = self.get_selected_node()
         selected_key = self.node_type_key(selected.node_type) if selected else ""
@@ -6819,6 +7012,23 @@ class CanvasView(Gtk.Box):
             end_y = self.link_preview_end_y or start_y
             control_offset = max(80, abs(end_x - start_x) * 0.35)
 
+            if self.link_hover_target_id:
+                hover_target = node_map.get(self.link_hover_target_id)
+                if hover_target:
+                    hover_x, hover_y = self.node_input_anchor(hover_target)
+                    hover_offset = max(80, abs(hover_x - start_x) * 0.35)
+                    self.trace_edge_curve(
+                        cr,
+                        start_x,
+                        start_y,
+                        hover_x,
+                        hover_y,
+                        hover_offset,
+                    )
+                    cr.set_source_rgba(0.86, 0.93, 1.0, 0.28 if dark_mode else 0.22)
+                    cr.set_line_width(7.4)
+                    cr.stroke()
+
             preview_condition = self.get_selected_link_condition()
             red, green, blue, _alpha = self.edge_color(preview_condition, dark_mode)
 
@@ -7291,6 +7501,9 @@ class CanvasView(Gtk.Box):
             input_x, input_y = self.node_input_anchor(node)
             output_x, output_y = self.node_output_anchor(node)
 
+            if target_active:
+                self.draw_link_target_halo(cr, node, dark_mode)
+
             self.draw_single_handle(
                 cr,
                 input_x,
@@ -7311,6 +7524,34 @@ class CanvasView(Gtk.Box):
                 hovered=hover_out,
                 source_active=source_active,
             )
+
+    def draw_link_target_halo(self, cr, node: CanvasNode, dark_mode: bool):
+        x = float(self.to_screen(node.x) - 7)
+        y = float(self.to_screen(node.y) - 7)
+        width = float(self.card_screen_width() + 14)
+        height = float(self.card_screen_height() + 14)
+        radius = 15.0
+
+        if dark_mode:
+            fill = (0.52, 0.75, 1.0, 0.14)
+            stroke = (0.68, 0.84, 1.0, 0.9)
+            glow = (0.78, 0.9, 1.0, 0.26)
+        else:
+            fill = (0.18, 0.45, 0.92, 0.1)
+            stroke = (0.2, 0.5, 0.96, 0.78)
+            glow = (0.32, 0.6, 0.98, 0.2)
+
+        self.draw_rounded_rect(cr, x - 2.0, y - 2.0, width + 4.0, height + 4.0, radius + 2.0)
+        cr.set_source_rgba(*glow)
+        cr.set_line_width(2.8)
+        cr.stroke()
+
+        self.draw_rounded_rect(cr, x, y, width, height, radius)
+        cr.set_source_rgba(*fill)
+        cr.fill_preserve()
+        cr.set_source_rgba(*stroke)
+        cr.set_line_width(1.8)
+        cr.stroke()
 
     def draw_single_handle(
         self,
@@ -7622,6 +7863,64 @@ class CanvasView(Gtk.Box):
                 missing.append(field)
         return missing
 
+    def clear_node_test_result(self):
+        self.node_test_status_label.set_text("")
+        self.node_test_result_summary_label.set_text("No node test has been run yet.")
+        self.node_test_result_output_buffer.set_text("")
+        self.node_test_result_state_chip.set_text("IDLE")
+        self.node_test_result_state_chip.remove_css_class("node-test-state-running")
+        self.node_test_result_state_chip.remove_css_class("node-test-state-success")
+        self.node_test_result_state_chip.remove_css_class("node-test-state-error")
+        self.node_test_result_state_chip.add_css_class("node-test-state-idle")
+        self.node_test_result_card.set_visible(False)
+
+    def set_node_test_result(
+        self,
+        state: str,
+        summary: str,
+        *,
+        output: str = "",
+        logs: list[str] | None = None,
+    ):
+        normalized = str(state).strip().lower() or "idle"
+        chip_text = {
+            "running": "RUNNING",
+            "success": "SUCCESS",
+            "error": "ERROR",
+            "idle": "IDLE",
+        }.get(normalized, normalized.upper())
+
+        self.node_test_result_state_chip.set_text(chip_text)
+        self.node_test_result_state_chip.remove_css_class("node-test-state-idle")
+        self.node_test_result_state_chip.remove_css_class("node-test-state-running")
+        self.node_test_result_state_chip.remove_css_class("node-test-state-success")
+        self.node_test_result_state_chip.remove_css_class("node-test-state-error")
+        if normalized == "running":
+            self.node_test_result_state_chip.add_css_class("node-test-state-running")
+        elif normalized == "success":
+            self.node_test_result_state_chip.add_css_class("node-test-state-success")
+        elif normalized == "error":
+            self.node_test_result_state_chip.add_css_class("node-test-state-error")
+        else:
+            self.node_test_result_state_chip.add_css_class("node-test-state-idle")
+
+        summary_text = str(summary).strip() or "Node test update."
+        self.node_test_status_label.set_text(summary_text)
+        self.node_test_result_summary_label.set_text(summary_text)
+
+        rendered_blocks: list[str] = []
+        trimmed_logs = [str(item).strip() for item in (logs or []) if str(item).strip()]
+        if trimmed_logs:
+            rendered_blocks.append("Logs:\n" + "\n".join(trimmed_logs[-14:]))
+        rendered_output = str(output).strip()
+        if rendered_output:
+            if len(rendered_output) > 3600:
+                rendered_output = f"{rendered_output[:3597]}..."
+            rendered_blocks.append("Output:\n" + rendered_output)
+
+        self.node_test_result_output_buffer.set_text("\n\n".join(rendered_blocks))
+        self.node_test_result_card.set_visible(True)
+
     def on_test_selected_node_clicked(self, _button):
         node = self.get_selected_node()
         if not node:
@@ -7629,12 +7928,15 @@ class CanvasView(Gtk.Box):
 
         node_key = self.node_type_key(node.node_type)
         if node_key not in {"action", "template"}:
-            self.node_test_status_label.set_text("Node test is available for action/template nodes.")
+            self.set_node_test_result(
+                "error",
+                "Node test is available for action/template nodes.",
+            )
             return
 
         integration = self.selected_action_integration()
         if not integration:
-            self.node_test_status_label.set_text("Choose an integration first.")
+            self.set_node_test_result("error", "Choose an integration first.")
             return
 
         temp_node = CanvasNode(
@@ -7652,11 +7954,17 @@ class CanvasView(Gtk.Box):
             missing_label = ", ".join(missing_fields[:3])
             if len(missing_fields) > 3:
                 missing_label = f"{missing_label}, +{len(missing_fields) - 3} more"
-            self.node_test_status_label.set_text(f"Fill required fields first: {missing_label}")
+            self.set_node_test_result(
+                "error",
+                f"Fill required fields first: {missing_label}",
+            )
             return
 
         self.test_node_button.set_sensitive(False)
-        self.node_test_status_label.set_text(f"Testing '{integration}' integration...")
+        self.set_node_test_result(
+            "running",
+            f"Testing '{integration}' integration...",
+        )
         threading.Thread(
             target=self._run_node_test_worker,
             args=(temp_node,),
@@ -7677,18 +7985,20 @@ class CanvasView(Gtk.Box):
     def _finish_node_test_success(self, logs: list[str], output: str):
         self.test_node_button.set_sensitive(True)
         summary = logs[-1] if logs else "Node test completed."
-        preview = str(output).strip()
-        if len(preview) > 140:
-            preview = f"{preview[:137]}..."
-        if preview:
-            self.node_test_status_label.set_text(f"{summary} Output: {preview}")
-        else:
-            self.node_test_status_label.set_text(summary)
+        self.set_node_test_result(
+            "success",
+            summary,
+            output=str(output),
+            logs=logs,
+        )
         return False
 
     def _finish_node_test_error(self, error_message: str):
         self.test_node_button.set_sensitive(True)
-        self.node_test_status_label.set_text(f"Node test failed: {error_message}")
+        self.set_node_test_result(
+            "error",
+            f"Node test failed: {error_message}",
+        )
         return False
 
     def update_inspector(self, node: CanvasNode):
@@ -7731,7 +8041,7 @@ class CanvasView(Gtk.Box):
         self.load_condition_controls(merged_config.get("expression", ""))
         self.load_action_controls(merged_config)
         self.load_node_execution_controls(merged_config, node.node_type)
-        self.node_test_status_label.set_text("")
+        self.clear_node_test_result()
         self.test_node_button.set_sensitive(True)
         self.update_inspector_adjustment_states()
         self.update_action_integration_section_visibility(node.node_type)
@@ -7798,7 +8108,7 @@ class CanvasView(Gtk.Box):
         self.action_timeout_spin.set_value(0.0)
         self.apply_node_execution_defaults_for_context("Action", "standard", announce=False)
         self.node_execution_hint_label.set_text("")
-        self.node_test_status_label.set_text("")
+        self.clear_node_test_result()
         self.test_node_button.set_sensitive(False)
         self.update_trigger_controls_state()
         self.update_condition_controls_state()
