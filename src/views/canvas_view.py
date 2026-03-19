@@ -31,6 +31,7 @@ class CanvasView(Gtk.Box):
     ZOOM_STEP = 0.1
     SNAP_GRID = 20
     ALIGN_SNAP_DISTANCE = 14
+    LINK_TARGET_SNAP_DISTANCE = 34
     LINK_TYPES = ["next", "true", "false"]
     PROVIDER_OPTIONS = ["inherit", "local", "openai", "anthropic"]
     TRIGGER_MODE_OPTIONS = ["manual", "schedule_interval", "webhook", "file_watch", "cron"]
@@ -39,6 +40,64 @@ class CanvasView(Gtk.Box):
         "safe": {"retry_max": 0, "retry_backoff_ms": 0, "timeout_sec": 30.0},
         "balanced": {"retry_max": 1, "retry_backoff_ms": 250, "timeout_sec": 60.0},
         "aggressive": {"retry_max": 3, "retry_backoff_ms": 500, "timeout_sec": 120.0},
+    }
+    ACTION_FAST_INTEGRATIONS = {
+        "slack_webhook",
+        "discord_webhook",
+        "teams_webhook",
+        "telegram_bot",
+        "twilio_sms",
+        "openweather_current",
+    }
+    ACTION_STANDARD_INTEGRATIONS = {
+        "http_post",
+        "http_request",
+        "google_apps_script",
+        "google_sheets",
+        "google_calendar_api",
+        "outlook_graph",
+        "notion_api",
+        "airtable_api",
+        "hubspot_api",
+        "stripe_api",
+        "github_rest",
+        "gitlab_api",
+        "linear_api",
+        "jira_api",
+        "asana_api",
+        "clickup_api",
+        "trello_api",
+        "monday_api",
+        "zendesk_api",
+        "pipedrive_api",
+        "salesforce_api",
+        "gmail_send",
+        "resend_email",
+        "mailgun_email",
+    }
+    ACTION_HEAVY_INTEGRATIONS = {
+        "shell_command",
+        "file_append",
+        "postgres_sql",
+        "mysql_sql",
+        "sqlite_sql",
+        "redis_command",
+        "s3_cli",
+    }
+    REQUIRED_FIELD_ALIASES = {
+        "url": ["webhook_url", "script_url", "connection_url"],
+        "webhook_url": ["url"],
+        "script_url": ["url"],
+        "connection_url": ["url"],
+        "sql": ["payload", "query", "command"],
+        "query": ["sql", "payload"],
+        "command": ["payload", "query"],
+        "api_key": ["auth_token"],
+        "auth_token": ["api_key"],
+        "payload": ["message", "text", "content", "approval_message"],
+        "message": ["payload", "text", "content", "approval_message"],
+        "text": ["message", "payload", "content"],
+        "content": ["message", "payload", "text"],
     }
 
     def __init__(self):
@@ -82,6 +141,7 @@ class CanvasView(Gtk.Box):
         self.link_preview_end_y: int = 0
         self.port_drag_active = False
         self.port_drag_origin: dict[str, float] = {}
+        self.port_drag_just_finished = False
         self.hovered_port_node_id: str | None = None
         self.hovered_port_kind: str | None = None
         self.link_hover_target_id: str | None = None
@@ -705,10 +765,15 @@ class CanvasView(Gtk.Box):
         self.trigger_preset_row.add_css_class("canvas-action-quick-row")
         self.trigger_preset_specs: list[tuple[str, str, str]] = [
             ("Run Now", "manual", ""),
+            ("Every 30s", "schedule_interval", "30"),
             ("Every 5m", "schedule_interval", "300"),
+            ("Every 10m", "schedule_interval", "600"),
             ("Every 1h", "schedule_interval", "3600"),
+            ("Daily 9AM", "cron", "0 9 * * *"),
+            ("Weekdays 8AM", "cron", "0 8 * * 1-5"),
             ("Webhook", "webhook", "/incoming"),
             ("File Watch", "file_watch", "/tmp/watch-folder"),
+            ("Watch /var/log", "file_watch", "/var/log"),
             ("Cron 15m", "cron", "*/15 * * * *"),
         ]
         for label, mode_key, value in self.trigger_preset_specs:
@@ -831,18 +896,26 @@ class CanvasView(Gtk.Box):
             ("HTTP", "http_request", "http_request"),
             ("Calendar", "google_apps_script", "calendar_event"),
             ("GCal API", "google_calendar_api", "google_calendar_event"),
+            ("Sheets", "google_sheets", "google_sheets_append"),
             ("Telegram", "telegram_bot", "message_telegram"),
             ("Gmail", "gmail_send", "message_email"),
             ("Outlook", "outlook_graph", "outlook_message"),
             ("Twilio", "twilio_sms", "message_sms"),
             ("Weather", "openweather_current", "weather_lookup"),
+            ("Notion", "notion_api", "notion_page"),
+            ("Airtable", "airtable_api", "airtable_record"),
+            ("GitHub", "github_rest", "github_user"),
+            ("HubSpot", "hubspot_api", "hubspot_contacts"),
+            ("Stripe", "stripe_api", "stripe_balance"),
             ("Jira", "jira_api", "jira_issue_lookup"),
             ("Asana", "asana_api", "asana_task"),
+            ("ClickUp", "clickup_api", "clickup_task"),
             ("Trello", "trello_api", "trello_board"),
             ("Monday", "monday_api", "monday_query"),
             ("Zendesk", "zendesk_api", "zendesk_ticket"),
             ("Salesforce", "salesforce_api", "salesforce_query"),
             ("Pipedrive", "pipedrive_api", "pipedrive_deal"),
+            ("Linear", "linear_api", "linear_query"),
             ("GitLab", "gitlab_api", "gitlab_rest"),
             ("Shell", "shell_command", "shell_command"),
             ("Approval", "approval_gate", "approval_gate"),
@@ -927,7 +1000,7 @@ class CanvasView(Gtk.Box):
             ["GET", "POST", "PUT", "PATCH", "DELETE"]
         )
         self.action_method_dropdown.set_selected(1)
-        self.action_method_row, _ = self.build_inspector_field_row(
+        self.action_method_row, self.action_method_label = self.build_inspector_field_row(
             "HTTP Method",
             self.action_method_dropdown,
         )
@@ -1003,7 +1076,7 @@ class CanvasView(Gtk.Box):
         action_payload_frame = Gtk.Frame()
         action_payload_frame.add_css_class("canvas-edit-detail-frame")
         action_payload_frame.set_child(self.action_payload_view)
-        self.action_payload_row, _ = self.build_inspector_field_row(
+        self.action_payload_row, self.action_payload_label = self.build_inspector_field_row(
             "Payload",
             action_payload_frame,
         )
@@ -1012,7 +1085,7 @@ class CanvasView(Gtk.Box):
         self.action_headers_entry.set_placeholder_text(
             'Headers JSON  •  {"Authorization":"Bearer ..."}'
         )
-        self.action_headers_row, _ = self.build_inspector_field_row(
+        self.action_headers_row, self.action_headers_label = self.build_inspector_field_row(
             "Headers",
             self.action_headers_entry,
         )
@@ -1020,7 +1093,7 @@ class CanvasView(Gtk.Box):
         self.action_api_key_entry = Gtk.Entry()
         self.action_api_key_entry.set_visibility(False)
         self.action_api_key_entry.set_placeholder_text("API key")
-        self.action_api_key_row, _ = self.build_inspector_field_row(
+        self.action_api_key_row, self.action_api_key_label = self.build_inspector_field_row(
             "API Key",
             self.action_api_key_entry,
         )
@@ -1057,10 +1130,16 @@ class CanvasView(Gtk.Box):
         self.action_timeout_spin = Gtk.SpinButton.new_with_range(0.0, 600.0, 0.5)
         self.action_timeout_spin.set_digits(1)
         self.action_timeout_spin.set_width_chars(5)
-        self.action_timeout_row, _ = self.build_inspector_field_row(
+        self.action_timeout_row, self.action_timeout_label = self.build_inspector_field_row(
             "Timeout Seconds",
             self.action_timeout_spin,
         )
+
+        self.action_requirements_label = Gtk.Label(label="")
+        self.action_requirements_label.set_wrap(True)
+        self.action_requirements_label.set_halign(Gtk.Align.START)
+        self.action_requirements_label.add_css_class("dim-label")
+        self.action_requirements_label.add_css_class("inline-status")
 
         self.action_integration_section = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -1120,6 +1199,7 @@ class CanvasView(Gtk.Box):
         self.action_integration_section.append(self.action_template_row)
         self.action_integration_section.append(self.action_category_row)
         self.action_integration_section.append(self.action_template_hint_label)
+        self.action_integration_section.append(self.action_requirements_label)
         self.action_integration_section.append(self.action_quick_row)
         self.action_integration_section.append(self.action_routing_group)
         self.action_integration_section.append(self.action_delivery_group)
@@ -1269,6 +1349,82 @@ class CanvasView(Gtk.Box):
         condition_min_len_row.append(self.edit_condition_min_len_spin)
         self.condition_min_len_row = condition_min_len_row
 
+        self.node_execution_title = Gtk.Label(label="Node Execution")
+        self.node_execution_title.add_css_class("heading")
+        self.node_execution_title.set_halign(Gtk.Align.START)
+
+        node_exec_grid = Gtk.Grid()
+        node_exec_grid.add_css_class("canvas-toolbar-row")
+        node_exec_grid.add_css_class("compact-toolbar-row")
+        node_exec_grid.add_css_class("canvas-execution-grid")
+        node_exec_grid.set_column_spacing(8)
+        node_exec_grid.set_row_spacing(6)
+        node_exec_grid.set_column_homogeneous(False)
+        node_exec_grid.set_halign(Gtk.Align.FILL)
+
+        node_retry_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        node_retry_box.add_css_class("canvas-execution-field")
+        node_retry_label = Gtk.Label(label="Retries")
+        node_retry_label.add_css_class("dim-label")
+        node_retry_label.set_halign(Gtk.Align.START)
+        self.node_retry_spin = Gtk.SpinButton.new_with_range(0, 8, 1)
+        self.node_retry_spin.set_digits(0)
+        self.node_retry_spin.set_width_chars(3)
+        self.node_retry_spin.add_css_class("inspector-adjust-spin")
+        self.node_retry_spin.add_css_class("canvas-execution-spin")
+        self.node_retry_spin.connect("value-changed", self.on_node_execution_value_changed)
+        node_retry_box.append(node_retry_label)
+        node_retry_box.append(self.node_retry_spin)
+
+        node_backoff_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        node_backoff_box.add_css_class("canvas-execution-field")
+        node_backoff_label = Gtk.Label(label="Backoff ms")
+        node_backoff_label.add_css_class("dim-label")
+        node_backoff_label.set_halign(Gtk.Align.START)
+        self.node_backoff_spin = Gtk.SpinButton.new_with_range(0, 10000, 50)
+        self.node_backoff_spin.set_digits(0)
+        self.node_backoff_spin.set_width_chars(6)
+        self.node_backoff_spin.add_css_class("inspector-adjust-spin")
+        self.node_backoff_spin.add_css_class("canvas-execution-spin")
+        self.node_backoff_spin.connect("value-changed", self.on_node_execution_value_changed)
+        node_backoff_box.append(node_backoff_label)
+        node_backoff_box.append(self.node_backoff_spin)
+
+        node_timeout_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        node_timeout_box.add_css_class("canvas-execution-field")
+        node_timeout_box.set_hexpand(True)
+        node_timeout_label = Gtk.Label(label="Timeout s")
+        node_timeout_label.add_css_class("dim-label")
+        node_timeout_label.set_halign(Gtk.Align.START)
+        self.node_timeout_spin = Gtk.SpinButton.new_with_range(0.0, 600.0, 0.5)
+        self.node_timeout_spin.set_digits(1)
+        self.node_timeout_spin.set_width_chars(5)
+        self.node_timeout_spin.add_css_class("inspector-adjust-spin")
+        self.node_timeout_spin.add_css_class("canvas-execution-spin")
+        self.node_timeout_spin.connect("value-changed", self.on_node_execution_value_changed)
+        node_timeout_box.append(node_timeout_label)
+        node_timeout_box.append(self.node_timeout_spin)
+
+        node_exec_grid.attach(node_retry_box, 0, 0, 1, 1)
+        node_exec_grid.attach(node_backoff_box, 1, 0, 1, 1)
+        node_exec_grid.attach(node_timeout_box, 0, 1, 2, 1)
+
+        node_exec_action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        node_exec_action_row.add_css_class("compact-action-row")
+        self.node_execution_defaults_button = Gtk.Button(label="Use Recommended Defaults")
+        self.node_execution_defaults_button.add_css_class("compact-action-button")
+        self.node_execution_defaults_button.connect(
+            "clicked",
+            self.on_node_execution_defaults_clicked,
+        )
+        node_exec_action_row.append(self.node_execution_defaults_button)
+
+        self.node_execution_hint_label = Gtk.Label(label="")
+        self.node_execution_hint_label.set_wrap(True)
+        self.node_execution_hint_label.set_halign(Gtk.Align.START)
+        self.node_execution_hint_label.add_css_class("dim-label")
+        self.node_execution_hint_label.add_css_class("inline-status")
+
         self.apply_node_button = Gtk.Button(label="Apply Node Changes")
         self.apply_node_button.connect("clicked", self.on_apply_node_changes)
         self.apply_node_button.add_css_class("suggested-action")
@@ -1330,6 +1486,10 @@ class CanvasView(Gtk.Box):
         self.inspector_box.append(self.edit_condition_mode_dropdown)
         self.inspector_box.append(self.edit_condition_value_entry)
         self.inspector_box.append(self.condition_min_len_row)
+        self.inspector_box.append(self.node_execution_title)
+        self.inspector_box.append(node_exec_grid)
+        self.inspector_box.append(node_exec_action_row)
+        self.inspector_box.append(self.node_execution_hint_label)
         self.inspector_box.append(self.apply_node_button)
 
         inspector_scroll.set_child(self.inspector_box)
@@ -1625,6 +1785,15 @@ class CanvasView(Gtk.Box):
                 },
             },
             {
+                "key": "google_sheets_append",
+                "label": "Data • Google Sheets",
+                "description": "Append workflow data into a Google Sheets range.",
+                "integration": "google_sheets",
+                "defaults": {
+                    "payload": "{\"spreadsheet_id\":\"REPLACE_ID\",\"range\":\"Sheet1!A:B\",\"values\":[[\"${workflow_name}\",\"${last_output}\"]]}",
+                },
+            },
+            {
                 "key": "outlook_message",
                 "label": "Message • Outlook",
                 "description": "Call Outlook Graph API for mail/calendar actions.",
@@ -1734,6 +1903,68 @@ class CanvasView(Gtk.Box):
                 "defaults": {
                     "endpoint": "https://api.pipedrive.com/v1/users/me",
                     "method": "GET",
+                },
+            },
+            {
+                "key": "notion_page",
+                "label": "Docs • Notion",
+                "description": "Create a Notion page using API token and database id.",
+                "integration": "notion_api",
+                "defaults": {
+                    "endpoint": "https://api.notion.com/v1/pages",
+                    "method": "POST",
+                    "payload": "{\"parent\":{\"database_id\":\"REPLACE_DB\"},\"properties\":{\"Name\":{\"title\":[{\"text\":{\"content\":\"Workflow Update\"}}]}}}",
+                },
+            },
+            {
+                "key": "airtable_record",
+                "label": "Data • Airtable",
+                "description": "Create a record in Airtable base/table from workflow output.",
+                "integration": "airtable_api",
+                "defaults": {
+                    "endpoint": "https://api.airtable.com/v0/REPLACE_BASE/REPLACE_TABLE",
+                    "method": "POST",
+                    "payload": "{\"records\":[{\"fields\":{\"Name\":\"${workflow_name}\",\"Output\":\"${last_output}\"}}]}",
+                },
+            },
+            {
+                "key": "github_user",
+                "label": "Developer • GitHub",
+                "description": "Query GitHub REST API with bearer token.",
+                "integration": "github_rest",
+                "defaults": {
+                    "endpoint": "https://api.github.com/user",
+                    "method": "GET",
+                    "headers": "{\"Accept\":\"application/vnd.github+json\"}",
+                },
+            },
+            {
+                "key": "hubspot_contacts",
+                "label": "CRM • HubSpot",
+                "description": "Read HubSpot contacts through CRM API.",
+                "integration": "hubspot_api",
+                "defaults": {
+                    "endpoint": "https://api.hubapi.com/crm/v3/objects/contacts?limit=5",
+                    "method": "GET",
+                },
+            },
+            {
+                "key": "stripe_balance",
+                "label": "Commerce • Stripe",
+                "description": "Fetch Stripe account balance and charges.",
+                "integration": "stripe_api",
+                "defaults": {
+                    "endpoint": "https://api.stripe.com/v1/balance",
+                    "method": "GET",
+                },
+            },
+            {
+                "key": "linear_query",
+                "label": "Project • Linear",
+                "description": "Run a Linear GraphQL query for issues and teams.",
+                "integration": "linear_api",
+                "defaults": {
+                    "payload": "{\"query\":\"{ viewer { id name } }\"}",
                 },
             },
             {
@@ -1864,9 +2095,15 @@ class CanvasView(Gtk.Box):
             "outlook_graph": "outlook_message",
             "google_apps_script": "calendar_event",
             "google_calendar_api": "google_calendar_event",
+            "google_sheets": "google_sheets_append",
             "openweather_current": "weather_lookup",
             "http_request": "http_request",
             "http_post": "webhook_post",
+            "notion_api": "notion_page",
+            "airtable_api": "airtable_record",
+            "github_rest": "github_user",
+            "hubspot_api": "hubspot_contacts",
+            "stripe_api": "stripe_balance",
             "jira_api": "jira_issue_lookup",
             "asana_api": "asana_task",
             "clickup_api": "clickup_task",
@@ -1875,6 +2112,7 @@ class CanvasView(Gtk.Box):
             "zendesk_api": "zendesk_ticket",
             "salesforce_api": "salesforce_query",
             "pipedrive_api": "pipedrive_deal",
+            "linear_api": "linear_query",
             "gitlab_api": "gitlab_rest",
             "file_append": "file_append",
             "shell_command": "shell_command",
@@ -2347,13 +2585,24 @@ class CanvasView(Gtk.Box):
     def on_action_integration_changed(self, *_args):
         if self.loading_action_controls:
             return
+        integration = self.selected_action_integration()
         self.update_action_integration_field_visibility()
-        template_key = self.infer_action_template_key({"integration": self.selected_action_integration()})
+        template_key = self.infer_action_template_key({"integration": integration})
         self.action_template_dropdown.set_selected(self.action_template_index(template_key))
         self.update_action_template_hint()
-        self.apply_action_smart_defaults(self.selected_action_integration(), force=False)
+        self.apply_action_smart_defaults(integration, force=False)
+        selected_node = self.get_selected_node()
+        if selected_node and self.node_type_key(selected_node.node_type) in {"action", "template"}:
+            if not self.node_has_explicit_execution_overrides(selected_node.config):
+                self.apply_node_execution_defaults_for_context(
+                    selected_node.node_type,
+                    integration,
+                    announce=False,
+                )
+            else:
+                self.update_node_execution_hint(selected_node.node_type, integration)
         self.sync_action_category_state(
-            self.infer_action_category(template_key, self.selected_action_integration())
+            self.infer_action_category(template_key, integration)
         )
 
     def on_action_quick_clicked(
@@ -2463,8 +2712,147 @@ class CanvasView(Gtk.Box):
         if force or not self.get_action_payload_text().strip():
             self.set_action_payload_text(str(value).strip())
 
+    def apply_saved_integration_defaults(self, integration: str, force: bool = False):
+        key = str(integration).strip().lower()
+        settings = self.settings_store.load_settings()
+        mapping = {
+            "slack_webhook": {
+                "endpoint": "slack_webhook_url",
+            },
+            "discord_webhook": {
+                "endpoint": "discord_webhook_url",
+            },
+            "teams_webhook": {
+                "endpoint": "teams_webhook_url",
+            },
+            "telegram_bot": {
+                "api_key": "telegram_bot_token",
+                "chat_id": "telegram_default_chat_id",
+            },
+            "openweather_current": {
+                "api_key": "openweather_api_key",
+                "location": "openweather_default_location",
+            },
+            "google_apps_script": {
+                "endpoint": "google_apps_script_url",
+            },
+            "google_sheets": {
+                "api_key": "google_sheets_api_key",
+            },
+            "google_calendar_api": {
+                "api_key": "google_calendar_api_key",
+                "endpoint": "google_calendar_api_url",
+            },
+            "outlook_graph": {
+                "api_key": "outlook_api_key",
+                "endpoint": "outlook_api_url",
+            },
+            "gmail_send": {
+                "api_key": "gmail_api_key",
+                "from": "gmail_from_address",
+            },
+            "notion_api": {
+                "api_key": "notion_api_key",
+                "endpoint": "notion_api_url",
+            },
+            "airtable_api": {
+                "api_key": "airtable_api_key",
+                "endpoint": "airtable_api_url",
+            },
+            "hubspot_api": {
+                "api_key": "hubspot_api_key",
+                "endpoint": "hubspot_api_url",
+            },
+            "stripe_api": {
+                "api_key": "stripe_api_key",
+                "endpoint": "stripe_api_url",
+            },
+            "github_rest": {
+                "api_key": "github_api_key",
+                "endpoint": "github_api_url",
+            },
+            "jira_api": {
+                "api_key": "jira_api_key",
+                "endpoint": "jira_api_url",
+            },
+            "asana_api": {
+                "api_key": "asana_api_key",
+                "endpoint": "asana_api_url",
+            },
+            "clickup_api": {
+                "api_key": "clickup_api_key",
+                "endpoint": "clickup_api_url",
+            },
+            "trello_api": {
+                "api_key": "trello_api_key",
+                "endpoint": "trello_api_url",
+            },
+            "monday_api": {
+                "api_key": "monday_api_key",
+                "endpoint": "monday_api_url",
+            },
+            "zendesk_api": {
+                "api_key": "zendesk_api_key",
+                "endpoint": "zendesk_api_url",
+            },
+            "pipedrive_api": {
+                "api_key": "pipedrive_api_key",
+                "endpoint": "pipedrive_api_url",
+            },
+            "salesforce_api": {
+                "api_key": "salesforce_api_key",
+                "endpoint": "salesforce_api_url",
+            },
+            "gitlab_api": {
+                "api_key": "gitlab_api_key",
+                "endpoint": "gitlab_api_url",
+            },
+            "twilio_sms": {
+                "account_sid": "twilio_account_sid",
+                "auth_token": "twilio_auth_token",
+                "from": "twilio_from_number",
+            },
+            "resend_email": {
+                "api_key": "resend_api_key",
+                "from": "resend_from_address",
+            },
+            "mailgun_email": {
+                "api_key": "mailgun_api_key",
+                "domain": "mailgun_domain",
+                "from": "mailgun_from_address",
+            },
+        }
+        defaults = mapping.get(key, {})
+        if not defaults:
+            return
+        endpoint_value = str(settings.get(defaults.get("endpoint", ""), "")).strip()
+        if endpoint_value:
+            self.set_entry_if_missing(self.action_endpoint_entry, endpoint_value, force=force)
+        api_key_value = str(settings.get(defaults.get("api_key", ""), "")).strip()
+        if api_key_value:
+            self.set_entry_if_missing(self.action_api_key_entry, api_key_value, force=force)
+        chat_value = str(settings.get(defaults.get("chat_id", ""), "")).strip()
+        if chat_value:
+            self.set_entry_if_missing(self.action_chat_id_entry, chat_value, force=force)
+        from_value = str(settings.get(defaults.get("from", ""), "")).strip()
+        if from_value:
+            self.set_entry_if_missing(self.action_from_entry, from_value, force=force)
+        domain_value = str(settings.get(defaults.get("domain", ""), "")).strip()
+        if domain_value:
+            self.set_entry_if_missing(self.action_domain_entry, domain_value, force=force)
+        account_sid_value = str(settings.get(defaults.get("account_sid", ""), "")).strip()
+        if account_sid_value:
+            self.set_entry_if_missing(self.action_account_sid_entry, account_sid_value, force=force)
+        auth_token_value = str(settings.get(defaults.get("auth_token", ""), "")).strip()
+        if auth_token_value:
+            self.set_entry_if_missing(self.action_auth_token_entry, auth_token_value, force=force)
+        location_value = str(settings.get(defaults.get("location", ""), "")).strip()
+        if location_value:
+            self.set_entry_if_missing(self.action_location_entry, location_value, force=force)
+
     def apply_action_smart_defaults(self, integration: str, force: bool = False):
         key = str(integration).strip().lower()
+        self.apply_saved_integration_defaults(key, force=force)
         if key == "slack_webhook":
             self.set_entry_if_missing(
                 self.action_endpoint_entry,
@@ -2617,6 +3005,11 @@ class CanvasView(Gtk.Box):
                 '{"event":"workflow_update","summary":"${last_output}"}',
                 force=force,
             )
+        elif key == "google_sheets":
+            self.set_payload_if_missing(
+                '{"spreadsheet_id":"REPLACE_ID","range":"Sheet1!A:B","values":[["${workflow_name}","${last_output}"]]}',
+                force=force,
+            )
         elif key == "openweather_current":
             self.set_entry_if_missing(self.action_location_entry, "Austin,US", force=force)
             self.action_units_dropdown.set_selected(self.action_units_index("metric"))
@@ -2634,6 +3027,56 @@ class CanvasView(Gtk.Box):
                 force=force,
             )
             self.action_method_dropdown.set_selected(self.action_method_index("GET"))
+        elif key == "notion_api":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "https://api.notion.com/v1/pages",
+                force=force,
+            )
+            self.action_method_dropdown.set_selected(self.action_method_index("POST"))
+            self.set_payload_if_missing(
+                '{"parent":{"database_id":"REPLACE_DB"},"properties":{"Name":{"title":[{"text":{"content":"Workflow Update"}}]}}}',
+                force=force,
+            )
+        elif key == "airtable_api":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "https://api.airtable.com/v0/REPLACE_BASE/REPLACE_TABLE",
+                force=force,
+            )
+            self.action_method_dropdown.set_selected(self.action_method_index("POST"))
+            self.set_payload_if_missing(
+                '{"records":[{"fields":{"Name":"${workflow_name}","Output":"${last_output}"}}]}',
+                force=force,
+            )
+        elif key == "github_rest":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "https://api.github.com/user",
+                force=force,
+            )
+            self.action_method_dropdown.set_selected(self.action_method_index("GET"))
+            if force or not self.action_headers_entry.get_text().strip():
+                self.action_headers_entry.set_text('{"Accept":"application/vnd.github+json"}')
+        elif key == "hubspot_api":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "https://api.hubapi.com/crm/v3/objects/contacts?limit=5",
+                force=force,
+            )
+            self.action_method_dropdown.set_selected(self.action_method_index("GET"))
+        elif key == "stripe_api":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "https://api.stripe.com/v1/balance",
+                force=force,
+            )
+            self.action_method_dropdown.set_selected(self.action_method_index("GET"))
+        elif key == "linear_api":
+            self.set_payload_if_missing(
+                '{"query":"{ viewer { id name } }"}',
+                force=force,
+            )
         elif key == "shell_command":
             self.set_entry_if_missing(
                 self.action_command_entry,
@@ -2653,6 +3096,131 @@ class CanvasView(Gtk.Box):
                 "Approve this step before continuing.",
                 force=force,
             )
+
+    def integration_requirement_summary(self, integration: str) -> str:
+        key = str(integration).strip().lower()
+        if key in {"slack_webhook", "discord_webhook", "teams_webhook"}:
+            return "Required: webhook URL, message. Optional: username, timeout."
+        if key == "telegram_bot":
+            return "Required: bot token (API key), chat id. Optional: endpoint override, timeout."
+        if key in {"gmail_send", "resend_email", "mailgun_email"}:
+            return "Required: API key/token, to, from, subject, message."
+        if key == "twilio_sms":
+            return "Required: account SID, auth token, from, to, message."
+        if key == "google_sheets":
+            return "Required: OAuth token, spreadsheet id, range, payload values."
+        if key in {"google_calendar_api", "outlook_graph", "github_rest", "hubspot_api", "stripe_api"}:
+            return "Required: API key/token and endpoint URL. Optional: method, headers, payload."
+        if key in {"notion_api", "airtable_api", "linear_api", "monday_api"}:
+            return "Required: API key/token plus JSON payload for request body/query."
+        if key in {"http_request", "http_post"}:
+            return "Required: endpoint URL. Optional: headers JSON, payload JSON, timeout."
+        if key in {"shell_command", "redis_command", "s3_cli"}:
+            return "Required: command. Optional: timeout."
+        if key in {"file_append", "sqlite_sql"}:
+            return "Required: path and content/sql payload."
+        if key == "openweather_current":
+            return "Required: API key and location. Optional: units, timeout."
+        if key == "approval_gate":
+            return "Required: approval message. Optional: timeout (0 = wait indefinitely)."
+        return "Configure integration-specific fields, then click Apply Node Changes."
+
+    def node_execution_profile(self, node_type: str, integration: str = "") -> dict[str, float]:
+        node_key = self.node_type_key(node_type)
+        target = str(integration).strip().lower()
+        if node_key == "trigger":
+            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0}
+        if node_key == "condition":
+            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 8.0}
+        if node_key == "ai":
+            return {"retry_max": 1.0, "retry_backoff_ms": 300.0, "timeout_sec": 120.0}
+        if node_key in {"action", "template"}:
+            if target == "approval_gate":
+                return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 0.0}
+            if target in self.ACTION_FAST_INTEGRATIONS:
+                return {"retry_max": 1.0, "retry_backoff_ms": 200.0, "timeout_sec": 25.0}
+            if target in self.ACTION_HEAVY_INTEGRATIONS:
+                return {"retry_max": 1.0, "retry_backoff_ms": 400.0, "timeout_sec": 90.0}
+            if target in self.ACTION_STANDARD_INTEGRATIONS:
+                return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 45.0}
+            return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 45.0}
+        return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 60.0}
+
+    def node_has_explicit_execution_overrides(self, config: dict | None) -> bool:
+        if not isinstance(config, dict):
+            return False
+        for key in ("retry_max", "retry_backoff_ms", "timeout_sec"):
+            if str(config.get(key, "")).strip():
+                return True
+        return False
+
+    def apply_node_execution_defaults_for_context(
+        self,
+        node_type: str,
+        integration: str = "",
+        *,
+        announce: bool = True,
+    ):
+        defaults = self.node_execution_profile(node_type, integration)
+        self.node_retry_spin.set_value(float(defaults.get("retry_max", 1.0)))
+        self.node_backoff_spin.set_value(float(defaults.get("retry_backoff_ms", 250.0)))
+        self.node_timeout_spin.set_value(float(defaults.get("timeout_sec", 60.0)))
+        self.update_node_execution_hint(node_type, integration)
+        if announce:
+            self.set_status("Recommended node execution defaults applied.")
+
+    def load_node_execution_controls(self, merged_config: dict[str, str], node_type: str):
+        integration = str(merged_config.get("integration", "")).strip().lower()
+        defaults = self.node_execution_profile(node_type, integration)
+        retry_max = self.parse_int(merged_config.get("retry_max", ""), int(defaults["retry_max"]))
+        backoff_ms = self.parse_int(
+            merged_config.get("retry_backoff_ms", ""),
+            int(defaults["retry_backoff_ms"]),
+        )
+        timeout_sec = self.parse_float(
+            merged_config.get("timeout_sec", ""),
+            float(defaults["timeout_sec"]),
+        )
+        self.node_retry_spin.set_value(float(max(0, retry_max)))
+        self.node_backoff_spin.set_value(float(max(0, backoff_ms)))
+        self.node_timeout_spin.set_value(float(max(0.0, timeout_sec)))
+        self.update_node_execution_hint(node_type, integration)
+
+    def update_node_execution_hint(self, node_type: str, integration: str = ""):
+        defaults = self.node_execution_profile(node_type, integration)
+        retry_value = self.node_retry_spin.get_value_as_int()
+        backoff_value = self.node_backoff_spin.get_value_as_int()
+        timeout_value = round(self.node_timeout_spin.get_value(), 1)
+        mode = "Custom" if (
+            retry_value != int(defaults["retry_max"])
+            or backoff_value != int(defaults["retry_backoff_ms"])
+            or abs(timeout_value - float(defaults["timeout_sec"])) > 0.05
+        ) else "Recommended"
+        node_label = self.node_type_chip_text(node_type)
+        target = str(integration).strip().lower()
+        integration_label = f" • {target}" if target else ""
+        self.node_execution_hint_label.set_text(
+            f"{mode} profile for {node_label}{integration_label}: "
+            f"retry {retry_value}, backoff {backoff_value}ms, timeout {timeout_value:.1f}s."
+        )
+
+    def on_node_execution_defaults_clicked(self, _button):
+        node = self.get_selected_node()
+        if not node:
+            return
+        integration = ""
+        if self.node_type_key(node.node_type) in {"action", "template"}:
+            integration = self.selected_action_integration()
+        self.apply_node_execution_defaults_for_context(node.node_type, integration, announce=True)
+
+    def on_node_execution_value_changed(self, _spin: Gtk.SpinButton):
+        node = self.get_selected_node()
+        if not node:
+            return
+        integration = ""
+        if self.node_type_key(node.node_type) in {"action", "template"}:
+            integration = self.selected_action_integration()
+        self.update_node_execution_hint(node.node_type, integration)
 
     def update_action_group_visibility(self, integration: str):
         rows_by_group: list[tuple[Gtk.Expander, list[Gtk.Widget]]] = [
@@ -2996,6 +3564,7 @@ class CanvasView(Gtk.Box):
         self.action_command_row.set_visible(show_command)
         self.action_timeout_row.set_visible(show_timeout)
         self.update_action_group_visibility(integration)
+        self.action_requirements_label.set_text(self.integration_requirement_summary(integration))
 
         self.action_to_entry.set_placeholder_text("Recipient")
         self.action_from_entry.set_placeholder_text("Sender")
@@ -3004,17 +3573,28 @@ class CanvasView(Gtk.Box):
         self.action_account_sid_entry.set_placeholder_text("Twilio Account SID")
         self.action_auth_token_entry.set_placeholder_text("Twilio Auth Token")
         self.action_domain_entry.set_placeholder_text("Mailgun domain  •  mg.yourdomain.com")
+        self.action_api_key_label.set_text("API Key")
+        self.action_api_key_entry.set_placeholder_text("API key")
+        self.action_payload_label.set_text("Payload")
+        self.action_headers_label.set_text("Headers")
+        self.action_timeout_label.set_text("Timeout Seconds")
+        self.action_method_label.set_text("HTTP Method")
 
         if integration == "http_post":
             self.action_endpoint_label.set_text("HTTP URL")
             self.action_endpoint_entry.set_placeholder_text("https://api.example.com/endpoint")
             self.action_payload_view.set_tooltip_text("JSON/body payload for POST request.")
             self.action_message_label.set_text("Message")
+            self.action_payload_label.set_text("JSON Payload")
+            self.action_timeout_label.set_text("Request Timeout Seconds")
         elif integration == "http_request":
             self.action_endpoint_label.set_text("Request URL")
             self.action_endpoint_entry.set_placeholder_text("https://api.example.com/endpoint")
             self.action_payload_view.set_tooltip_text("Request payload or JSON body.")
             self.action_message_label.set_text("Optional Message")
+            self.action_payload_label.set_text("Request Payload")
+            self.action_headers_label.set_text("Request Headers")
+            self.action_timeout_label.set_text("Request Timeout Seconds")
         elif integration == "slack_webhook":
             self.action_endpoint_label.set_text("Slack Webhook URL")
             self.action_endpoint_entry.set_placeholder_text("https://hooks.slack.com/services/...")
@@ -3039,31 +3619,45 @@ class CanvasView(Gtk.Box):
                 "https://www.googleapis.com/calendar/v3/users/me/calendarList"
             )
             self.action_message_label.set_text("Optional Message")
+            self.action_api_key_label.set_text("OAuth Token")
+            self.action_api_key_entry.set_placeholder_text("Google OAuth bearer token")
         elif integration == "outlook_graph":
             self.action_endpoint_label.set_text("Outlook Graph URL")
             self.action_endpoint_entry.set_placeholder_text(
                 "https://graph.microsoft.com/v1.0/me/messages?$top=5"
             )
             self.action_message_label.set_text("Optional Message")
+            self.action_api_key_label.set_text("OAuth Token")
+            self.action_api_key_entry.set_placeholder_text("Outlook / Graph bearer token")
         elif integration == "openweather_current":
             self.action_message_label.set_text("Message")
+            self.action_api_key_label.set_text("OpenWeather API Key")
+            self.action_api_key_entry.set_placeholder_text("OpenWeather API key")
         elif integration in {"telegram_bot", "gmail_send", "resend_email", "mailgun_email"}:
             self.action_message_label.set_text("Message Body")
             if integration == "telegram_bot":
                 self.action_chat_id_entry.set_placeholder_text("Telegram chat id  •  123456789")
+                self.action_api_key_label.set_text("Bot Token")
+                self.action_api_key_entry.set_placeholder_text("Telegram bot token")
             elif integration == "gmail_send":
                 self.action_to_entry.set_placeholder_text("you@example.com")
                 self.action_from_entry.set_placeholder_text("alerts@yourdomain.com")
                 self.action_subject_entry.set_placeholder_text("Workflow update")
+                self.action_api_key_label.set_text("OAuth Token")
+                self.action_api_key_entry.set_placeholder_text("Gmail OAuth bearer token")
             elif integration == "resend_email":
                 self.action_to_entry.set_placeholder_text("you@example.com")
                 self.action_from_entry.set_placeholder_text("alerts@yourdomain.com")
                 self.action_subject_entry.set_placeholder_text("Workflow update")
+                self.action_api_key_label.set_text("Resend API Key")
+                self.action_api_key_entry.set_placeholder_text("re_...")
             elif integration == "mailgun_email":
                 self.action_to_entry.set_placeholder_text("you@example.com")
                 self.action_from_entry.set_placeholder_text("alerts@yourdomain.com")
                 self.action_subject_entry.set_placeholder_text("Workflow update")
                 self.action_domain_entry.set_placeholder_text("mg.yourdomain.com")
+                self.action_api_key_label.set_text("Mailgun API Key")
+                self.action_api_key_entry.set_placeholder_text("Mailgun API key")
         elif integration == "twilio_sms":
             self.action_message_label.set_text("SMS Message")
             self.action_to_entry.set_placeholder_text("+15550002222")
@@ -3073,6 +3667,28 @@ class CanvasView(Gtk.Box):
             self.action_message_label.set_text("Approval Message")
         elif integration == "file_append":
             self.action_message_label.set_text("File Content")
+            self.action_payload_label.set_text("File Payload")
+        elif integration in {"monday_api", "linear_api"}:
+            self.action_payload_label.set_text("GraphQL Payload")
+            self.action_api_key_label.set_text("API Token")
+            self.action_api_key_entry.set_placeholder_text("Service API token")
+        elif integration in {
+            "notion_api",
+            "airtable_api",
+            "hubspot_api",
+            "stripe_api",
+            "github_rest",
+            "gitlab_api",
+            "jira_api",
+            "asana_api",
+            "clickup_api",
+            "trello_api",
+            "zendesk_api",
+            "pipedrive_api",
+            "salesforce_api",
+        }:
+            self.action_api_key_label.set_text("API Token")
+            self.action_api_key_entry.set_placeholder_text("Service API token")
         else:
             self.action_endpoint_label.set_text("Endpoint URL")
             self.action_message_label.set_text("Message")
@@ -3081,6 +3697,9 @@ class CanvasView(Gtk.Box):
         self.sync_action_category_state(
             self.infer_action_category(template_key, integration)
         )
+        selected_node = self.get_selected_node()
+        if selected_node and self.node_type_key(selected_node.node_type) in {"action", "template"}:
+            self.update_node_execution_hint(selected_node.node_type, integration)
 
     def parse_detail_directives(self, text: str) -> dict[str, str]:
         directives: dict[str, str] = {}
@@ -3512,6 +4131,29 @@ class CanvasView(Gtk.Box):
             "s3_cli",
         }:
             updated_config["timeout_sec"] = f"{timeout_value:.1f}"
+
+    def apply_node_execution_controls_to_config(
+        self,
+        updated_config: dict[str, str],
+        node_type: str,
+    ):
+        integration = self.selected_action_integration()
+        defaults = self.node_execution_profile(node_type, integration)
+        retry_value = max(0, self.node_retry_spin.get_value_as_int())
+        backoff_value = max(0, self.node_backoff_spin.get_value_as_int())
+        timeout_value = max(0.0, round(self.node_timeout_spin.get_value(), 1))
+
+        updated_config["retry_max"] = str(retry_value)
+        updated_config["retry_backoff_ms"] = str(backoff_value)
+        updated_config["timeout_sec"] = (
+            f"{timeout_value:.1f}" if timeout_value > 0.0 else "0.0"
+        )
+
+        # Keep values deterministic when controls are at recommended defaults.
+        if retry_value == int(defaults["retry_max"]):
+            updated_config["retry_max"] = str(int(defaults["retry_max"]))
+        if backoff_value == int(defaults["retry_backoff_ms"]):
+            updated_config["retry_backoff_ms"] = str(int(defaults["retry_backoff_ms"]))
 
     def to_screen(self, logical_value: float) -> int:
         return int(round(float(logical_value) * self.zoom_factor))
@@ -4138,8 +4780,12 @@ class CanvasView(Gtk.Box):
             self.edit_condition_value_entry,
             self.edit_condition_min_len_scale,
             self.edit_condition_min_len_spin,
+            self.node_retry_spin,
+            self.node_backoff_spin,
+            self.node_timeout_spin,
         ]:
             field.set_sensitive(has_workflow and has_selected)
+        self.node_execution_defaults_button.set_sensitive(has_workflow and has_selected)
         self.action_integration_section.set_sensitive(has_workflow and has_selected)
         selected = self.get_selected_node()
         selected_key = self.node_type_key(selected.node_type) if selected else ""
@@ -4664,10 +5310,51 @@ class CanvasView(Gtk.Box):
             return None
         target = self.find_node_at_point(x, y, exclude_node_id=source_id)
         if not target:
+            target = self.find_nearest_link_target(
+                x,
+                y,
+                source_id,
+                max_distance=self.LINK_TARGET_SNAP_DISTANCE,
+            )
+        if not target:
             return None
         if self.node_type_key(target.node_type) == "trigger":
             return None
         return target
+
+    def find_nearest_link_target(
+        self,
+        x: int,
+        y: int,
+        source_id: str,
+        *,
+        max_distance: int,
+    ) -> CanvasNode | None:
+        best_node: CanvasNode | None = None
+        best_distance = float(max_distance) + 0.01
+
+        for node in self.nodes:
+            if node.id == source_id:
+                continue
+            if self.node_type_key(node.node_type) == "trigger":
+                continue
+
+            node_x = self.to_screen(node.x)
+            node_y = self.to_screen(node.y)
+            node_w = self.card_screen_width()
+            node_h = self.card_screen_height()
+
+            nearest_x = max(node_x, min(int(x), node_x + node_w))
+            nearest_y = max(node_y, min(int(y), node_y + node_h))
+            delta_x = float(int(x) - nearest_x)
+            delta_y = float(int(y) - nearest_y)
+            distance = math.sqrt((delta_x * delta_x) + (delta_y * delta_y))
+
+            if distance < best_distance:
+                best_distance = distance
+                best_node = node
+
+        return best_node
 
     def finalize_link_preview_at(self, end_x: int, end_y: int):
         source_id = self.link_preview_source_id or self.pending_link_source_id
@@ -5203,11 +5890,17 @@ class CanvasView(Gtk.Box):
         input_port.add_css_class("canvas-node-port")
         input_port.add_css_class("canvas-node-port-in")
         input_port.add_css_class("canvas-node-port-dot")
+        input_port.set_size_request(20, 20)
+        input_port.set_halign(Gtk.Align.START)
+        input_port.set_valign(Gtk.Align.CENTER)
 
         output_port = Gtk.Label(label="●")
         output_port.add_css_class("canvas-node-port")
         output_port.add_css_class("canvas-node-port-out")
         output_port.add_css_class("canvas-node-port-dot")
+        output_port.set_size_request(20, 20)
+        output_port.set_halign(Gtk.Align.END)
+        output_port.set_valign(Gtk.Align.CENTER)
 
         self.attach_port_hover_controller(input_port, node.id, "in")
         self.attach_port_hover_controller(output_port, node.id, "out")
@@ -5245,6 +5938,11 @@ class CanvasView(Gtk.Box):
         output_drag.connect("drag-end", self.on_output_port_drag_end, node.id, output_port)
         output_port.add_controller(output_drag)
 
+        output_click = Gtk.GestureClick()
+        output_click.set_button(0)
+        output_click.connect("released", self.on_output_port_released, node.id)
+        output_port.add_controller(output_click)
+
         input_click = Gtk.GestureClick()
         input_click.set_button(0)
         input_click.connect("released", self.on_input_port_released, node.id)
@@ -5257,7 +5955,7 @@ class CanvasView(Gtk.Box):
 
         drag = Gtk.GestureDrag()
         drag.set_button(0)
-        drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         drag.connect("drag-begin", self.on_node_drag_begin, node.id)
         drag.connect("drag-update", self.on_node_drag_update, node.id)
         drag.connect("drag-end", self.on_node_drag_end, node.id)
@@ -5301,17 +5999,31 @@ class CanvasView(Gtk.Box):
     def on_output_port_drag_begin(
         self,
         gesture,
-        start_x: float,
-        start_y: float,
+        _start_x: float,
+        _start_y: float,
         node_id: str,
-        output_port: Gtk.Widget,
+        _output_port: Gtk.Widget,
     ):
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        self.port_drag_just_finished = False
+        self.begin_output_link_drag(node_id)
+
+    def begin_output_link_drag(self, node_id: str):
         self.grab_focus()
+        self.node_drag_active = False
+        self.drag_origin = {}
+        self.drag_group_origins = {}
         self.port_drag_active = True
+        anchor_x = 0.0
+        anchor_y = 0.0
+        source_node = self.find_node(node_id)
+        if source_node:
+            output_x, output_y = self.node_output_anchor(source_node)
+            anchor_x = float(output_x)
+            anchor_y = float(output_y)
         self.port_drag_origin = {
-            "start_x": float(start_x),
-            "start_y": float(start_y),
+            "anchor_x": anchor_x,
+            "anchor_y": anchor_y,
         }
         previous_selected = self.selected_node_id
         previous_source = self.pending_link_source_id
@@ -5321,10 +6033,7 @@ class CanvasView(Gtk.Box):
         self.apply_selection_visual_state(previous_selected, node_id)
         self.apply_link_source_visual_state(previous_source, node_id)
         self.begin_link_preview(node_id)
-
-        coordinates = output_port.translate_coordinates(self.fixed, start_x, start_y)
-        if coordinates:
-            self.update_link_preview_position(int(coordinates[0]), int(coordinates[1]))
+        self.update_link_preview_position(int(anchor_x), int(anchor_y))
         selected = self.find_node(node_id)
         if selected:
             self.update_inspector(selected)
@@ -5340,30 +6049,24 @@ class CanvasView(Gtk.Box):
         offset_x: float,
         offset_y: float,
         node_id: str,
-        output_port: Gtk.Widget,
+        _output_port: Gtk.Widget,
     ):
         if not self.port_drag_active:
             return
 
-        start_x = float(self.port_drag_origin.get("start_x", 0.0))
-        start_y = float(self.port_drag_origin.get("start_y", 0.0))
-        coordinates = output_port.translate_coordinates(
-            self.fixed,
-            start_x + offset_x,
-            start_y + offset_y,
-        )
-        if coordinates:
-            x = int(coordinates[0])
-            y = int(coordinates[1])
-            source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
-            target = self.valid_link_target_at(x, y, source_id)
-            if target:
-                self.set_link_hover_target(target.id)
-                snap_x, snap_y = self.node_input_anchor(target)
-                self.update_link_preview_position(int(snap_x), int(snap_y))
-            else:
-                self.set_link_hover_target(None)
-                self.update_link_preview_position(x, y)
+        anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
+        anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
+        x = int(anchor_x + float(offset_x))
+        y = int(anchor_y + float(offset_y))
+        source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
+        target = self.valid_link_target_at(x, y, source_id)
+        if target:
+            self.set_link_hover_target(target.id)
+            snap_x, snap_y = self.node_input_anchor(target)
+            self.update_link_preview_position(int(snap_x), int(snap_y))
+        else:
+            self.set_link_hover_target(None)
+            self.update_link_preview_position(x, y)
 
     def on_output_port_drag_end(
         self,
@@ -5371,18 +6074,27 @@ class CanvasView(Gtk.Box):
         offset_x: float,
         offset_y: float,
         _node_id: str,
-        output_port: Gtk.Widget,
+        _output_port: Gtk.Widget,
     ):
-        start_x = float(self.port_drag_origin.get("start_x", 0.0))
-        start_y = float(self.port_drag_origin.get("start_y", 0.0))
-        coordinates = output_port.translate_coordinates(
-            self.fixed,
-            start_x + offset_x,
-            start_y + offset_y,
-        )
+        anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
+        anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
+        end_x = int(anchor_x + float(offset_x))
+        end_y = int(anchor_y + float(offset_y))
 
-        if coordinates:
-            self.finalize_link_preview_at(int(coordinates[0]), int(coordinates[1]))
+        if self.port_drag_active:
+            self.finalize_link_preview_at(end_x, end_y)
+        elif self.link_hover_target_id:
+            hover_target = self.find_node(self.link_hover_target_id)
+            if hover_target:
+                input_x, input_y = self.node_input_anchor(hover_target)
+                self.finalize_link_preview_at(int(input_x), int(input_y))
+            else:
+                previous_source = self.pending_link_source_id
+                self.cancel_link_preview()
+                self.pending_link_source_id = None
+                self.apply_link_source_visual_state(previous_source, None)
+                self.update_control_state()
+                self.set_status("Link canceled. Drop on a different node.")
         else:
             previous_source = self.pending_link_source_id
             self.cancel_link_preview()
@@ -5393,6 +6105,12 @@ class CanvasView(Gtk.Box):
 
         self.port_drag_active = False
         self.port_drag_origin = {}
+        self.port_drag_just_finished = True
+        GLib.timeout_add(120, self.clear_recent_port_drag_flag)
+
+    def clear_recent_port_drag_flag(self):
+        self.port_drag_just_finished = False
+        return False
 
     def on_input_port_released(self, _gesture, _n_press, _x, _y, node_id: str):
         source_id = self.link_preview_source_id or self.pending_link_source_id
@@ -5414,6 +6132,36 @@ class CanvasView(Gtk.Box):
             if source:
                 self.set_status(f"Linked '{source.name}' -> '{target.name}'.")
         self.set_link_hover_target(None)
+
+    def on_output_port_released(self, _gesture, _n_press, _x, _y, node_id: str):
+        if self.node_drag_active or self.port_drag_active or self.port_drag_just_finished:
+            return
+        selected = self.find_node(node_id)
+        if not selected:
+            return
+
+        previous_source = self.pending_link_source_id
+        if previous_source == node_id:
+            self.pending_link_source_id = None
+            self.cancel_link_preview()
+            self.apply_link_source_visual_state(previous_source, None)
+            self.update_control_state()
+            self.set_status("Link mode canceled.")
+            return
+
+        previous_selected = self.selected_node_id
+        self.set_single_selection(node_id)
+        self.pending_link_source_id = node_id
+        self.begin_link_preview(node_id)
+        self.apply_selection_visual_state(previous_selected, node_id)
+        self.apply_link_source_visual_state(previous_source, node_id)
+        self.link_layer.queue_draw()
+        self.update_inspector(selected)
+        self.update_control_state()
+        link_type = self.get_selected_link_type()
+        self.set_status(
+            f"Link mode active from '{selected.name}' as '{link_type}'. Select a target node."
+        )
 
     def on_node_clicked(self, gesture: Gtk.GestureClick, _n_press, _x, _y, node_id: str):
         self.grab_focus()
@@ -5514,10 +6262,52 @@ class CanvasView(Gtk.Box):
         self.update_control_state()
         self.set_status("Canvas selection cleared.")
 
-    def on_node_drag_begin(self, gesture, _start_x, _start_y, node_id: str):
-        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-        if self.port_drag_active:
+    def is_output_handle_hit(self, start_x: float, start_y: float) -> bool:
+        handle_x = float(self.card_screen_width() - 4)
+        handle_y = float(self.card_screen_height() / 2)
+        radius = max(16.0, min(30.0, float(self.card_screen_height()) * 0.34))
+        hit_circle = (
+            (float(start_x) - handle_x) ** 2 + (float(start_y) - handle_y) ** 2 <= radius ** 2
+        )
+        hit_lane = (
+            float(start_x) >= float(self.card_screen_width() - 28)
+            and 8.0 <= float(start_y) <= float(self.card_screen_height() - 8)
+        )
+        return hit_circle or hit_lane
+
+    def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
+        # When explicit link mode is active, prioritize creating the link over dragging.
+        source_id = self.pending_link_source_id
+        if source_id and source_id != node_id:
+            source = self.find_node(source_id)
+            target = self.find_node(node_id)
+            previous_selected = self.selected_node_id
+            previous_source = self.pending_link_source_id
+            linked = target is not None and self.add_edge(source_id, node_id)
+            if linked and target:
+                self.set_single_selection(node_id)
+                self.pending_link_source_id = None
+                self.cancel_link_preview()
+                self.apply_selection_visual_state(previous_selected, node_id)
+                self.apply_link_source_visual_state(previous_source, None)
+                self.update_inspector(target)
+                self.update_control_state()
+                if source:
+                    self.set_status(f"Linked '{source.name}' -> '{target.name}'.")
+            # Consume the gesture so this interaction does not fall through to drag/click races.
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            self.suppress_next_node_click = True
+            GLib.timeout_add(80, self.release_suppressed_click)
             return
+
+        if self.port_drag_active:
+            # An output-port drag is already driving link preview for this sequence.
+            return
+        if self.is_output_handle_hit(start_x, start_y):
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            self.begin_output_link_drag(node_id)
+            return
+        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         node = self.find_node(node_id)
         if not node:
             return
@@ -5556,6 +6346,22 @@ class CanvasView(Gtk.Box):
         self.update_inspector(node)
 
     def on_node_drag_update(self, _gesture, offset_x: float, offset_y: float, node_id: str):
+        if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:
+            anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
+            anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
+            x = int(anchor_x + float(offset_x))
+            y = int(anchor_y + float(offset_y))
+            source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
+            target = self.valid_link_target_at(x, y, source_id)
+            if target:
+                self.set_link_hover_target(target.id)
+                snap_x, snap_y = self.node_input_anchor(target)
+                self.update_link_preview_position(int(snap_x), int(snap_y))
+            else:
+                self.set_link_hover_target(None)
+                self.update_link_preview_position(x, y)
+            return
+
         if self.drag_origin.get("node_id") != node_id:
             return
 
@@ -5605,6 +6411,19 @@ class CanvasView(Gtk.Box):
             self.node_position_label.set_text(f"Position: {primary_node.x}, {primary_node.y}")
 
     def on_node_drag_end(self, _gesture, _offset_x, _offset_y, node_id: str):
+        if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:
+            anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
+            anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
+            end_x = int(anchor_x + float(_offset_x))
+            end_y = int(anchor_y + float(_offset_y))
+            self.finalize_link_preview_at(end_x, end_y)
+            self.port_drag_active = False
+            self.port_drag_origin = {}
+            return
+
+        if self.drag_origin.get("node_id") != node_id:
+            return
+
         self.drag_origin = {}
         self.drag_group_origins = {}
         self.node_drag_active = False
@@ -6614,12 +7433,31 @@ class CanvasView(Gtk.Box):
         if not node:
             return
 
+        updated_name = self.edit_name_entry.get_text().strip() or node.name
+        updated_summary = self.edit_summary_entry.get_text().strip()
+        updated_detail = self.get_detail_text().strip()
+        updated_config = self.build_updated_node_config(node)
+        node_kind = self.node_type_key(node.node_type)
+        if node_kind in {"action", "template"}:
+            missing_fields = self.missing_required_action_fields(updated_config)
+            if missing_fields:
+                missing_label = ", ".join(missing_fields[:3])
+                if len(missing_fields) > 3:
+                    missing_label = f"{missing_label}, +{len(missing_fields) - 3} more"
+                self.set_status(
+                    f"Apply blocked: missing required field(s): {missing_label}."
+                )
+                self.node_test_status_label.set_text(
+                    f"Required fields missing: {missing_label}"
+                )
+                return
+
         self.push_undo_snapshot()
-        node.name = self.edit_name_entry.get_text().strip() or node.name
-        node.summary = self.edit_summary_entry.get_text().strip()
-        node.detail = self.get_detail_text().strip()
-        node.config = self.build_updated_node_config(node)
-        if self.node_type_key(node.node_type) == "trigger":
+        node.name = updated_name
+        node.summary = updated_summary
+        node.detail = updated_detail
+        node.config = updated_config
+        if node_kind == "trigger":
             node.detail = self.current_trigger_detail()
             self.set_detail_text(node.detail)
 
@@ -6646,11 +7484,39 @@ class CanvasView(Gtk.Box):
             updated_config["trigger_mode"] = ""
             updated_config["trigger_value"] = ""
         self.apply_action_controls_to_config(updated_config, node.node_type)
+        self.apply_node_execution_controls_to_config(updated_config, node.node_type)
         return {
             key: value
             for key, value in updated_config.items()
             if value and (key != "provider" or value != "inherit")
         }
+
+    def required_field_value(self, config: dict[str, str], field_name: str) -> str:
+        key = str(field_name).strip().lower()
+        candidates = [key, *self.REQUIRED_FIELD_ALIASES.get(key, [])]
+        for candidate in candidates:
+            value = str(config.get(candidate, "")).strip()
+            if value:
+                return value
+        return ""
+
+    def missing_required_action_fields(self, config: dict[str, str]) -> list[str]:
+        integration_key = str(config.get("integration", "standard")).strip().lower() or "standard"
+        integration = self.integration_registry.get_integration(integration_key)
+        if not integration:
+            return ["integration"]
+
+        missing: list[str] = []
+        required_fields = integration.get("required_fields", [])
+        if not isinstance(required_fields, list):
+            return missing
+        for raw_field in required_fields:
+            field = str(raw_field).strip().lower()
+            if not field:
+                continue
+            if not self.required_field_value(config, field):
+                missing.append(field)
+        return missing
 
     def on_test_selected_node_clicked(self, _button):
         node = self.get_selected_node()
@@ -6677,6 +7543,14 @@ class CanvasView(Gtk.Box):
             y=node.y,
             config=self.build_updated_node_config(node),
         )
+        missing_fields = self.missing_required_action_fields(temp_node.config)
+        if missing_fields:
+            missing_label = ", ".join(missing_fields[:3])
+            if len(missing_fields) > 3:
+                missing_label = f"{missing_label}, +{len(missing_fields) - 3} more"
+            self.node_test_status_label.set_text(f"Fill required fields first: {missing_label}")
+            return
+
         self.test_node_button.set_sensitive(False)
         self.node_test_status_label.set_text(f"Testing '{integration}' integration...")
         threading.Thread(
@@ -6752,6 +7626,7 @@ class CanvasView(Gtk.Box):
         self.load_trigger_controls(merged_config, node.detail)
         self.load_condition_controls(merged_config.get("expression", ""))
         self.load_action_controls(merged_config)
+        self.load_node_execution_controls(merged_config, node.node_type)
         self.node_test_status_label.set_text("")
         self.test_node_button.set_sensitive(True)
         self.update_inspector_adjustment_states()
@@ -6817,6 +7692,8 @@ class CanvasView(Gtk.Box):
         self.action_path_entry.set_text("")
         self.action_command_entry.set_text("")
         self.action_timeout_spin.set_value(0.0)
+        self.apply_node_execution_defaults_for_context("Action", "standard", announce=False)
+        self.node_execution_hint_label.set_text("")
         self.node_test_status_label.set_text("")
         self.test_node_button.set_sensitive(False)
         self.update_trigger_controls_state()
