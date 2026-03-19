@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Report
+    url: https://github.com/synryzen/6X-Protocol/security/advisories/new
+    about: Report sensitive vulnerabilities privately.
+
