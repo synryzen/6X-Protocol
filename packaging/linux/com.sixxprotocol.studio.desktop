@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=6X-Protocol Studio
+GenericName=Workflow Automation Studio
+Comment=Linux-native automation cockpit with local-first AI workflows
+Exec=6x-protocol-studio
+Icon=com.sixxprotocol.studio
+Terminal=false
+Categories=Development;Utility;Network;
+Keywords=automation;workflow;ai;nodes;local-first;
+StartupNotify=true
+StartupWMClass=com.sixxprotocol.studio

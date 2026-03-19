@@ -24,21 +24,31 @@ Linux-native, local-first workflow automation studio with visual graph building,
 - Developer/Project: GitHub, GitLab, Linear, Jira, Asana, ClickUp, Trello, Monday.
 - Database/Infra: Postgres, MySQL, SQLite, Redis, S3 CLI.
 
-## Quick Start (Linux)
-1. Install system dependencies:
+## Install Options (Linux)
+### 1) Debian Package (Recommended)
+Download the latest `.deb` from Releases and install:
+```bash
+sudo apt install ./6x-protocol-studio_<version>_amd64.deb
+```
+Launch from your desktop app menu as `6X-Protocol Studio` (no terminal required).
+
+### 2) Portable Archive
+Download `6x-protocol-studio_<version>_linux_portable.tar.gz` from Releases:
+```bash
+tar -xzf 6x-protocol-studio_<version>_linux_portable.tar.gz
+cd 6x-protocol-studio
+./6x-protocol-studio
+```
+Optional desktop launcher:
+```bash
+./install-desktop-entry.sh
+```
+
+### 3) Source Run (Developer Mode)
+Install dependencies and run from source:
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-venv python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
-```
-2. Run the app:
-```bash
-cd 6X-Protocol
-python3 main.py
-```
-3. Optional virtual env:
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
 python3 main.py
 ```
 
@@ -59,6 +69,16 @@ See:
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - [`SECURITY.md`](SECURITY.md)
 
+## Package Build Commands
+Build local installer artifacts:
+```bash
+./scripts/build_packages.sh
+```
+
+Output files are created in `dist/`:
+- `.deb` installer
+- portable `.tar.gz`
+- `SHA256SUMS.txt`
+
 ## License
 MIT. See [`LICENSE`](LICENSE).
-

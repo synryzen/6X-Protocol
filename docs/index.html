@@ -76,10 +76,25 @@
 
     <section class="panel">
       <h2>Install</h2>
-      <pre><code>git clone https://github.com/synryzen/6X-Protocol.git
-cd 6X-Protocol
-python3 main.py</code></pre>
-      <p class="muted">Linux GTK4/libadwaita runtime dependencies are required.</p>
+      <div class="install-grid">
+        <article class="install-card">
+          <h3>Debian Installer (.deb)</h3>
+          <p>Best option for Ubuntu/Debian. Adds an app launcher icon and menu entry automatically.</p>
+          <pre><code>sudo apt install ./6x-protocol-studio_&lt;version&gt;_amd64.deb</code></pre>
+          <p class="muted">Launch from apps menu: <strong>6X-Protocol Studio</strong></p>
+        </article>
+        <article class="install-card">
+          <h3>Portable Linux Archive</h3>
+          <p>Extract and run from any folder. Optional script installs desktop icon locally.</p>
+          <pre><code>tar -xzf 6x-protocol-studio_&lt;version&gt;_linux_portable.tar.gz
+cd 6x-protocol-studio
+./6x-protocol-studio
+./install-desktop-entry.sh</code></pre>
+        </article>
+      </div>
+      <p class="muted">
+        Runtime dependencies: `python3`, `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1`.
+      </p>
     </section>
 
     <section class="panel split">
@@ -103,4 +118,3 @@ python3 main.py</code></pre>
   </footer>
 </body>
 </html>
-

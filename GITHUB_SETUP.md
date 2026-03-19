@@ -24,19 +24,27 @@ Expected URL:
 git tag -a v0.1.0 -m "6X-Protocol Studio v0.1.0"
 git push origin v0.1.0
 ```
-3. In GitHub, create release from `v0.1.0`.
-4. Upload artifacts (source archive and any Linux package artifacts).
-5. Add checksums and release notes.
+3. The `Build Release Packages` workflow will auto-build and attach:
+   - `.deb` installer
+   - portable `.tar.gz`
+   - `SHA256SUMS.txt`
+4. Open the release in GitHub and verify assets are attached.
+5. Publish/edit release notes.
 
-## 4) Recommended Repo Settings
+## 4) Build Installers Locally (Optional)
+```bash
+./scripts/build_packages.sh
+```
+Artifacts are written to `dist/`.
+
+## 5) Recommended Repo Settings
 - Branch protection on `main`.
 - Require pull request for merges (optional for solo workflow).
 - Require CI pass before merge.
 - Enable Discussions (optional community channel).
 
-## 5) Public Visibility Checklist
+## 6) Public Visibility Checklist
 - Remove local/private secrets from config files.
 - Confirm no credentials are committed.
 - Confirm `.gitignore` is active and caches/artifacts are not tracked.
 - Confirm README, LICENSE, SECURITY, CONTRIBUTING are present.
-
