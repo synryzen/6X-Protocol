@@ -1,0 +1,6456 @@
+/* 6X Protocol Studio Design Tokens */
+/* Core layers: background, panel, card, accent, text, border */
+@define-color app_bg #eef3f9;
+@define-color app_bg_alt #e7eef8;
+@define-color surface #ffffff;
+@define-color surface_soft #f4f7fc;
+@define-color border #d3dcea;
+@define-color text_primary #0f172a;
+@define-color text_secondary #475569;
+@define-color accent #1d4ed8;
+@define-color accent_hover #1e40af;
+@define-color accent_soft #dbeafe;
+@define-color success #15803d;
+@define-color warning #b45309;
+@define-color danger #b91c1c;
+
+window,
+.background {
+  background-image: linear-gradient(160deg, #f8fbff 0%, #edf3fb 52%, #e7eef8 100%);
+  color: @text_primary;
+  font-family: "IBM Plex Sans", "Manrope", "Noto Sans", "Cantarell", sans-serif;
+  font-size: 13px;
+  -gtk-icon-shadow: none;
+  text-shadow: none;
+}
+
+headerbar {
+  background: alpha(#f8fbff, 0.92);
+  border-bottom: 1px solid alpha(@border, 0.92);
+}
+
+window.theme-dark,
+window.theme-dark .background {
+  background-image: linear-gradient(165deg, #0a0f18 0%, #111827 58%, #0f172a 100%);
+  color: #e5edf8;
+}
+
+window.theme-dark headerbar {
+  background: alpha(#0f172a, 0.94);
+  border-bottom: 1px solid alpha(#334155, 0.78);
+}
+
+label {
+  color: @text_primary;
+  letter-spacing: 0.1px;
+}
+
+window.theme-dark label {
+  color: #e2e8f0;
+}
+
+.dim-label {
+  color: alpha(@text_primary, 0.72);
+}
+
+window.theme-dark .dim-label {
+  color: alpha(#cbd5e1, 0.84);
+}
+
+.title-1 {
+  color: @text_primary;
+  font-weight: 760;
+  font-size: 24px;
+  letter-spacing: 0.15px;
+}
+
+.title-2 {
+  color: @text_primary;
+  font-weight: 730;
+  font-size: 18px;
+}
+
+.title-3 {
+  color: @text_primary;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.title-4 {
+  color: @text_primary;
+  font-weight: 650;
+  font-size: 13px;
+}
+
+.heading {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+window.theme-dark .heading {
+  color: #e2e8f0;
+}
+
+frame,
+frame > border {
+  background: @surface;
+  border: 1px solid alpha(@border, 0.98);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px alpha(#0b1220, 0.07);
+}
+
+window.theme-dark frame,
+window.theme-dark frame > border {
+  background: alpha(#111d31, 0.94);
+  border-color: alpha(#334155, 0.92);
+  box-shadow: 0 8px 24px alpha(#020617, 0.38);
+}
+
+separator {
+  background: alpha(@border, 0.95);
+  min-height: 1px;
+  min-width: 1px;
+}
+
+window.theme-dark separator {
+  background: alpha(#334155, 0.9);
+}
+
+button {
+  border-radius: 10px;
+  border: 1px solid alpha(@border, 1);
+  background-image: linear-gradient(180deg, #ffffff 0%, #f4f8ff 100%);
+  color: @text_primary;
+  font-weight: 640;
+  min-height: 30px;
+  padding: 5px 11px;
+}
+
+button:hover {
+  background-image: linear-gradient(180deg, #ffffff 0%, #edf4ff 100%);
+  border-color: alpha(@accent, 0.35);
+}
+
+button:active {
+  background-image: linear-gradient(180deg, #eaf1ff 0%, #dde9ff 100%);
+}
+
+button:focus-visible {
+  border-color: @accent;
+  box-shadow: 0 0 0 3px alpha(@accent, 0.22);
+}
+
+button.suggested-action {
+  background-image: linear-gradient(180deg, #2f67e6 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border-color: alpha(@accent_hover, 0.95);
+}
+
+button.suggested-action:hover {
+  background-image: linear-gradient(180deg, #2b61d8 0%, #1e40af 100%);
+}
+
+window.theme-dark button {
+  border-color: alpha(#475569, 0.92);
+  background-image: linear-gradient(180deg, #1b2b45 0%, #162338 100%);
+  color: #e2e8f0;
+}
+
+window.theme-dark button:hover {
+  border-color: alpha(#60a5fa, 0.7);
+  background-image: linear-gradient(180deg, #223654 0%, #1a2b45 100%);
+}
+
+window.theme-dark button:active {
+  background-image: linear-gradient(180deg, #182840 0%, #142137 100%);
+}
+
+entry,
+textview,
+textview text,
+spinbutton,
+dropdown > button {
+  border-radius: 10px;
+  border: 1px solid alpha(@border, 0.98);
+  background: @surface_soft;
+  color: @text_primary;
+}
+
+window.theme-dark entry,
+window.theme-dark textview,
+window.theme-dark textview text,
+window.theme-dark spinbutton,
+window.theme-dark dropdown > button {
+  border-color: alpha(#475569, 0.9);
+  background: alpha(#162338, 0.96);
+  color: #e2e8f0;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  min-height: 30px;
+  padding: 4px 8px;
+}
+
+textview {
+  padding: 6px;
+}
+
+entry:focus,
+spinbutton:focus,
+textview:focus-within,
+dropdown > button:focus {
+  border-color: @accent;
+  box-shadow: 0 0 0 3px alpha(@accent, 0.2);
+}
+
+entry selection,
+textview text selection {
+  background-color: alpha(@accent, 0.28);
+  color: @text_primary;
+}
+
+window.theme-dark entry selection,
+window.theme-dark textview text selection {
+  background-color: alpha(#2563eb, 0.5);
+  color: #eff6ff;
+}
+
+switch slider {
+  border-radius: 999px;
+}
+
+switch:checked {
+  background: @accent;
+}
+
+scrolledwindow > viewport {
+  background: transparent;
+}
+
+scrollbar slider {
+  min-width: 7px;
+  min-height: 7px;
+  border-radius: 999px;
+  background: alpha(#94a3b8, 0.55);
+}
+
+scrollbar.vertical slider {
+  min-width: 7px;
+  min-height: 20px;
+}
+
+scrollbar.horizontal slider {
+  min-width: 20px;
+  min-height: 7px;
+}
+
+scrollbar slider:hover {
+  background: alpha(#64748b, 0.75);
+}
+
+window.theme-dark scrollbar slider {
+  background: alpha(#64748b, 0.55);
+}
+
+window.theme-dark scrollbar slider:hover {
+  background: alpha(#94a3b8, 0.74);
+}
+
+.navigation-sidebar {
+  padding: 6px;
+  border-radius: 12px;
+  background: alpha(#e6eef9, 0.72);
+}
+
+.navigation-list {
+  background: transparent;
+}
+
+.navigation-sidebar row {
+  border-radius: 10px;
+  margin: 2px 0;
+  padding: 4px 6px;
+  color: @text_secondary;
+}
+
+.navigation-row-content {
+  border-radius: 10px;
+}
+
+.navigation-row-icon {
+  opacity: 0.9;
+}
+
+.navigation-row-label {
+  font-weight: 560;
+  color: inherit;
+}
+
+.navigation-row-icon {
+  color: inherit;
+}
+
+.navigation-sidebar row:hover {
+  background: alpha(@accent_soft, 0.72);
+  color: @accent_hover;
+}
+
+.navigation-sidebar row:selected {
+  background: @accent_soft;
+  color: @accent_hover;
+  font-weight: 700;
+}
+
+window.theme-dark .navigation-sidebar {
+  background: alpha(#111d31, 0.86);
+}
+
+window.theme-dark .navigation-sidebar row {
+  color: #c7d2e4;
+}
+
+window.theme-dark .navigation-sidebar row:hover {
+  background: alpha(#1d4ed8, 0.3);
+  color: #dbeafe;
+}
+
+window.theme-dark .navigation-sidebar row:selected {
+  background: alpha(#1d4ed8, 0.4);
+  color: #eff6ff;
+}
+
+window.theme-dark .navigation-row-icon {
+  color: #bfdbfe;
+}
+
+frame.suggested-action,
+frame.suggested-action > border {
+  border-color: alpha(@accent, 0.65);
+  box-shadow: 0 0 0 3px alpha(@accent, 0.18);
+}
+
+.status-chip {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  letter-spacing: 0.35px;
+}
+
+.status-box {
+  border-radius: 999px;
+}
+
+.status-icon {
+  opacity: 0.85;
+}
+
+.status-success {
+  color: @success;
+  background: alpha(@success, 0.12);
+}
+
+.status-running {
+  color: @warning;
+  background: alpha(@warning, 0.14);
+}
+
+.status-failed {
+  color: @danger;
+  background: alpha(@danger, 0.13);
+}
+
+.status-cancelled {
+  color: #7c3aed;
+  background: alpha(#7c3aed, 0.14);
+}
+
+.title-icon-row,
+.section-icon-row {
+}
+
+.title-icon,
+.section-icon {
+  opacity: 0.92;
+}
+
+.inline-status {
+  border-radius: 10px;
+  padding: 5px 8px;
+  background: alpha(#e2e8f0, 0.66);
+  border: 1px solid alpha(#cbd5e1, 0.8);
+}
+
+.settings-field-row,
+.settings-toggle-row {
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: alpha(#f8fbff, 0.72);
+  border: 1px solid alpha(#cbd5e1, 0.74);
+}
+
+.daemon-controls-row {
+  border-radius: 10px;
+  padding: 5px 6px;
+  background: alpha(#eff6ff, 0.62);
+  border: 1px solid alpha(#bfdbfe, 0.78);
+}
+
+.daemon-root textview,
+.daemon-root textview text {
+  font-family: "IBM Plex Mono", "JetBrains Mono", "Noto Sans Mono", monospace;
+  font-size: 12px;
+}
+
+.empty-state-label {
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: alpha(#f8fafc, 0.76);
+  border: 1px dashed alpha(#cbd5e1, 0.9);
+}
+
+.provider-icon {
+  opacity: 0.86;
+}
+
+.provider-chip {
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: alpha(#e2e8f0, 0.9);
+  border: 1px solid alpha(#94a3b8, 0.56);
+}
+
+.provider-local {
+  background: alpha(#bae6fd, 0.9);
+  border-color: alpha(#0284c7, 0.58);
+}
+
+.provider-openai {
+  background: alpha(#dcfce7, 0.9);
+  border-color: alpha(#16a34a, 0.56);
+}
+
+.provider-anthropic {
+  background: alpha(#ede9fe, 0.9);
+  border-color: alpha(#7c3aed, 0.58);
+}
+
+window.theme-dark .status-success {
+  color: #4ade80;
+  background: alpha(#166534, 0.38);
+}
+
+window.theme-dark .status-running {
+  color: #fbbf24;
+  background: alpha(#a16207, 0.33);
+}
+
+window.theme-dark .status-failed {
+  color: #f87171;
+  background: alpha(#991b1b, 0.35);
+}
+
+window.theme-dark .status-cancelled {
+  color: #c4b5fd;
+  background: alpha(#5b21b6, 0.35);
+}
+
+window.theme-dark .inline-status {
+  background: alpha(#0f172a, 0.52);
+  border-color: alpha(#334155, 0.86);
+}
+
+window.theme-dark .settings-field-row,
+window.theme-dark .settings-toggle-row {
+  background: alpha(#0f172a, 0.5);
+  border-color: alpha(#334155, 0.9);
+}
+
+window.theme-dark .daemon-controls-row {
+  background: alpha(#1e3a8a, 0.2);
+  border-color: alpha(#3b82f6, 0.42);
+}
+
+window.theme-dark .empty-state-label {
+  background: alpha(#0f172a, 0.5);
+  border-color: alpha(#334155, 0.9);
+}
+
+window.theme-dark .provider-chip {
+  color: #dbeafe;
+  background: alpha(#334155, 0.86);
+  border-color: alpha(#64748b, 0.62);
+}
+
+window.density-compact {
+  font-size: 12px;
+}
+
+window.density-compact .title-1 {
+  font-size: 21px;
+}
+
+window.density-compact .title-2 {
+  font-size: 16px;
+}
+
+window.density-compact .title-3 {
+  font-size: 14px;
+}
+
+window.density-compact button,
+window.density-compact entry,
+window.density-compact spinbutton,
+window.density-compact dropdown > button {
+  min-height: 28px;
+  padding: 4px 8px;
+}
+
+window.density-compact frame,
+window.density-compact frame > border {
+  border-radius: 12px;
+}
+
+window.density-compact .navigation-sidebar row {
+  margin: 2px 0;
+  padding: 5px 7px;
+}
+
+window.reduce-motion frame,
+window.reduce-motion frame > border {
+  box-shadow: none;
+}
+
+/* Strong visual identity layer */
+window.app-window,
+window.app-window .background {
+  background-image:
+    radial-gradient(circle at 9% 12%, alpha(#60a5fa, 0.18) 0%, alpha(#60a5fa, 0) 36%),
+    radial-gradient(circle at 88% 8%, alpha(#0ea5e9, 0.14) 0%, alpha(#0ea5e9, 0) 34%),
+    linear-gradient(160deg, #f7fbff 0%, #edf5ff 48%, #e7f1ff 100%);
+}
+
+window.theme-dark.app-window,
+window.theme-dark.app-window .background {
+  background-image:
+    radial-gradient(circle at 10% 10%, alpha(#1d4ed8, 0.26) 0%, alpha(#1d4ed8, 0) 38%),
+    radial-gradient(circle at 88% 6%, alpha(#0891b2, 0.18) 0%, alpha(#0891b2, 0) 36%),
+    linear-gradient(165deg, #070b12 0%, #0d1524 54%, #0c172a 100%);
+}
+
+.app-headerbar {
+  background: alpha(#f8fbff, 0.86);
+  border-bottom: 1px solid alpha(#bfdbfe, 0.9);
+}
+
+window.theme-dark .app-headerbar {
+  background: alpha(#0f1a2d, 0.9);
+  border-bottom: 1px solid alpha(#3b82f6, 0.45);
+}
+
+.app-title-box label:first-child {
+  letter-spacing: 0.2px;
+}
+
+frame.shell-sidebar,
+frame.shell-sidebar > border {
+  background: linear-gradient(180deg, alpha(#eaf3ff, 0.96) 0%, alpha(#dfeeff, 0.96) 100%);
+  border-color: alpha(#93c5fd, 0.72);
+}
+
+frame.shell-content,
+frame.shell-content > border {
+  background: linear-gradient(180deg, alpha(#f8fbff, 0.95) 0%, alpha(#f2f8ff, 0.95) 100%);
+  border-color: alpha(#bfdbfe, 0.86);
+}
+
+window.theme-dark frame.shell-sidebar,
+window.theme-dark frame.shell-sidebar > border {
+  background: linear-gradient(180deg, alpha(#10233f, 0.95) 0%, alpha(#0f1e34, 0.95) 100%);
+  border-color: alpha(#3b82f6, 0.5);
+}
+
+window.theme-dark frame.shell-content,
+window.theme-dark frame.shell-content > border {
+  background: linear-gradient(180deg, alpha(#101a2d, 0.93) 0%, alpha(#0f1a2b, 0.93) 100%);
+  border-color: alpha(#334155, 0.9);
+}
+
+.page-root {
+  background: transparent;
+}
+
+.dashboard-root {
+}
+
+.dashboard-hero {
+  padding: 12px 14px;
+}
+
+.dashboard-stats-grid,
+.dashboard-lower-grid {
+  margin-top: 2px;
+}
+
+.dashboard-line {
+  line-height: 1.3;
+}
+
+.dashboard-system-panel .title-3,
+.dashboard-next-panel .title-3 {
+  margin-bottom: 2px;
+}
+
+.page-hero {
+  border-radius: 16px;
+  padding: 8px 10px;
+  background-image: linear-gradient(130deg, alpha(#dbeafe, 0.86) 0%, alpha(#e0f2fe, 0.82) 100%);
+  border: 1px solid alpha(#93c5fd, 0.82);
+}
+
+window.theme-dark .page-hero {
+  background-image: linear-gradient(130deg, alpha(#1e3a8a, 0.35) 0%, alpha(#0c4a6e, 0.35) 100%);
+  border-color: alpha(#60a5fa, 0.44);
+}
+
+.hero-kicker {
+  color: #1d4ed8;
+  font-weight: 760;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+window.theme-dark .hero-kicker {
+  color: #93c5fd;
+}
+
+frame.panel-card,
+frame.panel-card > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.98) 0%, alpha(#f5faff, 0.98) 100%);
+  border-color: alpha(#93c5fd, 0.6);
+  box-shadow: 0 8px 20px alpha(#1e3a8a, 0.08);
+}
+
+frame.entity-form-panel,
+frame.entity-form-panel > border {
+  border-width: 1px;
+}
+
+window.theme-dark frame.panel-card,
+window.theme-dark frame.panel-card > border {
+  background: linear-gradient(180deg, alpha(#13233d, 0.95) 0%, alpha(#102036, 0.95) 100%);
+  border-color: alpha(#3b82f6, 0.46);
+}
+
+frame.panel-accent,
+frame.panel-accent > border {
+  background: linear-gradient(155deg, alpha(#ecfeff, 0.98) 0%, alpha(#e0f2fe, 0.98) 100%);
+  border-color: alpha(#38bdf8, 0.56);
+}
+
+window.theme-dark frame.panel-accent,
+window.theme-dark frame.panel-accent > border {
+  background: linear-gradient(155deg, alpha(#0c3a4f, 0.52) 0%, alpha(#12345a, 0.52) 100%);
+  border-color: alpha(#22d3ee, 0.48);
+}
+
+frame.list-card,
+frame.list-card > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.96) 0%, alpha(#f6faff, 0.96) 100%);
+  border-color: alpha(#c7d2fe, 0.86);
+  box-shadow: 0 7px 16px alpha(#0f172a, 0.06);
+}
+
+frame.entity-card,
+frame.entity-card > border {
+  border-width: 1px;
+}
+
+frame.list-card:hover,
+frame.list-card:hover > border {
+  border-color: alpha(#60a5fa, 0.9);
+  box-shadow: 0 10px 22px alpha(#1d4ed8, 0.12);
+}
+
+window.theme-dark frame.list-card,
+window.theme-dark frame.list-card > border {
+  background: linear-gradient(180deg, alpha(#14253f, 0.95) 0%, alpha(#102136, 0.95) 100%);
+  border-color: alpha(#475569, 0.88);
+}
+
+window.theme-dark frame.list-card:hover,
+window.theme-dark frame.list-card:hover > border {
+  border-color: alpha(#60a5fa, 0.72);
+}
+
+frame.metric-card,
+frame.metric-card > border {
+  border-width: 1px;
+}
+
+frame.metric-workflows,
+frame.metric-workflows > border {
+  background-image: linear-gradient(160deg, alpha(#dbeafe, 0.95) 0%, alpha(#eff6ff, 0.95) 100%);
+  border-color: alpha(#3b82f6, 0.7);
+}
+
+frame.metric-bots,
+frame.metric-bots > border {
+  background-image: linear-gradient(160deg, alpha(#dcfce7, 0.95) 0%, alpha(#f0fdf4, 0.95) 100%);
+  border-color: alpha(#22c55e, 0.68);
+}
+
+frame.metric-runs,
+frame.metric-runs > border {
+  background-image: linear-gradient(160deg, alpha(#fef3c7, 0.95) 0%, alpha(#fffbeb, 0.95) 100%);
+  border-color: alpha(#f59e0b, 0.7);
+}
+
+window.theme-dark frame.metric-workflows,
+window.theme-dark frame.metric-workflows > border {
+  background-image: linear-gradient(160deg, alpha(#1d4ed8, 0.35) 0%, alpha(#1e3a8a, 0.28) 100%);
+  border-color: alpha(#60a5fa, 0.58);
+}
+
+window.theme-dark frame.metric-bots,
+window.theme-dark frame.metric-bots > border {
+  background-image: linear-gradient(160deg, alpha(#15803d, 0.3) 0%, alpha(#14532d, 0.25) 100%);
+  border-color: alpha(#4ade80, 0.54);
+}
+
+window.theme-dark frame.metric-runs,
+window.theme-dark frame.metric-runs > border {
+  background-image: linear-gradient(160deg, alpha(#b45309, 0.32) 0%, alpha(#78350f, 0.27) 100%);
+  border-color: alpha(#fbbf24, 0.56);
+}
+
+.metric-value {
+  font-size: 32px;
+  font-weight: 800;
+}
+
+window.theme-dark .metric-value {
+  color: #f8fafc;
+}
+
+.navigation-sidebar row:selected {
+  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1d4ed8;
+  box-shadow: inset 0 0 0 1px alpha(#60a5fa, 0.75);
+}
+
+window.theme-dark .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#2563eb, 0.48) 0%, alpha(#1d4ed8, 0.4) 100%);
+  color: #eff6ff;
+  box-shadow: inset 0 0 0 1px alpha(#93c5fd, 0.46);
+}
+
+.page-root button.suggested-action {
+  background-image: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: alpha(#1e40af, 0.95);
+  color: #ffffff;
+}
+
+.page-root button.suggested-action:hover {
+  background-image: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%);
+}
+
+.page-root button.suggested-action:active {
+  background-image: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+}
+
+window.density-compact .metric-value {
+  font-size: 28px;
+}
+
+/* Canvas premium styling */
+.canvas-root {
+}
+
+.canvas-hero {
+  padding: 12px 14px;
+}
+
+.canvas-toolbar-row {
+  border-radius: 12px;
+  padding: 6px 8px;
+  background: linear-gradient(180deg, alpha(#e8f2ff, 0.84) 0%, alpha(#edf7ff, 0.84) 100%);
+  border: 1px solid alpha(#bfdbfe, 0.76);
+}
+
+scrolledwindow.sidebar-scroll > viewport,
+scrolledwindow.canvas-row-scroll > viewport,
+scrolledwindow.canvas-inspector-scroll > viewport {
+  background: transparent;
+}
+
+paned.canvas-split > separator {
+  min-width: 8px;
+  background: linear-gradient(180deg, alpha(#bfdbfe, 0.45) 0%, alpha(#93c5fd, 0.45) 100%);
+}
+
+window.theme-dark .canvas-toolbar-row {
+  background: linear-gradient(180deg, alpha(#13243d, 0.82) 0%, alpha(#112137, 0.82) 100%);
+  border-color: alpha(#3b82f6, 0.5);
+}
+
+window.theme-dark paned.canvas-split > separator {
+  background: linear-gradient(180deg, alpha(#3b82f6, 0.42) 0%, alpha(#1d4ed8, 0.42) 100%);
+}
+
+.canvas-status {
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: alpha(#e0f2fe, 0.66);
+  border: 1px solid alpha(#7dd3fc, 0.5);
+}
+
+window.theme-dark .canvas-status {
+  background: alpha(#0c4a6e, 0.32);
+  border-color: alpha(#38bdf8, 0.38);
+}
+
+scrolledwindow.canvas-scroll > viewport {
+  background: transparent;
+}
+
+fixed.canvas-stage {
+  border-radius: 14px;
+}
+
+frame.canvas-stage-frame,
+frame.canvas-stage-frame > border {
+  border-color: alpha(#93c5fd, 0.66);
+}
+
+frame.canvas-inspector-frame,
+frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#f8fbff, 0.97) 0%, alpha(#f0f7ff, 0.97) 100%);
+  border-color: alpha(#93c5fd, 0.64);
+}
+
+window.theme-dark frame.canvas-inspector-frame,
+window.theme-dark frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#12223a, 0.95) 0%, alpha(#0f2034, 0.95) 100%);
+  border-color: alpha(#60a5fa, 0.48);
+}
+
+frame.canvas-inspector-shell,
+frame.canvas-inspector-shell > border {
+  border-width: 1px;
+}
+
+.canvas-inspector-title {
+  font-size: 16px;
+  letter-spacing: 0.15px;
+}
+
+.canvas-summary-label {
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: alpha(#dbeafe, 0.62);
+  border: 1px solid alpha(#93c5fd, 0.7);
+}
+
+window.theme-dark .canvas-summary-label {
+  background: alpha(#1d4ed8, 0.23);
+  border-color: alpha(#60a5fa, 0.42);
+}
+
+frame.canvas-edit-detail-frame,
+frame.canvas-edit-detail-frame > border {
+  border-color: alpha(#93c5fd, 0.6);
+  background: alpha(#f8fbff, 0.95);
+}
+
+window.theme-dark frame.canvas-edit-detail-frame,
+window.theme-dark frame.canvas-edit-detail-frame > border {
+  border-color: alpha(#3b82f6, 0.44);
+  background: alpha(#0f1e34, 0.92);
+}
+
+frame.canvas-node-card,
+frame.canvas-node-card > border {
+  border-radius: 14px;
+  border-width: 1px;
+  box-shadow: 0 6px 16px alpha(#1e293b, 0.12);
+}
+
+frame.canvas-node-card:hover,
+frame.canvas-node-card:hover > border {
+  box-shadow: 0 10px 22px alpha(#1e40af, 0.18);
+}
+
+frame.canvas-node-trigger,
+frame.canvas-node-trigger > border {
+  background: linear-gradient(155deg, alpha(#cffafe, 0.96) 0%, alpha(#ecfeff, 0.96) 100%);
+  border-color: alpha(#06b6d4, 0.7);
+}
+
+frame.canvas-node-action,
+frame.canvas-node-action > border {
+  background: linear-gradient(155deg, alpha(#dcfce7, 0.96) 0%, alpha(#f0fdf4, 0.96) 100%);
+  border-color: alpha(#22c55e, 0.68);
+}
+
+frame.canvas-node-ai,
+frame.canvas-node-ai > border {
+  background: linear-gradient(155deg, alpha(#ede9fe, 0.96) 0%, alpha(#f5f3ff, 0.96) 100%);
+  border-color: alpha(#8b5cf6, 0.7);
+}
+
+frame.canvas-node-condition,
+frame.canvas-node-condition > border {
+  background: linear-gradient(155deg, alpha(#fef3c7, 0.96) 0%, alpha(#fffbeb, 0.96) 100%);
+  border-color: alpha(#f59e0b, 0.74);
+}
+
+frame.canvas-node-template,
+frame.canvas-node-template > border {
+  background: linear-gradient(155deg, alpha(#e0f2fe, 0.96) 0%, alpha(#f0f9ff, 0.96) 100%);
+  border-color: alpha(#38bdf8, 0.7);
+}
+
+window.theme-dark frame.canvas-node-trigger,
+window.theme-dark frame.canvas-node-trigger > border {
+  background: linear-gradient(155deg, alpha(#0c4a6e, 0.58) 0%, alpha(#155e75, 0.45) 100%);
+  border-color: alpha(#22d3ee, 0.62);
+}
+
+window.theme-dark frame.canvas-node-action,
+window.theme-dark frame.canvas-node-action > border {
+  background: linear-gradient(155deg, alpha(#166534, 0.5) 0%, alpha(#14532d, 0.44) 100%);
+  border-color: alpha(#4ade80, 0.6);
+}
+
+window.theme-dark frame.canvas-node-ai,
+window.theme-dark frame.canvas-node-ai > border {
+  background: linear-gradient(155deg, alpha(#5b21b6, 0.46) 0%, alpha(#4c1d95, 0.4) 100%);
+  border-color: alpha(#c4b5fd, 0.58);
+}
+
+window.theme-dark frame.canvas-node-condition,
+window.theme-dark frame.canvas-node-condition > border {
+  background: linear-gradient(155deg, alpha(#b45309, 0.44) 0%, alpha(#78350f, 0.4) 100%);
+  border-color: alpha(#fbbf24, 0.62);
+}
+
+window.theme-dark frame.canvas-node-template,
+window.theme-dark frame.canvas-node-template > border {
+  background: linear-gradient(155deg, alpha(#0369a1, 0.42) 0%, alpha(#0c4a6e, 0.38) 100%);
+  border-color: alpha(#7dd3fc, 0.58);
+}
+
+frame.canvas-node-selected,
+frame.canvas-node-selected > border {
+  border-color: alpha(#2563eb, 0.96);
+  box-shadow: 0 0 0 3px alpha(#60a5fa, 0.28), 0 10px 24px alpha(#2563eb, 0.2);
+}
+
+window.theme-dark frame.canvas-node-selected,
+window.theme-dark frame.canvas-node-selected > border {
+  border-color: alpha(#93c5fd, 0.9);
+  box-shadow: 0 0 0 3px alpha(#3b82f6, 0.36), 0 10px 24px alpha(#1d4ed8, 0.34);
+}
+
+frame.canvas-node-link-source,
+frame.canvas-node-link-source > border {
+  border-style: solid;
+  border-color: alpha(#0ea5e9, 0.92);
+  box-shadow: 0 0 0 3px alpha(#38bdf8, 0.26);
+}
+
+window.theme-dark frame.canvas-node-link-source,
+window.theme-dark frame.canvas-node-link-source > border {
+  border-color: alpha(#67e8f9, 0.9);
+  box-shadow: 0 0 0 3px alpha(#22d3ee, 0.3);
+}
+
+.canvas-node-title {
+  font-size: 14px;
+  font-weight: 740;
+}
+
+.canvas-node-detail {
+  color: alpha(#0f172a, 0.82);
+  font-size: 11.5px;
+}
+
+window.theme-dark .canvas-node-detail {
+  color: alpha(#dbeafe, 0.9);
+}
+
+.node-kind-chip,
+.node-provider-chip,
+.node-link-source-label {
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.35px;
+}
+
+.node-kind-chip {
+  color: #0f172a;
+  background: alpha(#e2e8f0, 0.92);
+  border: 1px solid alpha(#94a3b8, 0.56);
+}
+
+.node-kind-trigger {
+  background: alpha(#a5f3fc, 0.92);
+  border-color: alpha(#06b6d4, 0.52);
+}
+
+.node-kind-action {
+  background: alpha(#bbf7d0, 0.92);
+  border-color: alpha(#22c55e, 0.5);
+}
+
+.node-kind-ai {
+  background: alpha(#ddd6fe, 0.92);
+  border-color: alpha(#8b5cf6, 0.52);
+}
+
+.node-kind-condition {
+  background: alpha(#fde68a, 0.92);
+  border-color: alpha(#f59e0b, 0.56);
+}
+
+.node-kind-template {
+  background: alpha(#bae6fd, 0.92);
+  border-color: alpha(#0ea5e9, 0.52);
+}
+
+.node-provider-chip {
+  color: #0f172a;
+  background: alpha(#bfdbfe, 0.9);
+  border: 1px solid alpha(#60a5fa, 0.6);
+}
+
+.node-link-source-label {
+  color: #0f172a;
+  background: alpha(#a5f3fc, 0.78);
+  border: 1px solid alpha(#06b6d4, 0.6);
+}
+
+window.theme-dark .node-kind-chip {
+  color: #e2e8f0;
+  background: alpha(#334155, 0.9);
+  border-color: alpha(#64748b, 0.62);
+}
+
+window.theme-dark .node-provider-chip {
+  color: #dbeafe;
+  background: alpha(#1d4ed8, 0.36);
+  border-color: alpha(#60a5fa, 0.58);
+}
+
+window.theme-dark .node-link-source-label {
+  color: #cffafe;
+  background: alpha(#0e7490, 0.42);
+  border-color: alpha(#22d3ee, 0.62);
+}
+
+window.density-compact .canvas-toolbar-row {
+  padding: 5px 7px;
+}
+
+window.density-compact .node-kind-chip,
+window.density-compact .node-provider-chip,
+window.density-compact .node-link-source-label {
+  font-size: 8px;
+  padding: 1px 6px;
+}
+
+/* Theme presets */
+window.theme-preset-graphite .hero-kicker {
+  color: #93c5fd;
+}
+
+window.theme-dark.theme-preset-indigo.app-window,
+window.theme-dark.theme-preset-indigo.app-window .background {
+  background-image:
+    radial-gradient(circle at 12% 12%, alpha(#6366f1, 0.3) 0%, alpha(#6366f1, 0) 36%),
+    radial-gradient(circle at 86% 8%, alpha(#8b5cf6, 0.2) 0%, alpha(#8b5cf6, 0) 36%),
+    linear-gradient(165deg, #090d1a 0%, #13162a 56%, #131a30 100%);
+}
+
+window.theme-dark.theme-preset-carbon.app-window,
+window.theme-dark.theme-preset-carbon.app-window .background {
+  background-image:
+    radial-gradient(circle at 10% 10%, alpha(#0f766e, 0.28) 0%, alpha(#0f766e, 0) 34%),
+    radial-gradient(circle at 88% 10%, alpha(#16a34a, 0.2) 0%, alpha(#16a34a, 0) 36%),
+    linear-gradient(165deg, #070f13 0%, #0d1b23 56%, #102225 100%);
+}
+
+window.theme-dark.theme-preset-indigo .app-headerbar {
+  border-bottom: 1px solid alpha(#818cf8, 0.45);
+}
+
+window.theme-dark.theme-preset-carbon .app-headerbar {
+  border-bottom: 1px solid alpha(#34d399, 0.38);
+}
+
+window.theme-preset-indigo .hero-kicker {
+  color: #c4b5fd;
+}
+
+window.theme-preset-carbon .hero-kicker {
+  color: #86efac;
+}
+
+window.theme-preset-indigo .page-root button.suggested-action {
+  background-image: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%);
+  border-color: alpha(#4338ca, 0.95);
+}
+
+window.theme-preset-indigo .page-root button.suggested-action:hover {
+  background-image: linear-gradient(180deg, #5458e8 0%, #4338ca 100%);
+}
+
+window.theme-preset-carbon .page-root button.suggested-action {
+  background-image: linear-gradient(180deg, #0f766e 0%, #0f766e 35%, #0f766e 100%);
+  border-color: alpha(#065f46, 0.94);
+}
+
+window.theme-preset-carbon .page-root button.suggested-action:hover {
+  background-image: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
+}
+
+window.theme-preset-indigo .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#a5b4fc, 0.96) 0%, alpha(#818cf8, 0.96) 100%);
+  color: #312e81;
+  box-shadow: inset 0 0 0 1px alpha(#6366f1, 0.74);
+}
+
+window.theme-dark.theme-preset-indigo .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#4f46e5, 0.5) 0%, alpha(#4338ca, 0.42) 100%);
+  color: #eef2ff;
+  box-shadow: inset 0 0 0 1px alpha(#a5b4fc, 0.48);
+}
+
+window.theme-preset-carbon .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#bbf7d0, 0.95) 0%, alpha(#86efac, 0.95) 100%);
+  color: #14532d;
+  box-shadow: inset 0 0 0 1px alpha(#16a34a, 0.62);
+}
+
+window.theme-dark.theme-preset-carbon .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#15803d, 0.45) 0%, alpha(#166534, 0.4) 100%);
+  color: #f0fdf4;
+  box-shadow: inset 0 0 0 1px alpha(#4ade80, 0.46);
+}
+
+window.theme-preset-indigo frame.canvas-node-selected,
+window.theme-preset-indigo frame.canvas-node-selected > border {
+  border-color: alpha(#4f46e5, 0.96);
+  box-shadow: 0 0 0 3px alpha(#818cf8, 0.3), 0 10px 24px alpha(#4338ca, 0.22);
+}
+
+window.theme-dark.theme-preset-indigo frame.canvas-node-selected,
+window.theme-dark.theme-preset-indigo frame.canvas-node-selected > border {
+  border-color: alpha(#a5b4fc, 0.9);
+  box-shadow: 0 0 0 3px alpha(#6366f1, 0.38), 0 10px 24px alpha(#312e81, 0.35);
+}
+
+window.theme-preset-carbon frame.canvas-node-selected,
+window.theme-preset-carbon frame.canvas-node-selected > border {
+  border-color: alpha(#0f766e, 0.96);
+  box-shadow: 0 0 0 3px alpha(#2dd4bf, 0.26), 0 10px 24px alpha(#115e59, 0.2);
+}
+
+window.theme-dark.theme-preset-carbon frame.canvas-node-selected,
+window.theme-dark.theme-preset-carbon frame.canvas-node-selected > border {
+  border-color: alpha(#5eead4, 0.88);
+  box-shadow: 0 0 0 3px alpha(#14b8a6, 0.34), 0 10px 24px alpha(#134e4a, 0.32);
+}
+
+/* Premium V2 overrides */
+window.app-window,
+window.app-window .background {
+  background-image:
+    radial-gradient(circle at 7% 8%, alpha(#3b82f6, 0.25) 0%, alpha(#3b82f6, 0) 34%),
+    radial-gradient(circle at 93% 10%, alpha(#22d3ee, 0.18) 0%, alpha(#22d3ee, 0) 32%),
+    linear-gradient(165deg, #060b14 0%, #0b1322 56%, #0b1728 100%);
+}
+
+window.theme-light.app-window,
+window.theme-light.app-window .background {
+  background-image:
+    radial-gradient(circle at 8% 10%, alpha(#60a5fa, 0.18) 0%, alpha(#60a5fa, 0) 35%),
+    radial-gradient(circle at 90% 8%, alpha(#0ea5e9, 0.12) 0%, alpha(#0ea5e9, 0) 34%),
+    linear-gradient(160deg, #f5f9ff 0%, #ebf3ff 56%, #e6f0ff 100%);
+}
+
+.app-headerbar {
+  background: linear-gradient(180deg, alpha(#0f1f36, 0.94) 0%, alpha(#12243f, 0.9) 100%);
+  border-bottom: 1px solid alpha(#3b82f6, 0.45);
+  box-shadow: 0 6px 18px alpha(#020617, 0.28);
+}
+
+window.theme-light .app-headerbar {
+  background: linear-gradient(180deg, alpha(#f8fbff, 0.94) 0%, alpha(#edf5ff, 0.94) 100%);
+  border-bottom: 1px solid alpha(#93c5fd, 0.78);
+  box-shadow: 0 4px 14px alpha(#1e3a8a, 0.09);
+}
+
+.app-view-chip,
+.daemon-state-chip {
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.45px;
+}
+
+.app-view-chip {
+  color: #dbeafe;
+  background: alpha(#1d4ed8, 0.4);
+  border: 1px solid alpha(#60a5fa, 0.56);
+}
+
+window.theme-light .app-view-chip {
+  color: #1e3a8a;
+  background: alpha(#dbeafe, 0.95);
+  border-color: alpha(#60a5fa, 0.62);
+}
+
+.daemon-state-chip {
+  color: #dbeafe;
+  background: alpha(#1e293b, 0.58);
+  border: 1px solid alpha(#475569, 0.75);
+}
+
+.daemon-state-running {
+  color: #dcfce7;
+  background: alpha(#15803d, 0.36);
+  border-color: alpha(#4ade80, 0.48);
+}
+
+.daemon-state-stopped {
+  color: #fecaca;
+  background: alpha(#991b1b, 0.36);
+  border-color: alpha(#f87171, 0.44);
+}
+
+.daemon-state-managed {
+  color: #e0e7ff;
+  background: alpha(#4338ca, 0.4);
+  border-color: alpha(#a5b4fc, 0.46);
+}
+
+window.theme-light .daemon-state-chip {
+  color: #0f172a;
+  background: alpha(#e2e8f0, 0.85);
+  border-color: alpha(#94a3b8, 0.6);
+}
+
+window.theme-light .daemon-state-running {
+  color: #166534;
+  background: alpha(#dcfce7, 0.9);
+  border-color: alpha(#22c55e, 0.56);
+}
+
+window.theme-light .daemon-state-stopped {
+  color: #991b1b;
+  background: alpha(#fee2e2, 0.88);
+  border-color: alpha(#ef4444, 0.56);
+}
+
+window.theme-light .daemon-state-managed {
+  color: #3730a3;
+  background: alpha(#e0e7ff, 0.9);
+  border-color: alpha(#818cf8, 0.56);
+}
+
+.header-action-button {
+  min-height: 32px;
+  padding: 5px 12px;
+}
+
+.navigation-sidebar {
+  border-radius: 14px;
+  background: linear-gradient(180deg, alpha(#0f213c, 0.9) 0%, alpha(#0f1f35, 0.9) 100%);
+  border: 1px solid alpha(#3b82f6, 0.38);
+  box-shadow: inset 0 1px 0 alpha(#60a5fa, 0.2), 0 10px 26px alpha(#020617, 0.3);
+}
+
+window.theme-light .navigation-sidebar {
+  background: linear-gradient(180deg, alpha(#eef5ff, 0.96) 0%, alpha(#e6f0ff, 0.96) 100%);
+  border-color: alpha(#93c5fd, 0.68);
+  box-shadow: inset 0 1px 0 alpha(#ffffff, 0.8), 0 8px 20px alpha(#1e3a8a, 0.1);
+}
+
+.sidebar-brand {
+  border-radius: 12px;
+  padding: 8px 9px;
+  background: linear-gradient(150deg, alpha(#1d4ed8, 0.24) 0%, alpha(#0ea5e9, 0.2) 100%);
+  border: 1px solid alpha(#60a5fa, 0.42);
+}
+
+window.theme-light .sidebar-brand {
+  background: linear-gradient(150deg, alpha(#dbeafe, 0.88) 0%, alpha(#e0f2fe, 0.84) 100%);
+  border-color: alpha(#7dd3fc, 0.58);
+}
+
+.sidebar-brand-kicker {
+  color: #93c5fd;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.95px;
+}
+
+window.theme-light .sidebar-brand-kicker {
+  color: #1d4ed8;
+}
+
+.navigation-sidebar row {
+  margin: 2px 0;
+  border-radius: 11px;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+}
+
+.navigation-sidebar row:hover {
+  border-color: alpha(#60a5fa, 0.36);
+}
+
+.navigation-sidebar row:selected {
+  border-color: alpha(#93c5fd, 0.54);
+  box-shadow: inset 0 0 0 1px alpha(#60a5fa, 0.38);
+}
+
+frame.shell-sidebar,
+frame.shell-sidebar > border {
+  border-radius: 16px;
+}
+
+frame.shell-content,
+frame.shell-content > border {
+  border-radius: 16px;
+  background: linear-gradient(180deg, alpha(#0f1d31, 0.82) 0%, alpha(#0d1a2b, 0.82) 100%);
+  border: 1px solid alpha(#334155, 0.84);
+}
+
+window.theme-light frame.shell-content,
+window.theme-light frame.shell-content > border {
+  background: linear-gradient(180deg, alpha(#f8fbff, 0.94) 0%, alpha(#f2f8ff, 0.94) 100%);
+  border-color: alpha(#bfdbfe, 0.86);
+}
+
+.page-hero {
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: linear-gradient(132deg, alpha(#1d4ed8, 0.25) 0%, alpha(#0ea5e9, 0.22) 100%);
+  border: 1px solid alpha(#60a5fa, 0.44);
+}
+
+window.theme-light .page-hero {
+  background: linear-gradient(132deg, alpha(#dbeafe, 0.9) 0%, alpha(#e0f2fe, 0.86) 100%);
+  border-color: alpha(#93c5fd, 0.75);
+}
+
+frame.panel-card,
+frame.panel-card > border,
+frame.list-card,
+frame.list-card > border {
+  border-radius: 14px;
+}
+
+frame.panel-card,
+frame.panel-card > border {
+  background: linear-gradient(180deg, alpha(#13233b, 0.95) 0%, alpha(#0f1f34, 0.95) 100%);
+  border-color: alpha(#3b82f6, 0.44);
+}
+
+window.theme-light frame.panel-card,
+window.theme-light frame.panel-card > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.98) 0%, alpha(#f4f9ff, 0.98) 100%);
+  border-color: alpha(#93c5fd, 0.64);
+}
+
+frame.list-card,
+frame.list-card > border {
+  background: linear-gradient(180deg, alpha(#14253e, 0.95) 0%, alpha(#102136, 0.95) 100%);
+  border-color: alpha(#475569, 0.82);
+}
+
+window.theme-light frame.list-card,
+window.theme-light frame.list-card > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.97) 0%, alpha(#f6faff, 0.97) 100%);
+  border-color: alpha(#cbd5e1, 0.9);
+}
+
+button,
+entry,
+dropdown > button,
+spinbutton {
+  border-radius: 11px;
+}
+
+button {
+  min-height: 32px;
+  padding: 5px 12px;
+}
+
+button.suggested-action {
+  background-image: linear-gradient(180deg, #2f6bf0 0%, #1d4ed8 100%);
+}
+
+button.suggested-action:hover {
+  background-image: linear-gradient(180deg, #2563eb 0%, #1e40af 100%);
+}
+
+.inline-status,
+.empty-state-label {
+  border-radius: 11px;
+}
+
+.inline-status {
+  background: alpha(#0f172a, 0.46);
+  border: 1px solid alpha(#334155, 0.88);
+}
+
+.empty-state-label {
+  background: alpha(#0f172a, 0.44);
+  border: 1px dashed alpha(#334155, 0.88);
+}
+
+window.theme-light .inline-status {
+  background: alpha(#eef2ff, 0.75);
+  border-color: alpha(#c7d2fe, 0.76);
+}
+
+window.theme-light .empty-state-label {
+  background: alpha(#f8fafc, 0.92);
+  border-color: alpha(#cbd5e1, 0.88);
+}
+
+.canvas-toolbar-row {
+  border-radius: 12px;
+  padding: 7px 9px;
+}
+
+.canvas-summary-label {
+  border-radius: 11px;
+}
+
+/* Command palette */
+.command-palette-window,
+.command-palette-window .background {
+  background: alpha(#060b14, 0.96);
+}
+
+window.theme-light .command-palette-window,
+window.theme-light .command-palette-window .background {
+  background: alpha(#f8fbff, 0.98);
+}
+
+.command-palette-shell {
+  border-radius: 14px;
+  background: linear-gradient(175deg, alpha(#0f1f36, 0.96) 0%, alpha(#0c182b, 0.96) 100%);
+  border: 1px solid alpha(#3b82f6, 0.44);
+}
+
+window.theme-light .command-palette-shell {
+  background: linear-gradient(175deg, alpha(#ffffff, 0.98) 0%, alpha(#f3f8ff, 0.98) 100%);
+  border-color: alpha(#93c5fd, 0.68);
+}
+
+.command-palette-entry {
+  min-height: 34px;
+  font-size: 14px;
+}
+
+.command-palette-list row {
+  border-radius: 11px;
+  border: 1px solid transparent;
+  margin: 2px 0;
+}
+
+.command-palette-row-content {
+  border-radius: 11px;
+}
+
+.command-palette-list row:hover {
+  border-color: alpha(#60a5fa, 0.34);
+  background: alpha(#1d4ed8, 0.18);
+}
+
+.command-palette-list row:selected {
+  border-color: alpha(#93c5fd, 0.54);
+  background: alpha(#2563eb, 0.26);
+}
+
+window.theme-light .command-palette-list row:hover {
+  border-color: alpha(#60a5fa, 0.42);
+  background: alpha(#dbeafe, 0.88);
+}
+
+window.theme-light .command-palette-list row:selected {
+  border-color: alpha(#3b82f6, 0.56);
+  background: alpha(#bfdbfe, 0.84);
+}
+
+.command-palette-icon {
+  opacity: 0.9;
+}
+
+.command-palette-shortcut {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #dbeafe;
+  background: alpha(#1e3a8a, 0.58);
+  border: 1px solid alpha(#60a5fa, 0.44);
+}
+
+window.theme-light .command-palette-shortcut {
+  color: #1e3a8a;
+  background: alpha(#dbeafe, 0.92);
+  border-color: alpha(#60a5fa, 0.54);
+}
+
+/* Additional theme presets */
+window.theme-dark.theme-preset-aurora.app-window,
+window.theme-dark.theme-preset-aurora.app-window .background {
+  background-image:
+    radial-gradient(circle at 11% 8%, alpha(#0d9488, 0.28) 0%, alpha(#0d9488, 0) 36%),
+    radial-gradient(circle at 88% 10%, alpha(#22c55e, 0.2) 0%, alpha(#22c55e, 0) 34%),
+    linear-gradient(165deg, #07120f 0%, #0a1f1b 56%, #0a2622 100%);
+}
+
+window.theme-dark.theme-preset-frost.app-window,
+window.theme-dark.theme-preset-frost.app-window .background {
+  background-image:
+    radial-gradient(circle at 8% 8%, alpha(#38bdf8, 0.25) 0%, alpha(#38bdf8, 0) 34%),
+    radial-gradient(circle at 90% 9%, alpha(#a5b4fc, 0.2) 0%, alpha(#a5b4fc, 0) 36%),
+    linear-gradient(165deg, #071018 0%, #0c1a27 56%, #132234 100%);
+}
+
+window.theme-preset-aurora .hero-kicker {
+  color: #6ee7b7;
+}
+
+window.theme-preset-frost .hero-kicker {
+  color: #bfdbfe;
+}
+
+window.theme-preset-aurora .page-root button.suggested-action {
+  background-image: linear-gradient(180deg, #10b981 0%, #0f766e 100%);
+  border-color: alpha(#0f766e, 0.92);
+}
+
+window.theme-preset-aurora .page-root button.suggested-action:hover {
+  background-image: linear-gradient(180deg, #059669 0%, #0f766e 100%);
+}
+
+window.theme-preset-frost .page-root button.suggested-action {
+  background-image: linear-gradient(180deg, #38bdf8 0%, #2563eb 100%);
+  border-color: alpha(#1d4ed8, 0.92);
+}
+
+window.theme-preset-frost .page-root button.suggested-action:hover {
+  background-image: linear-gradient(180deg, #0ea5e9 0%, #1d4ed8 100%);
+}
+
+window.theme-preset-aurora .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#86efac, 0.9) 0%, alpha(#34d399, 0.9) 100%);
+  color: #064e3b;
+  box-shadow: inset 0 0 0 1px alpha(#10b981, 0.64);
+}
+
+window.theme-dark.theme-preset-aurora .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#047857, 0.48) 0%, alpha(#0f766e, 0.42) 100%);
+  color: #ecfdf5;
+  box-shadow: inset 0 0 0 1px alpha(#6ee7b7, 0.46);
+}
+
+window.theme-preset-frost .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#dbeafe, 0.92) 0%, alpha(#bfdbfe, 0.92) 100%);
+  color: #1e3a8a;
+  box-shadow: inset 0 0 0 1px alpha(#60a5fa, 0.62);
+}
+
+window.theme-dark.theme-preset-frost .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#2563eb, 0.46) 0%, alpha(#1d4ed8, 0.4) 100%);
+  color: #eff6ff;
+  box-shadow: inset 0 0 0 1px alpha(#93c5fd, 0.46);
+}
+
+/* Canvas rail layout overrides */
+.canvas-root {
+}
+
+.canvas-control-subtitle {
+  padding-bottom: 2px;
+}
+
+frame.canvas-stage-frame,
+frame.canvas-stage-frame > border {
+  border-radius: 14px;
+  border-color: alpha(#60a5fa, 0.56);
+}
+
+window.theme-light frame.canvas-stage-frame,
+window.theme-light frame.canvas-stage-frame > border {
+  border-color: alpha(#93c5fd, 0.74);
+}
+
+frame.canvas-inspector-frame,
+frame.canvas-inspector-frame > border {
+  border-radius: 14px;
+  background: linear-gradient(180deg, alpha(#0f1f35, 0.97) 0%, alpha(#0c1a2d, 0.97) 100%);
+  border-color: alpha(#3b82f6, 0.5);
+}
+
+window.theme-light frame.canvas-inspector-frame,
+window.theme-light frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#f9fcff, 0.98) 0%, alpha(#f2f8ff, 0.98) 100%);
+  border-color: alpha(#93c5fd, 0.72);
+}
+
+.canvas-inspector .canvas-toolbar-row {
+  padding: 5px 7px;
+}
+
+.canvas-inspector .canvas-status {
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+
+paned.canvas-split > separator {
+  min-width: 7px;
+}
+
+.canvas-port-row {
+  margin-top: 2px;
+}
+
+.canvas-node-port {
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.2px;
+}
+
+.canvas-node-port-in {
+  color: #164e63;
+  background: alpha(#a5f3fc, 0.88);
+  border: 1px solid alpha(#06b6d4, 0.52);
+}
+
+.canvas-node-port-out {
+  color: #1e3a8a;
+  background: alpha(#bfdbfe, 0.9);
+  border: 1px solid alpha(#3b82f6, 0.52);
+}
+
+window.theme-dark .canvas-node-port-in {
+  color: #cffafe;
+  background: alpha(#0e7490, 0.42);
+  border-color: alpha(#22d3ee, 0.52);
+}
+
+window.theme-dark .canvas-node-port-out {
+  color: #dbeafe;
+  background: alpha(#1d4ed8, 0.38);
+  border-color: alpha(#60a5fa, 0.54);
+}
+
+.node-kind-icon {
+  opacity: 0.88;
+}
+
+.canvas-inspector-shell-box {
+}
+
+.canvas-control-box .canvas-toolbar-row {
+  padding: 4px 6px;
+}
+
+.canvas-control-box .section-icon-row .title-3 {
+  font-size: 13px;
+}
+
+.canvas-inspector .title-3 {
+  font-size: 14px;
+}
+
+.canvas-inspector .heading {
+  font-size: 13px;
+}
+
+.canvas-inspector label {
+  font-size: 12px;
+}
+
+.canvas-inspector .canvas-inspector-title {
+  font-size: 16px;
+}
+
+.canvas-inspector .canvas-summary-label {
+  font-size: 12px;
+}
+
+/* Sidebar size refinement */
+.navigation-sidebar row {
+  padding: 3px 5px;
+  margin: 1px 0;
+}
+
+.navigation-row-label {
+  font-size: 12px;
+}
+
+.sidebar-brand {
+  padding: 6px 7px;
+}
+
+.sidebar-brand .title-3 {
+  font-size: 19px;
+}
+
+.sidebar-brand-kicker {
+  font-size: 8px;
+}
+
+/* AI / test console polish */
+.bots-root .canvas-toolbar-row,
+.integrations-root .canvas-toolbar-row,
+.settings-root .canvas-toolbar-row {
+  border-radius: 11px;
+  padding: 5px 7px;
+}
+
+.settings-root textview,
+.bots-root textview,
+.integrations-root textview,
+.settings-root textview text,
+.bots-root textview text,
+.integrations-root textview text {
+  font-family: "IBM Plex Sans", "Manrope", "Noto Sans", "Cantarell", sans-serif;
+  font-size: 12.5px;
+}
+
+.settings-root frame.canvas-edit-detail-frame,
+.bots-root frame.canvas-edit-detail-frame,
+.integrations-root frame.canvas-edit-detail-frame,
+.settings-root frame.canvas-edit-detail-frame > border,
+.bots-root frame.canvas-edit-detail-frame > border,
+.integrations-root frame.canvas-edit-detail-frame > border {
+  border-radius: 11px;
+}
+
+/* Premium density refinement */
+.navigation-sidebar {
+  padding: 5px;
+}
+
+.navigation-row-icon {
+  -gtk-icon-size: 14px;
+  opacity: 0.92;
+}
+
+.navigation-row-label {
+  font-size: 11.5px;
+  font-weight: 580;
+}
+
+.navigation-sidebar row {
+  min-height: 26px;
+  padding: 2px 4px;
+}
+
+.sidebar-brand-title {
+  font-size: 16px;
+  font-weight: 740;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 11px;
+}
+
+.sidebar-brand .daemon-state-chip {
+  padding: 2px 8px;
+  font-size: 9px;
+}
+
+.canvas-inspector .canvas-toolbar-row {
+  padding: 4px 6px;
+}
+
+.canvas-inspector .title-3 {
+  font-size: 13px;
+}
+
+.canvas-inspector .heading {
+  font-size: 12px;
+}
+
+.canvas-inspector label {
+  font-size: 11.5px;
+}
+
+.canvas-inspector .canvas-inspector-title {
+  font-size: 15px;
+}
+
+.bots-root .bot-tuning-chip {
+  padding: 4px 8px;
+  font-size: 10.5px;
+}
+
+.settings-root .settings-field-row,
+.bots-root .settings-field-row,
+.integrations-root .settings-field-row {
+  padding: 7px 9px;
+}
+
+/* Premium compact layout pass */
+window.app-window,
+window.app-window .background {
+  font-size: 12px;
+}
+
+.title-1 {
+  font-size: 22px;
+}
+
+.title-2 {
+  font-size: 17px;
+}
+
+.title-3 {
+  font-size: 14px;
+}
+
+.title-4 {
+  font-size: 12px;
+}
+
+button,
+entry,
+dropdown > button,
+spinbutton {
+  min-height: 27px;
+}
+
+button {
+  padding: 4px 10px;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  padding: 3px 7px;
+}
+
+textview {
+  padding: 4px;
+}
+
+.page-hero {
+  padding: 9px 11px;
+}
+
+.canvas-toolbar-row {
+  padding: 4px 6px;
+}
+
+.inline-status,
+.empty-state-label {
+  padding: 4px 7px;
+}
+
+.settings-field-row,
+.settings-toggle-row {
+  padding: 6px 8px;
+}
+
+.navigation-sidebar {
+  padding: 4px;
+}
+
+.navigation-sidebar row {
+  min-height: 24px;
+  padding: 1px 3px;
+}
+
+.navigation-row-label {
+  font-size: 11px;
+}
+
+.sidebar-brand {
+  padding: 5px 6px;
+}
+
+.sidebar-brand-title {
+  font-size: 15px;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 10.5px;
+}
+
+.canvas-inspector-shell-box {
+}
+
+.canvas-inspector .heading {
+  font-size: 11.5px;
+}
+
+.canvas-inspector label {
+  font-size: 11px;
+}
+
+.canvas-node-title {
+  font-size: 13px;
+}
+
+.canvas-node-detail {
+  font-size: 10.5px;
+}
+
+.canvas-workflow-mode .canvas-toolbar-row {
+  padding: 3px 5px;
+}
+
+scrolledwindow.canvas-node-mode-scroll > viewport {
+  background: transparent;
+}
+
+/* Premium studio v4 */
+window.app-window,
+window.app-window .background {
+  font-size: 11.5px;
+}
+
+.header-action-button {
+  min-height: 28px;
+  padding: 3px 10px;
+}
+
+frame.shell-sidebar,
+frame.shell-sidebar > border,
+frame.shell-content,
+frame.shell-content > border {
+  border-radius: 13px;
+}
+
+.page-root {
+}
+
+frame.panel-card,
+frame.panel-card > border,
+frame.list-card,
+frame.list-card > border {
+  border-radius: 12px;
+}
+
+frame.canvas-stage-frame,
+frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#0b1020, 0.98) 0%, alpha(#090f1d, 0.98) 100%);
+  border-color: alpha(#334155, 0.95);
+}
+
+frame.canvas-inspector-frame,
+frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#0f1a2d, 0.98) 0%, alpha(#0b1424, 0.98) 100%);
+  border-color: alpha(#334155, 0.9);
+}
+
+window.theme-light frame.canvas-inspector-frame,
+window.theme-light frame.canvas-inspector-frame > border,
+window.theme-light frame.canvas-stage-frame,
+window.theme-light frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#0f1a2d, 0.97) 0%, alpha(#0b1424, 0.97) 100%);
+  border-color: alpha(#334155, 0.88);
+}
+
+.canvas-workflow-mode .section-icon-row label {
+  font-size: 11px;
+  letter-spacing: 0.15px;
+  color: #dbeafe;
+}
+
+.canvas-rail-heading label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.canvas-control-subtitle {
+  font-size: 10.5px;
+  line-height: 1.25;
+  color: alpha(#cbd5e1, 0.9);
+}
+
+.canvas-workflow-mode .canvas-toolbar-row {
+  border-radius: 10px;
+  background: alpha(#101b30, 0.72);
+  border-color: alpha(#334155, 0.84);
+}
+
+window.theme-light .canvas-workflow-mode .canvas-toolbar-row {
+  background: alpha(#101b30, 0.72);
+  border-color: alpha(#334155, 0.84);
+}
+
+.canvas-status {
+  background: alpha(#0f172a, 0.72);
+  border-color: alpha(#334155, 0.9);
+  font-size: 10.5px;
+  color: #dbeafe;
+}
+
+frame.canvas-node-card,
+frame.canvas-node-card > border {
+  border-radius: 12px;
+  background: linear-gradient(180deg, alpha(#1a2234, 0.98) 0%, alpha(#11192b, 0.98) 100%);
+  border-color: alpha(#64748b, 0.76);
+  box-shadow: 0 6px 18px alpha(#020617, 0.35);
+}
+
+window.theme-light frame.canvas-node-card,
+window.theme-light frame.canvas-node-card > border {
+  background: linear-gradient(180deg, alpha(#1a2234, 0.98) 0%, alpha(#11192b, 0.98) 100%);
+  border-color: alpha(#64748b, 0.76);
+}
+
+frame.canvas-node-selected,
+frame.canvas-node-selected > border {
+  border-color: alpha(#60a5fa, 0.96);
+  box-shadow: 0 0 0 2px alpha(#60a5fa, 0.36), 0 10px 24px alpha(#1d4ed8, 0.28);
+}
+
+.canvas-node-title {
+  color: #e5edf8;
+  font-size: 12px;
+  font-weight: 690;
+}
+
+.canvas-node-detail {
+  color: alpha(#cdd9eb, 0.9);
+  font-size: 10px;
+}
+
+.node-kind-chip,
+.node-provider-chip {
+  font-size: 8px;
+  padding: 1px 6px;
+  letter-spacing: 0.4px;
+}
+
+.canvas-port-row {
+  margin-top: 0;
+}
+
+.canvas-node-port {
+  min-width: 14px;
+  min-height: 14px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.canvas-node-port-dot {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.canvas-node-port-in {
+  color: #c7d2fe;
+  background: alpha(#334155, 0.88);
+  border: 1px solid alpha(#60a5fa, 0.46);
+}
+
+.canvas-node-port-out {
+  color: #dbeafe;
+  background: alpha(#1d4ed8, 0.42);
+  border: 1px solid alpha(#60a5fa, 0.66);
+}
+
+.canvas-inspector .canvas-inspector-title {
+  font-size: 14px;
+  color: #eff6ff;
+}
+
+.canvas-inspector .heading {
+  font-size: 11px;
+  color: #dbeafe;
+}
+
+.canvas-inspector label {
+  font-size: 10.5px;
+  color: #cbd5e1;
+}
+
+.canvas-inspector entry,
+.canvas-inspector dropdown > button,
+.canvas-inspector textview,
+.canvas-inspector textview text,
+.canvas-workflow-mode entry,
+.canvas-workflow-mode dropdown > button,
+.canvas-workflow-mode textview,
+.canvas-workflow-mode textview text {
+  background: alpha(#0f172a, 0.88);
+  color: #e2e8f0;
+  border-color: alpha(#334155, 0.9);
+}
+
+/* Premium control surfaces */
+.settings-segmented-row {
+  border-radius: 10px;
+  padding: 3px;
+  background: alpha(#0f172a, 0.72);
+  border: 1px solid alpha(#334155, 0.88);
+}
+
+.settings-segment-button {
+  border-radius: 8px;
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #cbd5e1;
+  font-weight: 640;
+}
+
+.settings-segment-button:checked {
+  background: linear-gradient(180deg, alpha(#3b82f6, 0.92) 0%, alpha(#1d4ed8, 0.92) 100%);
+  border-color: alpha(#60a5fa, 0.72);
+  color: #eff6ff;
+}
+
+window.theme-light .settings-segmented-row {
+  background: alpha(#dbeafe, 0.8);
+  border-color: alpha(#93c5fd, 0.78);
+}
+
+window.theme-light .settings-segment-button {
+  color: #1e3a8a;
+}
+
+window.theme-light .settings-segment-button:checked {
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #ffffff;
+}
+
+.settings-adjust-row {
+  border-radius: 10px;
+  padding: 5px 8px;
+  background: alpha(#0f172a, 0.62);
+  border: 1px solid alpha(#334155, 0.88);
+}
+
+window.theme-light .settings-adjust-row {
+  background: alpha(#eef2ff, 0.86);
+  border-color: alpha(#c7d2fe, 0.78);
+}
+
+.settings-root scale trough {
+  min-height: 8px;
+  border-radius: 999px;
+  background: alpha(#334155, 0.64);
+}
+
+.settings-root scale highlight {
+  min-height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, alpha(#60a5fa, 0.96) 0%, alpha(#2563eb, 0.96) 100%);
+}
+
+.settings-root scale slider {
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 1px solid alpha(#3b82f6, 0.75);
+}
+
+window.theme-light .settings-root scale trough {
+  background: alpha(#cbd5e1, 0.95);
+}
+
+window.theme-light .settings-root scale slider {
+  background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%);
+  border-color: alpha(#3b82f6, 0.66);
+}
+
+.settings-field-compact {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* Theme manager v3: consistent preset accents + light/dark canvas parity */
+window.app-window.theme-light frame.canvas-stage-frame,
+window.app-window.theme-light frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#f8fbff, 0.98) 0%, alpha(#f0f6ff, 0.98) 100%);
+  border-color: alpha(#bfdbfe, 0.9);
+}
+
+window.app-window.theme-light frame.canvas-inspector-frame,
+window.app-window.theme-light frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.98) 0%, alpha(#f6faff, 0.98) 100%);
+  border-color: alpha(#bfdbfe, 0.86);
+}
+
+window.app-window.theme-light .canvas-workflow-mode .canvas-toolbar-row {
+  background: linear-gradient(180deg, alpha(#edf4ff, 0.92) 0%, alpha(#e6f0ff, 0.92) 100%);
+  border-color: alpha(#bfdbfe, 0.86);
+}
+
+window.app-window.theme-light .canvas-workflow-mode .section-icon-row label {
+  color: #1e3a8a;
+}
+
+window.app-window.theme-light .canvas-control-subtitle {
+  color: alpha(#334155, 0.84);
+}
+
+window.app-window.theme-light .canvas-status {
+  background: alpha(#eef2ff, 0.82);
+  border-color: alpha(#c7d2fe, 0.78);
+  color: #1e3a8a;
+}
+
+window.app-window.theme-light .canvas-inspector .canvas-inspector-title {
+  color: #1e293b;
+}
+
+window.app-window.theme-light .canvas-inspector .heading {
+  color: #334155;
+}
+
+window.app-window.theme-light .canvas-inspector label {
+  color: #475569;
+}
+
+window.app-window.theme-light .canvas-inspector entry,
+window.app-window.theme-light .canvas-inspector dropdown > button,
+window.app-window.theme-light .canvas-inspector textview,
+window.app-window.theme-light .canvas-inspector textview text,
+window.app-window.theme-light .canvas-workflow-mode entry,
+window.app-window.theme-light .canvas-workflow-mode dropdown > button,
+window.app-window.theme-light .canvas-workflow-mode textview,
+window.app-window.theme-light .canvas-workflow-mode textview text {
+  background: alpha(#ffffff, 0.96);
+  color: #0f172a;
+  border-color: alpha(#cbd5e1, 0.9);
+}
+
+window.app-window.theme-light frame.canvas-node-card,
+window.app-window.theme-light frame.canvas-node-card > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.98) 0%, alpha(#f4f8ff, 0.98) 100%);
+  border-color: alpha(#94a3b8, 0.72);
+}
+
+window.app-window.theme-light .canvas-node-title {
+  color: #0f172a;
+}
+
+window.app-window.theme-light .canvas-node-detail {
+  color: alpha(#334155, 0.86);
+}
+
+window.app-window.theme-light .node-kind-chip {
+  color: #0f172a;
+  background: alpha(#e2e8f0, 0.92);
+  border-color: alpha(#94a3b8, 0.56);
+}
+
+window.app-window.theme-light .node-provider-chip {
+  color: #1e3a8a;
+  background: alpha(#dbeafe, 0.92);
+  border-color: alpha(#60a5fa, 0.62);
+}
+
+window.app-window.theme-light .canvas-node-port-in {
+  color: #1e3a8a;
+  background: alpha(#e2e8f0, 0.95);
+  border-color: alpha(#93c5fd, 0.72);
+}
+
+window.app-window.theme-light .canvas-node-port-out {
+  color: #ffffff;
+  background: alpha(#2563eb, 0.92);
+  border-color: alpha(#1d4ed8, 0.76);
+}
+
+window.app-window.theme-light frame.canvas-node-selected,
+window.app-window.theme-light frame.canvas-node-selected > border {
+  border-color: alpha(#2563eb, 0.95);
+  box-shadow: 0 0 0 2px alpha(#60a5fa, 0.26), 0 8px 20px alpha(#1d4ed8, 0.2);
+}
+
+window.app-window.theme-preset-indigo .settings-segment-button:checked,
+window.app-window.theme-preset-indigo .page-root button.suggested-action {
+  background-image: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%);
+  border-color: alpha(#4338ca, 0.9);
+}
+
+window.app-window.theme-preset-carbon .settings-segment-button:checked,
+window.app-window.theme-preset-carbon .page-root button.suggested-action {
+  background-image: linear-gradient(180deg, #0f766e 0%, #0f766e 100%);
+  border-color: alpha(#0f766e, 0.9);
+}
+
+window.app-window.theme-preset-aurora .settings-segment-button:checked,
+window.app-window.theme-preset-aurora .page-root button.suggested-action {
+  background-image: linear-gradient(180deg, #10b981 0%, #0f766e 100%);
+  border-color: alpha(#0f766e, 0.88);
+}
+
+window.app-window.theme-preset-frost .settings-segment-button:checked,
+window.app-window.theme-preset-frost .page-root button.suggested-action {
+  background-image: linear-gradient(180deg, #38bdf8 0%, #2563eb 100%);
+  border-color: alpha(#1d4ed8, 0.9);
+}
+
+window.app-window.theme-preset-indigo .settings-root scale highlight {
+  background: linear-gradient(90deg, alpha(#818cf8, 0.96) 0%, alpha(#6366f1, 0.96) 100%);
+}
+
+window.app-window.theme-preset-carbon .settings-root scale highlight {
+  background: linear-gradient(90deg, alpha(#2dd4bf, 0.96) 0%, alpha(#0f766e, 0.96) 100%);
+}
+
+window.app-window.theme-preset-aurora .settings-root scale highlight {
+  background: linear-gradient(90deg, alpha(#6ee7b7, 0.96) 0%, alpha(#10b981, 0.96) 100%);
+}
+
+window.app-window.theme-preset-frost .settings-root scale highlight {
+  background: linear-gradient(90deg, alpha(#7dd3fc, 0.96) 0%, alpha(#38bdf8, 0.96) 100%);
+}
+
+/* Premium compact controls and chips */
+.compact-toolbar-row {
+  border-radius: 11px;
+  padding: 4px 6px;
+}
+
+.compact-action-row {
+  border-radius: 10px;
+  padding: 3px 4px;
+  background: alpha(#0f172a, 0.34);
+  border: 1px solid alpha(#334155, 0.66);
+}
+
+window.theme-light .compact-action-row {
+  background: alpha(#eef2ff, 0.72);
+  border-color: alpha(#c7d2fe, 0.74);
+}
+
+.compact-action-button {
+  min-height: 26px;
+  padding: 2px 8px;
+}
+
+.segmented-row {
+  border-radius: 10px;
+  padding: 3px;
+  background: alpha(#0f172a, 0.72);
+  border: 1px solid alpha(#334155, 0.88);
+}
+
+.segmented-button {
+  border-radius: 8px;
+  min-height: 25px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #cbd5e1;
+  font-weight: 640;
+}
+
+.segmented-button:checked {
+  background: linear-gradient(180deg, alpha(#3b82f6, 0.92) 0%, alpha(#1d4ed8, 0.92) 100%);
+  border-color: alpha(#60a5fa, 0.72);
+  color: #eff6ff;
+}
+
+window.theme-light .segmented-row {
+  background: alpha(#dbeafe, 0.8);
+  border-color: alpha(#93c5fd, 0.78);
+}
+
+window.theme-light .segmented-button {
+  color: #1e3a8a;
+}
+
+window.theme-light .segmented-button:checked {
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #ffffff;
+}
+
+.compact-segmented-row {
+  padding: 2px;
+}
+
+.compact-segmented-button {
+  min-height: 24px;
+  padding: 1px 7px;
+}
+
+.settings-adjust-row scale trough {
+  min-height: 8px;
+  border-radius: 999px;
+  background: alpha(#334155, 0.64);
+}
+
+.settings-adjust-row scale highlight {
+  min-height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, alpha(#60a5fa, 0.96) 0%, alpha(#2563eb, 0.96) 100%);
+}
+
+.settings-adjust-row scale slider {
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 1px solid alpha(#3b82f6, 0.75);
+}
+
+window.theme-light .settings-adjust-row scale trough {
+  background: alpha(#cbd5e1, 0.95);
+}
+
+window.theme-light .settings-adjust-row scale slider {
+  background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%);
+  border-color: alpha(#3b82f6, 0.66);
+}
+
+.workflow-meta-chip,
+.run-meta-chip,
+.integration-meta-chip {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 2px 7px;
+}
+
+.workflow-chip-trigger {
+  color: #cffafe;
+  background: alpha(#0e7490, 0.34);
+  border: 1px solid alpha(#22d3ee, 0.5);
+}
+
+.workflow-chip-action {
+  color: #dcfce7;
+  background: alpha(#166534, 0.34);
+  border: 1px solid alpha(#4ade80, 0.5);
+}
+
+.workflow-chip-nodes {
+  color: #e0e7ff;
+  background: alpha(#3730a3, 0.34);
+  border: 1px solid alpha(#a5b4fc, 0.52);
+}
+
+.workflow-chip-links {
+  color: #e5e7eb;
+  background: alpha(#334155, 0.45);
+  border: 1px solid alpha(#94a3b8, 0.5);
+}
+
+.workflow-chip-ready {
+  color: #d1fae5;
+  background: alpha(#047857, 0.4);
+  border: 1px solid alpha(#34d399, 0.55);
+}
+
+.workflow-chip-empty {
+  color: #fef3c7;
+  background: alpha(#92400e, 0.38);
+  border: 1px solid alpha(#f59e0b, 0.55);
+}
+
+.run-chip-neutral {
+  color: #e2e8f0;
+  background: alpha(#334155, 0.5);
+  border: 1px solid alpha(#94a3b8, 0.5);
+}
+
+.run-chip-steps {
+  color: #dbeafe;
+  background: alpha(#1d4ed8, 0.34);
+  border: 1px solid alpha(#60a5fa, 0.56);
+}
+
+.run-chip-running {
+  color: #fef3c7;
+  background: alpha(#92400e, 0.36);
+  border: 1px solid alpha(#f59e0b, 0.52);
+}
+
+.run-chip-finished {
+  color: #dcfce7;
+  background: alpha(#166534, 0.34);
+  border: 1px solid alpha(#4ade80, 0.5);
+}
+
+.integration-chip-builtin {
+  color: #dbeafe;
+  background: alpha(#1d4ed8, 0.34);
+  border: 1px solid alpha(#60a5fa, 0.5);
+}
+
+.integration-chip-external {
+  color: #e0f2fe;
+  background: alpha(#155e75, 0.35);
+  border: 1px solid alpha(#22d3ee, 0.46);
+}
+
+.integration-chip-handler {
+  color: #e2e8f0;
+  background: alpha(#334155, 0.45);
+  border: 1px solid alpha(#94a3b8, 0.46);
+}
+
+.integration-chip-required {
+  color: #ede9fe;
+  background: alpha(#5b21b6, 0.35);
+  border: 1px solid alpha(#c4b5fd, 0.48);
+}
+
+window.theme-light .workflow-chip-trigger {
+  color: #0c4a6e;
+  background: alpha(#cffafe, 0.95);
+  border-color: alpha(#06b6d4, 0.5);
+}
+
+window.theme-light .workflow-chip-action {
+  color: #14532d;
+  background: alpha(#dcfce7, 0.95);
+  border-color: alpha(#22c55e, 0.48);
+}
+
+window.theme-light .workflow-chip-nodes {
+  color: #3730a3;
+  background: alpha(#e0e7ff, 0.95);
+  border-color: alpha(#818cf8, 0.5);
+}
+
+window.theme-light .workflow-chip-links {
+  color: #334155;
+  background: alpha(#e2e8f0, 0.95);
+  border-color: alpha(#94a3b8, 0.48);
+}
+
+window.theme-light .workflow-chip-ready {
+  color: #166534;
+  background: alpha(#dcfce7, 0.95);
+  border-color: alpha(#4ade80, 0.5);
+}
+
+window.theme-light .workflow-chip-empty {
+  color: #92400e;
+  background: alpha(#fef3c7, 0.95);
+  border-color: alpha(#f59e0b, 0.52);
+}
+
+window.theme-light .run-chip-neutral {
+  color: #334155;
+  background: alpha(#e2e8f0, 0.95);
+  border-color: alpha(#94a3b8, 0.5);
+}
+
+window.theme-light .run-chip-steps {
+  color: #1e3a8a;
+  background: alpha(#dbeafe, 0.95);
+  border-color: alpha(#60a5fa, 0.55);
+}
+
+window.theme-light .run-chip-running {
+  color: #92400e;
+  background: alpha(#fef3c7, 0.95);
+  border-color: alpha(#f59e0b, 0.52);
+}
+
+window.theme-light .run-chip-finished {
+  color: #166534;
+  background: alpha(#dcfce7, 0.95);
+  border-color: alpha(#4ade80, 0.5);
+}
+
+window.theme-light .integration-chip-builtin {
+  color: #1e3a8a;
+  background: alpha(#dbeafe, 0.95);
+  border-color: alpha(#60a5fa, 0.5);
+}
+
+window.theme-light .integration-chip-external {
+  color: #155e75;
+  background: alpha(#e0f2fe, 0.95);
+  border-color: alpha(#22d3ee, 0.48);
+}
+
+window.theme-light .integration-chip-handler {
+  color: #334155;
+  background: alpha(#e2e8f0, 0.95);
+  border-color: alpha(#94a3b8, 0.48);
+}
+
+window.theme-light .integration-chip-required {
+  color: #5b21b6;
+  background: alpha(#ede9fe, 0.95);
+  border-color: alpha(#a78bfa, 0.5);
+}
+
+/* Premium studio v5: tighter layout + canvas visibility parity */
+window.app-window,
+window.app-window .background {
+  font-size: 11.2px;
+}
+
+.page-root {
+}
+
+.title-1 {
+  font-size: 20px;
+}
+
+.title-2 {
+  font-size: 16px;
+}
+
+.title-3 {
+  font-size: 13px;
+}
+
+button,
+entry,
+spinbutton,
+dropdown > button {
+  min-height: 25px;
+}
+
+button {
+  padding: 2px 8px;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  padding: 2px 6px;
+}
+
+.page-hero {
+  padding: 8px 10px;
+}
+
+frame.panel-card,
+frame.panel-card > border,
+frame.list-card,
+frame.list-card > border {
+  border-radius: 11px;
+}
+
+.settings-field-row,
+.settings-toggle-row {
+  padding: 5px 7px;
+}
+
+.inline-status,
+.empty-state-label {
+  padding: 3px 6px;
+}
+
+.compact-action-button {
+  min-height: 24px;
+  padding: 1px 7px;
+}
+
+.compact-action-row {
+  padding: 2px 3px;
+}
+
+.compact-toolbar-row {
+  padding: 3px 5px;
+}
+
+.segmented-button,
+.compact-segmented-button {
+  min-height: 23px;
+  padding: 1px 6px;
+}
+
+.canvas-toolbar-row {
+  border-radius: 10px;
+}
+
+frame.canvas-stage-frame,
+frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#111a2c, 0.97) 0%, alpha(#0f1728, 0.97) 100%);
+  border-color: alpha(#475569, 0.86);
+}
+
+frame.canvas-inspector-frame,
+frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#13203a, 0.97) 0%, alpha(#101c31, 0.97) 100%);
+  border-color: alpha(#475569, 0.82);
+}
+
+window.theme-light frame.canvas-stage-frame,
+window.theme-light frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#fbfdff, 0.99) 0%, alpha(#f2f7ff, 0.99) 100%);
+  border-color: alpha(#cbd5e1, 0.92);
+}
+
+window.theme-light frame.canvas-inspector-frame,
+window.theme-light frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.99) 0%, alpha(#f6faff, 0.99) 100%);
+  border-color: alpha(#cbd5e1, 0.9);
+}
+
+.canvas-workflow-mode .canvas-toolbar-row {
+  background: alpha(#0f172a, 0.58);
+  border-color: alpha(#475569, 0.76);
+}
+
+window.theme-light .canvas-workflow-mode .canvas-toolbar-row {
+  background: alpha(#eef4ff, 0.92);
+  border-color: alpha(#cbd5e1, 0.86);
+}
+
+.canvas-status {
+  background: alpha(#0f172a, 0.6);
+  border-color: alpha(#475569, 0.84);
+}
+
+window.theme-light .canvas-status {
+  background: alpha(#eef2ff, 0.9);
+  border-color: alpha(#c7d2fe, 0.8);
+  color: #1e3a8a;
+}
+
+frame.canvas-node-card,
+frame.canvas-node-card > border {
+  border-radius: 11px;
+}
+
+window.theme-light frame.canvas-node-card,
+window.theme-light frame.canvas-node-card > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.99) 0%, alpha(#f6f9ff, 0.99) 100%);
+  border-color: alpha(#94a3b8, 0.72);
+  box-shadow: 0 4px 12px alpha(#1e3a8a, 0.08);
+}
+
+window.theme-light .canvas-node-title {
+  color: #0f172a;
+}
+
+window.theme-light .canvas-node-detail {
+  color: alpha(#334155, 0.84);
+}
+
+window.theme-light .canvas-inspector .canvas-inspector-title {
+  color: #0f172a;
+}
+
+window.theme-light .canvas-inspector .heading {
+  color: #334155;
+}
+
+window.theme-light .canvas-inspector label {
+  color: #475569;
+}
+
+.canvas-inspector scale trough,
+.canvas-workflow-mode scale trough {
+  min-height: 8px;
+  border-radius: 999px;
+  background: alpha(#334155, 0.64);
+}
+
+.canvas-inspector scale highlight,
+.canvas-workflow-mode scale highlight {
+  min-height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, alpha(#60a5fa, 0.96) 0%, alpha(#2563eb, 0.96) 100%);
+}
+
+.canvas-inspector scale slider,
+.canvas-workflow-mode scale slider {
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 1px solid alpha(#3b82f6, 0.75);
+}
+
+window.theme-light .canvas-inspector scale trough,
+window.theme-light .canvas-workflow-mode scale trough {
+  background: alpha(#cbd5e1, 0.92);
+}
+
+window.theme-light .canvas-inspector scale slider,
+window.theme-light .canvas-workflow-mode scale slider {
+  background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%);
+  border-color: alpha(#3b82f6, 0.62);
+}
+
+/* Premium studio v6: compact information density */
+window.app-window,
+window.app-window .background {
+  font-size: 10.9px;
+}
+
+.page-root {
+}
+
+.title-1 {
+  font-size: 19px;
+}
+
+.title-2 {
+  font-size: 15px;
+}
+
+.title-3 {
+  font-size: 12.5px;
+}
+
+button,
+entry,
+spinbutton,
+dropdown > button {
+  min-height: 23px;
+}
+
+button {
+  padding: 1px 7px;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  padding: 1px 6px;
+}
+
+.navigation-sidebar row {
+  min-height: 22px;
+  padding: 1px 2px;
+}
+
+.sidebar-brand-title {
+  font-size: 14px;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 10px;
+}
+
+frame.panel-card,
+frame.panel-card > border,
+frame.list-card,
+frame.list-card > border {
+  border-radius: 10px;
+}
+
+.page-hero {
+  padding: 7px 9px;
+  border-radius: 11px;
+}
+
+.inline-status,
+.empty-state-label {
+  padding: 2px 6px;
+  border-radius: 9px;
+}
+
+.settings-root .settings-main-frame,
+.settings-root .settings-main-frame > border {
+  border-radius: 12px;
+}
+
+.settings-root .settings-stack-switcher {
+  border-radius: 10px;
+  padding: 2px;
+  background: alpha(#0f172a, 0.58);
+  border: 1px solid alpha(#334155, 0.78);
+}
+
+window.theme-light .settings-root .settings-stack-switcher {
+  background: alpha(#dbeafe, 0.84);
+  border-color: alpha(#bfdbfe, 0.82);
+}
+
+.settings-root .settings-stack-switcher button {
+  min-height: 24px;
+  padding: 1px 9px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.settings-root .settings-stack-switcher button:checked {
+  background: linear-gradient(180deg, alpha(#3b82f6, 0.94) 0%, alpha(#1d4ed8, 0.94) 100%);
+  border-color: alpha(#60a5fa, 0.72);
+}
+
+.settings-root .settings-page-scroll > viewport {
+  background: transparent;
+}
+
+.settings-root .settings-page {
+}
+
+.settings-root .settings-field-row {
+  border-radius: 8px;
+  padding: 4px 6px;
+  background: alpha(#0f172a, 0.42);
+  border: 1px solid alpha(#334155, 0.62);
+}
+
+window.theme-light .settings-root .settings-field-row {
+  background: alpha(#f8fbff, 0.86);
+  border-color: alpha(#cbd5e1, 0.76);
+}
+
+.settings-root .settings-field-row .heading {
+  font-size: 11px;
+}
+
+.settings-root .settings-toggle-row {
+  border-radius: 8px;
+  padding: 5px 7px;
+}
+
+.settings-root textview,
+.settings-root textview text {
+  font-size: 11.5px;
+}
+
+/* Premium studio v7: final compact layout enforcement */
+window.app-window,
+window.app-window .background {
+  font-size: 10.7px;
+}
+
+.page-root {
+}
+
+.title-1 {
+  font-size: 18px;
+}
+
+.title-2 {
+  font-size: 14.5px;
+}
+
+.title-3 {
+  font-size: 12px;
+}
+
+button,
+entry,
+spinbutton,
+dropdown > button {
+  min-height: 22px;
+}
+
+button {
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+.navigation-sidebar {
+  padding: 3px;
+}
+
+.navigation-sidebar row {
+  min-height: 21px;
+  border-radius: 8px;
+  padding: 0 2px;
+  margin: 0;
+}
+
+.navigation-row-label {
+  font-size: 10.6px;
+}
+
+.navigation-row-icon {
+  -gtk-icon-size: 13px;
+}
+
+.sidebar-brand {
+  padding: 4px 5px;
+  border-radius: 10px;
+}
+
+.sidebar-brand-title {
+  font-size: 13px;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 9.6px;
+}
+
+.page-hero {
+  padding: 6px 8px;
+  border-radius: 10px;
+}
+
+frame.panel-card,
+frame.panel-card > border,
+frame.list-card,
+frame.list-card > border {
+  border-radius: 9px;
+}
+
+.canvas-toolbar-row,
+.compact-toolbar-row {
+  border-radius: 9px;
+  padding: 2px 4px;
+}
+
+.compact-action-row {
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.compact-action-button {
+  min-height: 22px;
+  padding: 1px 6px;
+}
+
+.canvas-inspector .canvas-inspector-title {
+  font-size: 13px;
+}
+
+.canvas-inspector .heading {
+  font-size: 10.8px;
+}
+
+.canvas-inspector label {
+  font-size: 10.2px;
+}
+
+.settings-root .settings-main-frame,
+.settings-root .settings-main-frame > border {
+  border-radius: 10px;
+}
+
+.settings-root .settings-stack-switcher {
+  border-radius: 9px;
+  padding: 1px;
+}
+
+.settings-root .settings-stack-switcher button {
+  min-height: 22px;
+  padding: 1px 7px;
+  border-radius: 7px;
+}
+
+.settings-panel-row {
+}
+
+.settings-subpanel,
+.settings-subpanel > border {
+  border-radius: 9px;
+}
+
+.settings-subpanel-body {
+}
+
+.settings-root .settings-page {
+}
+
+.settings-root .settings-field-row {
+  border-radius: 7px;
+  padding: 3px 5px;
+}
+
+.settings-root .settings-field-row .heading {
+  font-size: 10.6px;
+}
+
+.settings-root .settings-toggle-row {
+  border-radius: 7px;
+  padding: 4px 6px;
+}
+
+.settings-root textview,
+.settings-root textview text {
+  font-size: 11px;
+}
+
+/* Premium studio v8: action bars + panelized forms + canvas handle clarity */
+.page-action-bar {
+  border-radius: 9px;
+  padding: 3px 5px;
+  background: alpha(#0f172a, 0.52);
+  border: 1px solid alpha(#334155, 0.76);
+}
+
+window.theme-light .page-action-bar {
+  background: alpha(#eef4ff, 0.9);
+  border-color: alpha(#cbd5e1, 0.86);
+}
+
+.bots-root .settings-subpanel,
+.bots-root .settings-subpanel > border,
+.integrations-root .settings-subpanel,
+.integrations-root .settings-subpanel > border {
+  border-radius: 9px;
+}
+
+.bots-root .settings-subpanel-body,
+.integrations-root .settings-subpanel-body {
+}
+
+.bots-root .settings-panel-row,
+.integrations-root .settings-panel-row {
+}
+
+.bots-root .settings-field-row,
+.integrations-root .settings-field-row {
+  border-radius: 7px;
+  padding: 3px 5px;
+}
+
+.canvas-node-port {
+  min-width: 16px;
+  min-height: 16px;
+}
+
+.canvas-node-port-dot {
+  font-size: 11px;
+}
+
+.canvas-node-port-hover {
+  box-shadow: 0 0 0 2px alpha(#60a5fa, 0.38);
+  border-color: alpha(#93c5fd, 0.84);
+}
+
+window.theme-light .canvas-node-port-hover {
+  box-shadow: 0 0 0 2px alpha(#2563eb, 0.28);
+  border-color: alpha(#1d4ed8, 0.74);
+}
+
+/* Sprint runtime + compact rail polish */
+.status-waiting {
+  color: #b45309;
+  background: alpha(#f59e0b, 0.16);
+}
+
+window.theme-dark .status-waiting {
+  color: #fcd34d;
+  background: alpha(#78350f, 0.42);
+}
+
+scrolledwindow.canvas-workflow-mode-scroll > viewport,
+scrolledwindow.canvas-node-mode-scroll > viewport {
+  background: transparent;
+}
+
+.canvas-workflow-mode-scroll,
+.canvas-node-mode-scroll {
+  border-radius: 8px;
+}
+
+.canvas-workflow-mode .canvas-toolbar-row {
+  padding: 2px 4px;
+}
+
+.canvas-workflow-mode .section-icon-row label,
+.canvas-node-mode-scroll .section-icon-row label {
+  font-size: 11.2px;
+}
+
+.canvas-inspector .settings-adjust-row,
+.canvas-workflow-mode .settings-adjust-row {
+  padding: 2px 3px;
+  border-radius: 8px;
+}
+
+frame.run-card-selected,
+frame.run-card-selected > border {
+  border-color: alpha(#60a5fa, 0.92);
+  box-shadow: 0 0 0 2px alpha(#3b82f6, 0.22);
+}
+
+.timeline-event-row {
+  border-radius: 8px;
+  padding: 5px 7px;
+  background: alpha(#0f172a, 0.2);
+  border: 1px solid alpha(#334155, 0.42);
+}
+
+window.theme-light .timeline-event-row {
+  background: alpha(#f1f5ff, 0.9);
+  border-color: alpha(#c7d2fe, 0.84);
+}
+
+frame.canvas-node-preflight-error,
+frame.canvas-node-preflight-error > border {
+  border-color: alpha(#f87171, 0.98);
+  box-shadow: 0 0 0 3px alpha(#ef4444, 0.2), 0 10px 22px alpha(#7f1d1d, 0.24);
+}
+
+frame.canvas-node-preflight-warning,
+frame.canvas-node-preflight-warning > border {
+  border-color: alpha(#fbbf24, 0.96);
+  box-shadow: 0 0 0 2px alpha(#f59e0b, 0.18), 0 9px 18px alpha(#78350f, 0.2);
+}
+
+.node-issue-chip {
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 8.6px;
+  font-weight: 790;
+  letter-spacing: 0.35px;
+}
+
+.node-issue-error {
+  color: #fee2e2;
+  background: alpha(#b91c1c, 0.88);
+  border: 1px solid alpha(#ef4444, 0.85);
+}
+
+.node-issue-warning {
+  color: #111827;
+  background: alpha(#fbbf24, 0.88);
+  border: 1px solid alpha(#f59e0b, 0.82);
+}
+
+.canvas-execution-preset-row {
+  padding: 2px 4px;
+}
+
+.preflight-issue-list {
+}
+
+.preflight-issue-row {
+  border-radius: 8px;
+  padding: 3px 5px;
+  background: alpha(#0f172a, 0.22);
+  border: 1px solid alpha(#334155, 0.42);
+}
+
+window.theme-light .preflight-issue-row {
+  background: alpha(#f1f5ff, 0.92);
+  border-color: alpha(#cbd5e1, 0.86);
+}
+
+.preflight-issue-severity {
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 8.5px;
+  font-weight: 780;
+  letter-spacing: 0.3px;
+}
+
+.preflight-issue-error {
+  color: #fee2e2;
+  background: alpha(#b91c1c, 0.9);
+  border: 1px solid alpha(#ef4444, 0.86);
+}
+
+.preflight-issue-warning {
+  color: #111827;
+  background: alpha(#f59e0b, 0.82);
+  border: 1px solid alpha(#d97706, 0.86);
+}
+
+.timeline-event-button {
+  border-radius: 8px;
+  min-height: 28px;
+  padding: 4px 7px;
+}
+
+.timeline-event-selected {
+  border-color: alpha(#60a5fa, 0.92);
+  box-shadow: 0 0 0 2px alpha(#3b82f6, 0.2);
+}
+
+/* Premium studio v11: refined desktop rhythm */
+window.app-window {
+  font-size: 12px;
+}
+
+.header-action-button {
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.app-view-chip,
+.daemon-state-chip {
+  font-size: 9.5px;
+  padding: 2px 8px;
+}
+
+.app-title-box .title-2 {
+  font-size: 17px;
+  font-weight: 760;
+}
+
+.app-title-box .dim-label {
+  font-size: 10.5px;
+}
+
+.navigation-sidebar {
+  padding: 2px;
+}
+
+.navigation-sidebar row {
+  min-height: 19px;
+  padding: 0 1px;
+  border-radius: 7px;
+}
+
+.navigation-row-content {
+  border-radius: 7px;
+}
+
+.navigation-row-label {
+  font-size: 10.2px;
+  font-weight: 620;
+}
+
+.navigation-row-icon {
+  -gtk-icon-size: 12px;
+}
+
+.sidebar-brand {
+  padding: 3px 4px;
+  border-radius: 9px;
+}
+
+.sidebar-brand-title {
+  font-size: 12.6px;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 9.2px;
+}
+
+.page-root {
+}
+
+button,
+entry,
+spinbutton,
+dropdown > button {
+  min-height: 24px;
+}
+
+frame.panel-card,
+frame.panel-card > border,
+frame.list-card,
+frame.list-card > border {
+  border-radius: 8px;
+}
+
+/* Premium studio v12: unified compact premium pass */
+window.app-window {
+  font-size: 11.6px;
+}
+
+.page-root {
+}
+
+.page-hero {
+  padding: 6px 9px;
+  border-radius: 9px;
+}
+
+button,
+entry,
+spinbutton,
+dropdown > button {
+  min-height: 23px;
+  border-radius: 8px;
+}
+
+button {
+  padding: 1px 7px;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  padding: 1px 6px;
+}
+
+.page-action-bar {
+  border-radius: 8px;
+  padding: 2px 4px;
+}
+
+.compact-action-button {
+  min-height: 22px;
+  padding: 1px 6px;
+}
+
+.compact-action-row {
+  padding: 1px 2px;
+  border-radius: 7px;
+}
+
+.navigation-sidebar {
+  padding: 2px;
+}
+
+.navigation-sidebar row {
+  min-height: 20px;
+  padding: 0 1px;
+  border-radius: 7px;
+}
+
+.navigation-row-label {
+  font-size: 10.4px;
+}
+
+.sidebar-brand {
+  padding: 3px 4px;
+}
+
+.settings-root .settings-stack-switcher {
+  border-radius: 8px;
+  padding: 1px;
+}
+
+.settings-root .settings-stack-switcher button {
+  min-height: 22px;
+  padding: 1px 6px;
+  border-radius: 7px;
+}
+
+.settings-root .settings-page {
+}
+
+.settings-root .settings-subpanel-body,
+.bots-root .settings-subpanel-body,
+.integrations-root .settings-subpanel-body {
+}
+
+.settings-root .settings-field-row,
+.bots-root .settings-field-row,
+.integrations-root .settings-field-row {
+  padding: 3px 5px;
+  border-radius: 7px;
+}
+
+.settings-root .settings-field-row .heading,
+.bots-root .settings-field-row .heading,
+.integrations-root .settings-field-row .heading {
+  font-size: 10.8px;
+}
+
+window.theme-light frame.canvas-stage-frame,
+window.theme-light frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.99) 0%, alpha(#f4f8ff, 0.99) 100%);
+  border-color: alpha(#cbd5e1, 0.92);
+}
+
+window.theme-light frame.canvas-inspector-frame,
+window.theme-light frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.99) 0%, alpha(#f7faff, 0.99) 100%);
+  border-color: alpha(#cbd5e1, 0.9);
+}
+
+.canvas-node-port {
+  min-width: 17px;
+  min-height: 17px;
+}
+
+.canvas-node-port-hover {
+  box-shadow: 0 0 0 2px alpha(#60a5fa, 0.44);
+  border-color: alpha(#93c5fd, 0.92);
+}
+
+drawingarea.canvas-minimap {
+  border-radius: 10px;
+  border: 1px solid alpha(#475569, 0.82);
+  background: alpha(#0b1220, 0.62);
+  box-shadow: 0 8px 20px alpha(#020617, 0.28);
+}
+
+window.theme-light drawingarea.canvas-minimap {
+  border-color: alpha(#94a3b8, 0.82);
+  background: alpha(#f8fbff, 0.88);
+  box-shadow: 0 6px 14px alpha(#1e3a8a, 0.14);
+}
+
+.canvas-action-integration-panel {
+  border-radius: 8px;
+  padding: 3px 4px;
+  background: alpha(#0f172a, 0.26);
+  border: 1px solid alpha(#334155, 0.48);
+}
+
+window.theme-light .canvas-action-integration-panel {
+  background: alpha(#eef4ff, 0.86);
+  border-color: alpha(#cbd5e1, 0.82);
+}
+
+frame.canvas-node-primary,
+frame.canvas-node-primary > border {
+  box-shadow: 0 0 0 2px alpha(#60a5fa, 0.46), 0 10px 20px alpha(#1d4ed8, 0.24);
+}
+
+window.theme-light frame.canvas-node-primary,
+window.theme-light frame.canvas-node-primary > border {
+  box-shadow: 0 0 0 2px alpha(#2563eb, 0.3), 0 8px 16px alpha(#1e3a8a, 0.15);
+}
+
+/* Premium studio v13: deterministic compact scale + canvas clarity */
+window.app-window {
+  font-size: 11.4px;
+}
+
+.page-root {
+}
+
+.page-hero {
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+
+button,
+entry,
+spinbutton,
+dropdown > button {
+  min-height: 22px;
+  border-radius: 7px;
+}
+
+button {
+  padding: 1px 6px;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  padding: 1px 5px;
+}
+
+.compact-action-button {
+  min-height: 21px;
+  padding: 1px 5px;
+}
+
+.compact-action-row {
+  padding: 1px 2px;
+  border-radius: 7px;
+}
+
+.canvas-toolbar-row,
+.compact-toolbar-row,
+.page-action-bar {
+  border-radius: 7px;
+  padding: 2px 3px;
+}
+
+.navigation-sidebar {
+  padding: 1px;
+}
+
+.navigation-sidebar row {
+  min-height: 18px;
+  padding: 0 1px;
+  margin: 0;
+  border-radius: 6px;
+}
+
+.navigation-row-icon {
+  -gtk-icon-size: 12px;
+}
+
+.navigation-row-label {
+  font-size: 10.1px;
+  font-weight: 620;
+}
+
+.sidebar-brand {
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.sidebar-brand-title {
+  font-size: 12.2px;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 9.2px;
+}
+
+.settings-root .settings-page {
+}
+
+.settings-root .settings-subpanel-body,
+.bots-root .settings-subpanel-body,
+.integrations-root .settings-subpanel-body {
+}
+
+.settings-root .settings-field-row,
+.bots-root .settings-field-row,
+.integrations-root .settings-field-row {
+  padding: 3px 4px;
+  border-radius: 6px;
+}
+
+.settings-root .settings-field-row .heading,
+.bots-root .settings-field-row .heading,
+.integrations-root .settings-field-row .heading {
+  font-size: 10.6px;
+}
+
+.settings-root textview,
+.settings-root textview text,
+.bots-root textview,
+.bots-root textview text,
+.integrations-root textview,
+.integrations-root textview text {
+  font-size: 10.8px;
+}
+
+.settings-adjust-row {
+  padding: 2px 3px;
+  border-radius: 7px;
+}
+
+frame.panel-card,
+frame.panel-card > border,
+frame.list-card,
+frame.list-card > border {
+  border-radius: 8px;
+}
+
+frame.canvas-stage-frame,
+frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#1a2438, 0.97) 0%, alpha(#141f32, 0.97) 100%);
+  border-color: alpha(#64748b, 0.82);
+}
+
+frame.canvas-inspector-frame,
+frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#1c2740, 0.97) 0%, alpha(#18243a, 0.97) 100%);
+  border-color: alpha(#64748b, 0.8);
+}
+
+window.theme-light frame.canvas-stage-frame,
+window.theme-light frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.99) 0%, alpha(#f6f9ff, 0.99) 100%);
+  border-color: alpha(#cbd5e1, 0.9);
+}
+
+window.theme-light frame.canvas-inspector-frame,
+window.theme-light frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.99) 0%, alpha(#f8fbff, 0.99) 100%);
+  border-color: alpha(#cbd5e1, 0.88);
+}
+
+.canvas-inspector-shell-box {
+}
+
+.canvas-inspector .canvas-inspector-title {
+  font-size: 12.8px;
+}
+
+.canvas-inspector .heading {
+  font-size: 10.6px;
+}
+
+.canvas-inspector label {
+  font-size: 10.1px;
+}
+
+.canvas-status {
+  font-size: 10.2px;
+  padding: 2px 4px;
+}
+
+frame.canvas-node-card,
+frame.canvas-node-card > border {
+  border-radius: 10px;
+}
+
+.canvas-node-title {
+  font-size: 11.2px;
+  font-weight: 700;
+}
+
+.canvas-node-detail {
+  font-size: 9.8px;
+}
+
+.canvas-node-port {
+  min-width: 15px;
+  min-height: 15px;
+}
+
+.canvas-node-port-dot {
+  font-size: 10px;
+}
+
+.canvas-action-integration-panel {
+  border-radius: 7px;
+  padding: 2px 3px;
+}
+
+.integration-chip-category {
+  color: #e0e7ff;
+  background: alpha(#3730a3, 0.34);
+  border: 1px solid alpha(#a5b4fc, 0.52);
+}
+
+.integration-chip-ready {
+  color: #dcfce7;
+  background: alpha(#166534, 0.34);
+  border: 1px solid alpha(#4ade80, 0.5);
+}
+
+.integration-chip-partial {
+  color: #fef3c7;
+  background: alpha(#92400e, 0.38);
+  border: 1px solid alpha(#f59e0b, 0.52);
+}
+
+.integration-chip-setup {
+  color: #fee2e2;
+  background: alpha(#991b1b, 0.36);
+  border: 1px solid alpha(#ef4444, 0.52);
+}
+
+window.theme-light .integration-chip-category {
+  color: #3730a3;
+  background: alpha(#e0e7ff, 0.95);
+  border-color: alpha(#818cf8, 0.5);
+}
+
+window.theme-light .integration-chip-ready {
+  color: #166534;
+  background: alpha(#dcfce7, 0.95);
+  border-color: alpha(#4ade80, 0.5);
+}
+
+window.theme-light .integration-chip-partial {
+  color: #92400e;
+  background: alpha(#fef3c7, 0.95);
+  border-color: alpha(#f59e0b, 0.52);
+}
+
+window.theme-light .integration-chip-setup {
+  color: #991b1b;
+  background: alpha(#fee2e2, 0.95);
+  border-color: alpha(#ef4444, 0.52);
+}
+
+/* Premium studio v9: harmonized density and cleaner canvas contrast */
+window.app-window,
+window.app-window .background {
+  font-size: 11.1px;
+}
+
+.page-root {
+}
+
+.navigation-sidebar {
+  padding: 3px;
+}
+
+.navigation-sidebar row {
+  min-height: 23px;
+  padding: 1px 3px;
+  margin: 1px 0;
+}
+
+.navigation-row-label {
+  font-size: 10.9px;
+  font-weight: 600;
+}
+
+.sidebar-brand {
+  padding: 5px 6px;
+}
+
+.sidebar-brand-title {
+  font-size: 13.4px;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 9.7px;
+}
+
+.settings-root .settings-page {
+}
+
+.settings-root .settings-panel-row {
+}
+
+.settings-root .settings-subpanel-body {
+}
+
+.settings-root .settings-field-row,
+.bots-root .settings-field-row,
+.integrations-root .settings-field-row {
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.page-action-bar {
+  padding: 3px 5px;
+}
+
+.compact-toolbar-row {
+  padding: 3px 5px;
+}
+
+.compact-action-row {
+  padding: 2px 3px;
+}
+
+.compact-action-button {
+  min-height: 23px;
+  padding: 1px 7px;
+}
+
+frame.canvas-stage-frame,
+frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#182235, 0.98) 0%, alpha(#131c2d, 0.98) 100%);
+  border-color: alpha(#64748b, 0.82);
+}
+
+frame.canvas-inspector-frame,
+frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#111b2c, 0.98) 0%, alpha(#0f1828, 0.98) 100%);
+  border-color: alpha(#64748b, 0.78);
+}
+
+window.theme-light frame.canvas-stage-frame,
+window.theme-light frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#fdfefe, 0.99) 0%, alpha(#f4f8ff, 0.99) 100%);
+  border-color: alpha(#cbd5e1, 0.92);
+}
+
+window.theme-light frame.canvas-inspector-frame,
+window.theme-light frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.99) 0%, alpha(#f7faff, 0.99) 100%);
+  border-color: alpha(#cbd5e1, 0.88);
+}
+
+.canvas-workflow-mode .canvas-toolbar-row {
+  background: alpha(#0f172a, 0.54);
+  border-color: alpha(#64748b, 0.74);
+}
+
+window.theme-light .canvas-workflow-mode .canvas-toolbar-row {
+  background: alpha(#eef4ff, 0.9);
+  border-color: alpha(#cbd5e1, 0.82);
+}
+
+.canvas-status {
+  background: alpha(#0f172a, 0.56);
+  border-color: alpha(#64748b, 0.8);
+}
+
+window.theme-light .canvas-status {
+  background: alpha(#edf2ff, 0.9);
+  border-color: alpha(#c7d2fe, 0.78);
+}
+
+.canvas-node-port {
+  min-width: 16px;
+  min-height: 16px;
+}
+
+.canvas-node-port-hover {
+  box-shadow: 0 0 0 2px alpha(#93c5fd, 0.36);
+}
+
+/* Premium studio v14: compact operations layout + brighter canvas readability */
+window.app-window,
+window.app-window .background {
+  font-size: 11.8px;
+}
+
+.page-hero {
+  padding: 6px 9px;
+  border-radius: 10px;
+}
+
+button,
+entry,
+spinbutton,
+dropdown > button {
+  min-height: 24px;
+  border-radius: 8px;
+}
+
+button {
+  padding: 2px 8px;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  padding: 2px 7px;
+}
+
+.compact-action-button {
+  min-height: 24px;
+  padding: 2px 7px;
+}
+
+.compact-action-row {
+  padding: 2px 4px;
+  border-radius: 8px;
+}
+
+.canvas-toolbar-row,
+.compact-toolbar-row,
+.page-action-bar {
+  padding: 3px 5px;
+  border-radius: 8px;
+}
+
+.navigation-sidebar {
+  padding: 3px;
+}
+
+.navigation-sidebar row {
+  min-height: 24px;
+  margin: 1px 0;
+  padding: 1px 4px;
+  border-radius: 8px;
+}
+
+.navigation-row-icon {
+  -gtk-icon-size: 14px;
+}
+
+.navigation-row-label {
+  font-size: 11.0px;
+  font-weight: 620;
+}
+
+.sidebar-brand {
+  padding: 6px 7px;
+  border-radius: 10px;
+}
+
+.sidebar-brand-title {
+  font-size: 13.6px;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 9.9px;
+}
+
+.settings-root .settings-subpanel-body,
+.bots-root .settings-subpanel-body,
+.integrations-root .settings-subpanel-body {
+  padding: 0;
+}
+
+.settings-root .settings-field-row,
+.bots-root .settings-field-row,
+.integrations-root .settings-field-row {
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.settings-root .settings-field-row .heading,
+.bots-root .settings-field-row .heading,
+.integrations-root .settings-field-row .heading {
+  font-size: 10.8px;
+}
+
+.settings-adjust-row {
+  padding: 2px 4px;
+  border-radius: 8px;
+}
+
+frame.panel-card,
+frame.panel-card > border,
+frame.list-card,
+frame.list-card > border {
+  border-radius: 10px;
+}
+
+frame.canvas-stage-frame,
+frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#233248, 0.98) 0%, alpha(#1d2b40, 0.98) 100%);
+  border-color: alpha(#7c92b3, 0.84);
+}
+
+frame.canvas-inspector-frame,
+frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#1a273d, 0.98) 0%, alpha(#162338, 0.98) 100%);
+  border-color: alpha(#7891b2, 0.82);
+}
+
+window.theme-light frame.canvas-stage-frame,
+window.theme-light frame.canvas-stage-frame > border {
+  background: linear-gradient(180deg, alpha(#fdfefe, 0.99) 0%, alpha(#f4f8ff, 0.99) 100%);
+  border-color: alpha(#c4d1e5, 0.94);
+}
+
+window.theme-light frame.canvas-inspector-frame,
+window.theme-light frame.canvas-inspector-frame > border {
+  background: linear-gradient(180deg, alpha(#ffffff, 0.99) 0%, alpha(#f7faff, 0.99) 100%);
+  border-color: alpha(#c4d1e5, 0.9);
+}
+
+.canvas-workflow-mode .canvas-toolbar-row {
+  background: alpha(#12263f, 0.7);
+  border-color: alpha(#7c92b3, 0.8);
+}
+
+window.theme-light .canvas-workflow-mode .canvas-toolbar-row {
+  background: alpha(#edf3ff, 0.92);
+  border-color: alpha(#cad5e6, 0.86);
+}
+
+.canvas-inspector .canvas-inspector-title {
+  font-size: 13.0px;
+}
+
+.canvas-inspector .heading {
+  font-size: 10.9px;
+}
+
+.canvas-inspector label {
+  font-size: 10.5px;
+}
+
+.canvas-status {
+  background: alpha(#10233a, 0.66);
+  border-color: alpha(#87a0c3, 0.84);
+  padding: 3px 5px;
+}
+
+window.theme-light .canvas-status {
+  background: alpha(#edf2ff, 0.94);
+  border-color: alpha(#c3d1ea, 0.82);
+}
+
+.canvas-node-port {
+  min-width: 18px;
+  min-height: 18px;
+}
+
+.canvas-node-port-hover {
+  box-shadow: 0 0 0 3px alpha(#93c5fd, 0.44);
+}
+
+frame.canvas-node-draggable,
+frame.canvas-node-draggable > border {
+  border-style: solid;
+}
+
+.integration-quick-grid {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+frame.integration-quick-card,
+frame.integration-quick-card > border {
+  min-width: 220px;
+  border-radius: 10px;
+  border-color: alpha(#8ea6c9, 0.78);
+  background: alpha(#132842, 0.58);
+}
+
+window.theme-light frame.integration-quick-card,
+window.theme-light frame.integration-quick-card > border {
+  border-color: alpha(#c8d7ee, 0.9);
+  background: alpha(#f7faff, 0.94);
+}
+
+.integration-quick-status {
+  min-height: 18px;
+}
+
+.canvas-trigger-panel {
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid alpha(#8aa4c8, 0.5);
+  background: alpha(#11243a, 0.34);
+}
+
+window.theme-light .canvas-trigger-panel {
+  border-color: alpha(#c5d4ea, 0.8);
+  background: alpha(#eef4ff, 0.82);
+}
+
+.dashboard-root .page-action-bar entry,
+.daemon-root .page-action-bar entry,
+.integrations-root .page-action-bar entry {
+  min-width: 220px;
+}
+
+/* Premium studio v15: high-density workstation pass */
+window.app-window,
+window.app-window .background {
+  font-size: 11.4px;
+}
+
+.page-root {
+  padding: 0;
+}
+
+.page-hero {
+  padding: 5px 8px;
+  border-radius: 9px;
+}
+
+button,
+entry,
+spinbutton,
+dropdown > button {
+  min-height: 23px;
+  border-radius: 7px;
+}
+
+button {
+  padding: 1px 7px;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  padding: 1px 6px;
+}
+
+.compact-action-button {
+  min-height: 23px;
+  padding: 1px 6px;
+}
+
+.navigation-sidebar {
+  padding: 2px;
+}
+
+.navigation-sidebar row {
+  min-height: 22px;
+  margin: 1px 0;
+  padding: 1px 3px;
+  border-radius: 7px;
+}
+
+.navigation-row-icon {
+  -gtk-icon-size: 13px;
+}
+
+.navigation-row-label {
+  font-size: 10.8px;
+}
+
+.sidebar-brand {
+  padding: 5px 6px;
+  border-radius: 9px;
+}
+
+.sidebar-brand-title {
+  font-size: 13px;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 9.6px;
+}
+
+.canvas-inspector .canvas-inspector-title {
+  font-size: 12.6px;
+}
+
+.canvas-inspector .heading {
+  font-size: 10.6px;
+}
+
+.canvas-inspector label {
+  font-size: 10.3px;
+}
+
+.canvas-detail-expander {
+  border: 1px solid alpha(#8ea8ca, 0.42);
+  border-radius: 8px;
+  background: alpha(#10273f, 0.3);
+  padding: 3px 5px;
+}
+
+window.theme-light .canvas-detail-expander {
+  border-color: alpha(#c3d4ea, 0.8);
+  background: alpha(#edf4ff, 0.82);
+}
+
+.canvas-trigger-panel {
+  padding: 3px 5px;
+  border-radius: 8px;
+}
+
+.canvas-action-integration-panel {
+  padding: 4px 5px;
+  border-radius: 8px;
+  border: 1px solid alpha(#8aa4c8, 0.42);
+  background: alpha(#12263f, 0.28);
+}
+
+window.theme-light .canvas-action-integration-panel {
+  border-color: alpha(#c5d4ea, 0.82);
+  background: alpha(#eef5ff, 0.82);
+}
+
+frame.canvas-node-link-target,
+frame.canvas-node-link-target > border {
+  border-style: solid;
+  border-color: alpha(#34d399, 0.94);
+  box-shadow: 0 0 0 3px alpha(#6ee7b7, 0.3), 0 8px 20px alpha(#065f46, 0.16);
+}
+
+window.theme-dark frame.canvas-node-link-target,
+window.theme-dark frame.canvas-node-link-target > border {
+  border-color: alpha(#86efac, 0.92);
+  box-shadow: 0 0 0 3px alpha(#34d399, 0.34), 0 8px 20px alpha(#052e2b, 0.34);
+}
+
+.node-link-target-label {
+  color: alpha(#065f46, 0.9);
+  font-size: 10.2px;
+  font-weight: 700;
+}
+
+window.theme-dark .node-link-target-label {
+  color: alpha(#bbf7d0, 0.94);
+}
+
+.canvas-action-quick-row {
+  margin: 2px 0 4px 0;
+}
+
+.canvas-action-quick-button {
+  min-height: 22px;
+  padding: 1px 6px;
+}
+
+.canvas-action-quick-active {
+  border-color: alpha(#60a5fa, 0.86);
+  box-shadow: 0 0 0 2px alpha(#60a5fa, 0.24);
+}
+
+window.theme-dark .canvas-action-quick-active {
+  border-color: alpha(#93c5fd, 0.9);
+  box-shadow: 0 0 0 2px alpha(#38bdf8, 0.28);
+}
+
+/* Premium studio v16: full glass redesign */
+window.app-window,
+window.app-window .background {
+  font-family: "SF Pro Text", "Inter", "Manrope", "Noto Sans", "Cantarell", sans-serif;
+  font-size: 11.4px;
+}
+
+window.app-window.theme-light,
+window.app-window.theme-light .background {
+  background-image: linear-gradient(
+    155deg,
+    #f3f8ff 0%,
+    #e8f0fc 34%,
+    #e5eefb 68%,
+    #eef4ff 100%
+  );
+}
+
+window.app-window.theme-dark,
+window.app-window.theme-dark .background {
+  background-image: linear-gradient(
+    160deg,
+    #080d17 0%,
+    #0b1220 40%,
+    #0e1628 75%,
+    #101a2e 100%
+  );
+}
+
+window.app-window .app-headerbar {
+  background: alpha(#f7fbff, 0.78);
+  border-bottom: 1px solid alpha(#c4d4ea, 0.72);
+  box-shadow: 0 4px 14px alpha(#1e293b, 0.06);
+}
+
+window.app-window.theme-dark .app-headerbar {
+  background: alpha(#0f1a2f, 0.78);
+  border-bottom-color: alpha(#334765, 0.74);
+  box-shadow: 0 4px 16px alpha(#030712, 0.34);
+}
+
+window.app-window frame.panel-card,
+window.app-window frame.panel-card > border,
+window.app-window frame.list-card,
+window.app-window frame.list-card > border,
+window.app-window frame.entity-form-panel,
+window.app-window frame.entity-form-panel > border,
+window.app-window frame.shell-sidebar,
+window.app-window frame.shell-sidebar > border,
+window.app-window frame.shell-content,
+window.app-window frame.shell-content > border {
+  border-radius: 12px;
+  border-width: 1px;
+  border-style: solid;
+}
+
+window.app-window.theme-light frame.panel-card,
+window.app-window.theme-light frame.panel-card > border,
+window.app-window.theme-light frame.list-card,
+window.app-window.theme-light frame.list-card > border,
+window.app-window.theme-light frame.entity-form-panel,
+window.app-window.theme-light frame.entity-form-panel > border,
+window.app-window.theme-light frame.shell-sidebar,
+window.app-window.theme-light frame.shell-sidebar > border,
+window.app-window.theme-light frame.shell-content,
+window.app-window.theme-light frame.shell-content > border {
+  background: alpha(#ffffff, 0.72);
+  border-color: alpha(#bed0e8, 0.72);
+  box-shadow: 0 10px 28px alpha(#334155, 0.12);
+}
+
+window.app-window.theme-dark frame.panel-card,
+window.app-window.theme-dark frame.panel-card > border,
+window.app-window.theme-dark frame.list-card,
+window.app-window.theme-dark frame.list-card > border,
+window.app-window.theme-dark frame.entity-form-panel,
+window.app-window.theme-dark frame.entity-form-panel > border,
+window.app-window.theme-dark frame.shell-sidebar,
+window.app-window.theme-dark frame.shell-sidebar > border,
+window.app-window.theme-dark frame.shell-content,
+window.app-window.theme-dark frame.shell-content > border {
+  background: alpha(#142138, 0.74);
+  border-color: alpha(#3a4f70, 0.74);
+  box-shadow: 0 12px 30px alpha(#020617, 0.42);
+}
+
+window.app-window .page-hero {
+  border-radius: 11px;
+  padding: 6px 8px;
+  border: 1px solid alpha(#bdd0e8, 0.62);
+  background: alpha(#ffffff, 0.58);
+}
+
+window.app-window.theme-dark .page-hero {
+  border-color: alpha(#445a7c, 0.72);
+  background: alpha(#14243d, 0.54);
+}
+
+window.app-window .navigation-sidebar {
+  background: alpha(#f3f8ff, 0.48);
+  padding: 3px;
+}
+
+window.app-window.theme-dark .navigation-sidebar {
+  background: alpha(#132138, 0.52);
+}
+
+window.app-window .navigation-sidebar row {
+  min-height: 23px;
+  margin: 1px 0;
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+window.app-window .navigation-row-icon {
+  -gtk-icon-size: 13px;
+}
+
+window.app-window .navigation-row-label {
+  font-size: 10.9px;
+  font-weight: 600;
+}
+
+window.app-window .sidebar-brand {
+  padding: 6px 7px;
+  border-radius: 10px;
+  border: 1px solid alpha(#b8cce5, 0.6);
+  background: alpha(#ffffff, 0.56);
+}
+
+window.app-window.theme-dark .sidebar-brand {
+  border-color: alpha(#415979, 0.74);
+  background: alpha(#182844, 0.56);
+}
+
+window.app-window button,
+window.app-window entry,
+window.app-window spinbutton,
+window.app-window dropdown > button {
+  min-height: 23px;
+  border-radius: 8px;
+}
+
+window.app-window button {
+  padding: 1px 7px;
+  border-width: 1px;
+}
+
+window.app-window entry,
+window.app-window spinbutton,
+window.app-window dropdown > button {
+  padding: 1px 6px;
+}
+
+window.app-window.theme-light button {
+  background-image: linear-gradient(180deg, alpha(#ffffff, 0.92) 0%, alpha(#eff5ff, 0.88) 100%);
+  border-color: alpha(#bfd2ea, 0.8);
+}
+
+window.app-window.theme-dark button {
+  background-image: linear-gradient(180deg, alpha(#1a2a44, 0.92) 0%, alpha(#152338, 0.9) 100%);
+  border-color: alpha(#445a7b, 0.86);
+}
+
+window.app-window button.suggested-action {
+  background-image: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  border-color: alpha(#1d4ed8, 0.95);
+  color: #f8fbff;
+}
+
+window.app-window button.suggested-action:hover {
+  background-image: linear-gradient(180deg, #377af0 0%, #1e56d3 100%);
+}
+
+window.app-window .page-action-bar,
+window.app-window .canvas-toolbar-row {
+  border-radius: 10px;
+  padding: 3px 5px;
+}
+
+window.app-window.theme-light .page-action-bar,
+window.app-window.theme-light .canvas-toolbar-row {
+  background: alpha(#ffffff, 0.62);
+  border: 1px solid alpha(#c8d7eb, 0.72);
+}
+
+window.app-window.theme-dark .page-action-bar,
+window.app-window.theme-dark .canvas-toolbar-row {
+  background: alpha(#182740, 0.58);
+  border: 1px solid alpha(#415776, 0.74);
+}
+
+window.app-window frame.canvas-stage-frame,
+window.app-window frame.canvas-stage-frame > border {
+  border-radius: 12px;
+}
+
+window.app-window.theme-light frame.canvas-stage-frame,
+window.app-window.theme-light frame.canvas-stage-frame > border {
+  background: alpha(#f4f8ff, 0.58);
+  border-color: alpha(#c4d4e8, 0.82);
+}
+
+window.app-window.theme-dark frame.canvas-stage-frame,
+window.app-window.theme-dark frame.canvas-stage-frame > border {
+  background: alpha(#0f1c31, 0.62);
+  border-color: alpha(#3c5272, 0.82);
+}
+
+window.app-window frame.canvas-inspector-frame,
+window.app-window frame.canvas-inspector-frame > border {
+  border-radius: 12px;
+}
+
+window.app-window.theme-light frame.canvas-inspector-frame,
+window.app-window.theme-light frame.canvas-inspector-frame > border {
+  background: alpha(#f8fbff, 0.72);
+  border-color: alpha(#c5d4e8, 0.84);
+}
+
+window.app-window.theme-dark frame.canvas-inspector-frame,
+window.app-window.theme-dark frame.canvas-inspector-frame > border {
+  background: alpha(#15243c, 0.74);
+  border-color: alpha(#415879, 0.84);
+}
+
+window.app-window .canvas-inspector .canvas-inspector-title {
+  font-size: 12.2px;
+  font-weight: 720;
+}
+
+window.app-window .canvas-inspector .heading {
+  font-size: 10.4px;
+}
+
+window.app-window .canvas-inspector label {
+  font-size: 10.2px;
+}
+
+window.app-window .settings-adjust-row,
+window.app-window .canvas-inspector .settings-adjust-row,
+window.app-window .canvas-workflow-mode .settings-adjust-row {
+  padding: 1px 3px;
+  border-radius: 7px;
+}
+
+window.app-window .settings-adjust-row scale trough,
+window.app-window .canvas-inspector scale trough,
+window.app-window .canvas-workflow-mode scale trough,
+window.app-window .settings-root scale trough {
+  min-height: 5px;
+  border-radius: 999px;
+}
+
+window.app-window .settings-adjust-row scale slider,
+window.app-window .canvas-inspector scale slider,
+window.app-window .canvas-workflow-mode scale slider,
+window.app-window .settings-root scale slider {
+  min-width: 11px;
+  min-height: 11px;
+  border-radius: 999px;
+}
+
+window.app-window.theme-light .settings-adjust-row {
+  background: alpha(#eaf2ff, 0.62);
+  border: 1px solid alpha(#c9d8eb, 0.72);
+}
+
+window.app-window.theme-dark .settings-adjust-row {
+  background: alpha(#1b2b44, 0.62);
+  border: 1px solid alpha(#445b7a, 0.72);
+}
+
+window.app-window .canvas-action-quick-button {
+  min-height: 21px;
+  padding: 1px 6px;
+}
+
+window.app-window .canvas-status {
+  padding: 2px 5px;
+  border-radius: 7px;
+}
+
+window.app-window.theme-light .canvas-status {
+  background: alpha(#eaf2ff, 0.72);
+  border: 1px solid alpha(#c4d5ea, 0.78);
+}
+
+window.app-window.theme-dark .canvas-status {
+  background: alpha(#1a2b45, 0.74);
+  border: 1px solid alpha(#445b7b, 0.8);
+}
+
+window.app-window.theme-preset-indigo.theme-light,
+window.app-window.theme-preset-indigo.theme-light .background {
+  background-image: linear-gradient(154deg, #f4f2ff 0%, #ece9ff 42%, #edf4ff 100%);
+}
+
+window.app-window.theme-preset-carbon.theme-light,
+window.app-window.theme-preset-carbon.theme-light .background {
+  background-image: linear-gradient(156deg, #eef9f7 0%, #e4f2ef 42%, #edf8f5 100%);
+}
+
+window.app-window.theme-preset-aurora.theme-light,
+window.app-window.theme-preset-aurora.theme-light .background {
+  background-image: linear-gradient(154deg, #effbf7 0%, #e7f7f0 42%, #eefaf5 100%);
+}
+
+window.app-window.theme-preset-frost.theme-light,
+window.app-window.theme-preset-frost.theme-light .background {
+  background-image: linear-gradient(154deg, #f1f8ff 0%, #eaf2ff 42%, #f4f8ff 100%);
+}
+
+window.app-window.theme-preset-indigo .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#6d5ef7, 0.46) 0%, alpha(#5147d9, 0.44) 100%);
+  border-color: alpha(#6d5ef7, 0.8);
+}
+
+window.app-window.theme-preset-indigo button.suggested-action {
+  background-image: linear-gradient(180deg, #6d5ef7 0%, #5147d9 100%);
+  border-color: alpha(#4338ca, 0.92);
+}
+
+window.app-window.theme-preset-indigo frame.canvas-node-selected,
+window.app-window.theme-preset-indigo frame.canvas-node-selected > border {
+  border-color: alpha(#6d5ef7, 0.9);
+  box-shadow: 0 0 0 3px alpha(#8b7dff, 0.24);
+}
+
+window.app-window.theme-preset-carbon .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#16a085, 0.46) 0%, alpha(#0f8a72, 0.44) 100%);
+  border-color: alpha(#16a085, 0.8);
+}
+
+window.app-window.theme-preset-carbon button.suggested-action {
+  background-image: linear-gradient(180deg, #16a085 0%, #0f8a72 100%);
+  border-color: alpha(#0f766e, 0.92);
+}
+
+window.app-window.theme-preset-carbon frame.canvas-node-selected,
+window.app-window.theme-preset-carbon frame.canvas-node-selected > border {
+  border-color: alpha(#16a085, 0.9);
+  box-shadow: 0 0 0 3px alpha(#22c9a8, 0.24);
+}
+
+window.app-window.theme-preset-aurora .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#14b86f, 0.46) 0%, alpha(#0d9f5f, 0.44) 100%);
+  border-color: alpha(#16a34a, 0.8);
+}
+
+window.app-window.theme-preset-aurora button.suggested-action {
+  background-image: linear-gradient(180deg, #1bb86e 0%, #11975b 100%);
+  border-color: alpha(#0e8c4f, 0.92);
+}
+
+window.app-window.theme-preset-aurora frame.canvas-node-selected,
+window.app-window.theme-preset-aurora frame.canvas-node-selected > border {
+  border-color: alpha(#18b96e, 0.9);
+  box-shadow: 0 0 0 3px alpha(#22d183, 0.24);
+}
+
+window.app-window.theme-preset-frost .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#3f8ff5, 0.44) 0%, alpha(#2b77da, 0.42) 100%);
+  border-color: alpha(#3b82f6, 0.82);
+}
+
+window.app-window.theme-preset-frost button.suggested-action {
+  background-image: linear-gradient(180deg, #4b95f6 0%, #2f7ede 100%);
+  border-color: alpha(#2563eb, 0.92);
+}
+
+/* Premium UI consolidation v17: authoritative compact glass pass */
+window.app-window,
+window.app-window .background {
+  background-image:
+    radial-gradient(circle at 12% 10%, alpha(#8db7ff, 0.18) 0%, alpha(#8db7ff, 0.0) 36%),
+    radial-gradient(circle at 86% 8%, alpha(#79d3ff, 0.14) 0%, alpha(#79d3ff, 0.0) 34%),
+    linear-gradient(156deg, #edf4ff 0%, #e6effd 44%, #e9f1ff 100%);
+}
+
+window.app-window.theme-dark,
+window.app-window.theme-dark .background {
+  background-image:
+    radial-gradient(circle at 12% 10%, alpha(#4f73ff, 0.24) 0%, alpha(#4f73ff, 0.0) 38%),
+    radial-gradient(circle at 88% 8%, alpha(#30b8ff, 0.16) 0%, alpha(#30b8ff, 0.0) 34%),
+    linear-gradient(160deg, #0d1421 0%, #111a2b 46%, #101a2a 100%);
+}
+
+window.app-window {
+  font-size: 12px;
+}
+
+window.app-window .title-1 {
+  font-size: 19px;
+  font-weight: 760;
+}
+
+window.app-window .title-2 {
+  font-size: 15px;
+  font-weight: 730;
+}
+
+window.app-window .title-3 {
+  font-size: 12.6px;
+  font-weight: 700;
+}
+
+window.app-window .title-4 {
+  font-size: 11.1px;
+  font-weight: 680;
+}
+
+window.app-window .heading {
+  font-size: 10.5px;
+}
+
+window.app-window frame.panel-card,
+window.app-window frame.panel-card > border,
+window.app-window frame.entity-form-panel,
+window.app-window frame.entity-form-panel > border {
+  border-radius: 12px;
+}
+
+window.app-window.theme-light frame.panel-card,
+window.app-window.theme-light frame.panel-card > border,
+window.app-window.theme-light frame.entity-form-panel,
+window.app-window.theme-light frame.entity-form-panel > border {
+  background: alpha(#ffffff, 0.82);
+  border: 1px solid alpha(#bfd0e8, 0.84);
+  box-shadow: 0 8px 22px alpha(#5a7090, 0.08);
+}
+
+window.app-window.theme-dark frame.panel-card,
+window.app-window.theme-dark frame.panel-card > border,
+window.app-window.theme-dark frame.entity-form-panel,
+window.app-window.theme-dark frame.entity-form-panel > border {
+  background: alpha(#142237, 0.82);
+  border: 1px solid alpha(#425878, 0.84);
+  box-shadow: 0 10px 24px alpha(#000912, 0.36);
+}
+
+window.app-window .shell-sidebar,
+window.app-window .shell-sidebar > border,
+window.app-window .shell-content,
+window.app-window .shell-content > border {
+  border-radius: 12px;
+}
+
+window.app-window.theme-light .shell-sidebar,
+window.app-window.theme-light .shell-sidebar > border {
+  background: alpha(#edf4ff, 0.7);
+  border: 1px solid alpha(#bfd1e8, 0.82);
+}
+
+window.app-window.theme-dark .shell-sidebar,
+window.app-window.theme-dark .shell-sidebar > border {
+  background: alpha(#0f1b2e, 0.74);
+  border: 1px solid alpha(#425977, 0.84);
+}
+
+window.app-window .page-hero {
+  padding: 8px 10px;
+  border-radius: 11px;
+}
+
+window.app-window.theme-light .page-hero {
+  background: alpha(#ffffff, 0.72);
+  border: 1px solid alpha(#c2d3e8, 0.82);
+}
+
+window.app-window.theme-dark .page-hero {
+  background: alpha(#16253b, 0.74);
+  border: 1px solid alpha(#425977, 0.84);
+}
+
+window.app-window .navigation-sidebar {
+  padding: 4px;
+  border-radius: 11px;
+}
+
+window.app-window .navigation-sidebar row {
+  min-height: 22px;
+  margin: 1px 0;
+  padding: 1px 3px;
+  border-radius: 8px;
+}
+
+window.app-window .navigation-row-icon {
+  -gtk-icon-size: 12px;
+}
+
+window.app-window .navigation-row-label {
+  font-size: 10.8px;
+  font-weight: 620;
+}
+
+window.app-window.theme-light .navigation-sidebar {
+  background: alpha(#eaf2ff, 0.74);
+  border: 1px solid alpha(#bfd0e5, 0.76);
+}
+
+window.app-window.theme-light .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#94b8ff, 0.7) 0%, alpha(#7ea3ef, 0.68) 100%);
+  border: 1px solid alpha(#6f98e8, 0.84);
+  color: #123066;
+}
+
+window.app-window.theme-dark .navigation-sidebar {
+  background: alpha(#132238, 0.72);
+  border: 1px solid alpha(#3f5575, 0.82);
+}
+
+window.app-window.theme-dark .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#4e6ca6, 0.74) 0%, alpha(#415b8f, 0.72) 100%);
+  border: 1px solid alpha(#6688be, 0.84);
+  color: #edf5ff;
+}
+
+window.app-window button,
+window.app-window entry,
+window.app-window spinbutton,
+window.app-window dropdown > button {
+  min-height: 23px;
+  border-radius: 8px;
+  padding: 1px 7px;
+}
+
+window.app-window switch {
+  min-width: 34px;
+  min-height: 20px;
+  padding: 1px;
+}
+
+window.app-window switch slider,
+window.app-window scale slider {
+  padding: 0;
+  margin: 0;
+}
+
+window.app-window textview,
+window.app-window textview text {
+  border-radius: 9px;
+}
+
+window.app-window .compact-action-button {
+  min-height: 21px;
+  padding: 1px 6px;
+}
+
+window.app-window .page-action-bar,
+window.app-window .canvas-toolbar-row {
+  border-radius: 10px;
+  padding: 3px 5px;
+}
+
+window.app-window.theme-light .page-action-bar,
+window.app-window.theme-light .canvas-toolbar-row {
+  background: alpha(#ffffff, 0.66);
+  border: 1px solid alpha(#c4d4e7, 0.82);
+}
+
+window.app-window.theme-dark .page-action-bar,
+window.app-window.theme-dark .canvas-toolbar-row {
+  background: alpha(#17263e, 0.68);
+  border: 1px solid alpha(#415877, 0.84);
+}
+
+window.app-window .settings-root .settings-subpanel-body,
+window.app-window .bots-root .settings-subpanel-body,
+window.app-window .integrations-root .settings-subpanel-body {
+  padding: 5px;
+}
+
+window.app-window .settings-root .settings-field-row,
+window.app-window .settings-root .settings-toggle-row,
+window.app-window .bots-root .settings-field-row,
+window.app-window .integrations-root .settings-field-row {
+  padding: 5px 7px;
+  border-radius: 9px;
+}
+
+window.app-window .settings-root .settings-stack-switcher button {
+  min-height: 22px;
+  padding: 1px 8px;
+  border-radius: 8px;
+}
+
+window.app-window .settings-adjust-row {
+  padding: 1px 3px;
+  border-radius: 7px;
+}
+
+window.app-window .settings-adjust-row scale trough,
+window.app-window .settings-root scale trough,
+window.app-window .canvas-inspector scale trough,
+window.app-window .canvas-workflow-mode scale trough {
+  min-height: 5px;
+  border-radius: 999px;
+}
+
+window.app-window .settings-adjust-row scale slider,
+window.app-window .settings-root scale slider,
+window.app-window .canvas-inspector scale slider,
+window.app-window .canvas-workflow-mode scale slider {
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 999px;
+}
+
+window.app-window frame.canvas-stage-frame,
+window.app-window frame.canvas-stage-frame > border {
+  border-radius: 12px;
+}
+
+window.app-window.theme-light frame.canvas-stage-frame,
+window.app-window.theme-light frame.canvas-stage-frame > border {
+  background: alpha(#f7fbff, 0.86);
+  border: 1px solid alpha(#c4d4e8, 0.84);
+}
+
+window.app-window.theme-dark frame.canvas-stage-frame,
+window.app-window.theme-dark frame.canvas-stage-frame > border {
+  background: alpha(#131f34, 0.84);
+  border: 1px solid alpha(#415779, 0.86);
+}
+
+window.app-window frame.canvas-inspector-frame,
+window.app-window frame.canvas-inspector-frame > border {
+  border-radius: 11px;
+}
+
+window.app-window.theme-light frame.canvas-inspector-frame,
+window.app-window.theme-light frame.canvas-inspector-frame > border {
+  background: alpha(#fbfdff, 0.86);
+  border: 1px solid alpha(#c7d6e8, 0.84);
+}
+
+window.app-window.theme-dark frame.canvas-inspector-frame,
+window.app-window.theme-dark frame.canvas-inspector-frame > border {
+  background: alpha(#16243a, 0.84);
+  border: 1px solid alpha(#42597a, 0.86);
+}
+
+window.app-window .canvas-inspector .canvas-inspector-title {
+  font-size: 12px;
+  font-weight: 740;
+}
+
+window.app-window .canvas-inspector .heading {
+  font-size: 10.4px;
+}
+
+window.app-window .canvas-inspector label {
+  font-size: 10.1px;
+}
+
+window.app-window .canvas-control-subtitle {
+  font-size: 9.8px;
+}
+
+window.app-window frame.canvas-node-card,
+window.app-window frame.canvas-node-card > border {
+  border-radius: 10px;
+}
+
+window.app-window.theme-light frame.canvas-node-card,
+window.app-window.theme-light frame.canvas-node-card > border {
+  background: alpha(#ffffff, 0.9);
+  border: 1px solid alpha(#b8cde6, 0.88);
+}
+
+window.app-window.theme-dark frame.canvas-node-card,
+window.app-window.theme-dark frame.canvas-node-card > border {
+  background: alpha(#1a273d, 0.9);
+  border: 1px solid alpha(#4c6387, 0.9);
+}
+
+window.app-window frame.canvas-node-selected,
+window.app-window frame.canvas-node-selected > border {
+  border-color: alpha(#4f7dde, 0.94);
+  box-shadow: 0 0 0 2px alpha(#5a8df0, 0.22);
+}
+
+window.app-window .canvas-node-title {
+  font-size: 11.2px;
+  font-weight: 700;
+}
+
+window.app-window .canvas-node-detail {
+  font-size: 9.7px;
+}
+
+window.app-window .canvas-node-port {
+  min-width: 15px;
+  min-height: 15px;
+}
+
+window.app-window .canvas-node-port-dot {
+  font-size: 14px;
+}
+
+window.app-window.theme-light .canvas-node-port-in {
+  color: #47688e;
+}
+
+window.app-window.theme-light .canvas-node-port-out {
+  color: #2b5fc5;
+}
+
+window.app-window.theme-dark .canvas-node-port-in {
+  color: #91a9cc;
+}
+
+window.app-window.theme-dark .canvas-node-port-out {
+  color: #88b4ff;
+}
+
+window.app-window .canvas-status {
+  padding: 2px 6px;
+  border-radius: 7px;
+  font-size: 9.8px;
+}
+
+window.app-window .node-link-target-label,
+window.app-window .node-link-source-label {
+  font-size: 9.3px;
+  padding: 1px 5px;
+  border-radius: 7px;
+}
+
+window.app-window .canvas-trigger-panel .segmented-row,
+window.app-window .canvas-action-integration-panel .segmented-row {
+  padding: 2px;
+  border-radius: 8px;
+}
+
+window.app-window .canvas-trigger-panel .segmented-button,
+window.app-window .canvas-action-integration-panel .segmented-button {
+  min-height: 20px;
+  padding: 1px 6px;
+  font-size: 9.8px;
+}
+
+window.app-window .canvas-action-quick-row {
+  margin: 1px 0 3px 0;
+}
+
+window.app-window .canvas-action-quick-button {
+  min-height: 20px;
+  padding: 1px 5px;
+}
+
+window.app-window .canvas-inspector-group {
+  border-radius: 9px;
+  padding: 2px;
+}
+
+window.app-window .canvas-inspector-group > title {
+  padding: 2px 4px;
+}
+
+window.app-window .canvas-inspector-group-body {
+  padding: 2px 1px 1px 1px;
+}
+
+window.app-window.theme-light .canvas-inspector-group {
+  background: alpha(#edf4ff, 0.62);
+  border: 1px solid alpha(#c2d3e8, 0.74);
+}
+
+window.app-window.theme-dark .canvas-inspector-group {
+  background: alpha(#1a2b45, 0.62);
+  border: 1px solid alpha(#445c7b, 0.74);
+}
+
+window.app-window .status-chip,
+window.app-window .provider-chip,
+window.app-window .workflow-meta-chip,
+window.app-window .run-meta-chip,
+window.app-window .integration-meta-chip {
+  font-size: 9.2px;
+  padding: 1px 6px;
+}
+
+window.app-window.theme-preset-indigo .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#6d5ef7, 0.66) 0%, alpha(#554ad9, 0.62) 100%);
+  border-color: alpha(#6d5ef7, 0.88);
+}
+
+window.app-window.theme-preset-carbon .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#16a085, 0.66) 0%, alpha(#0f8a72, 0.62) 100%);
+  border-color: alpha(#16a085, 0.88);
+}
+
+window.app-window.theme-preset-aurora .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#17b56f, 0.66) 0%, alpha(#10995f, 0.62) 100%);
+  border-color: alpha(#18a561, 0.88);
+}
+
+window.app-window.theme-preset-frost .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#3f8ff5, 0.66) 0%, alpha(#2d78dd, 0.62) 100%);
+  border-color: alpha(#3b82f6, 0.88);
+}
+
+/* Premium integrations v18: chroma card identity */
+window.app-window frame.integration-card,
+window.app-window frame.integration-card > border {
+  border-radius: 11px;
+  border-width: 1px;
+}
+
+window.app-window .integration-card-body {
+  padding: 1px;
+}
+
+window.app-window .integration-card-title-row {
+  border-radius: 8px;
+  padding: 3px 5px;
+}
+
+window.app-window .integration-card-title-row .heading {
+  font-size: 10.8px;
+  font-weight: 740;
+}
+
+window.app-window .integration-card-title-row .section-icon {
+  -gtk-icon-size: 13px;
+}
+
+window.app-window .integration-quick-status {
+  min-height: 18px;
+}
+
+window.app-window .integration-status-idle {
+  background: alpha(#334155, 0.18);
+  border: 1px solid alpha(#64748b, 0.34);
+}
+
+window.app-window .integration-status-testing {
+  color: #0b3d91;
+  background: alpha(#3b82f6, 0.18);
+  border: 1px solid alpha(#3b82f6, 0.36);
+}
+
+window.app-window .integration-status-success {
+  color: #125f2c;
+  background: alpha(#22c55e, 0.18);
+  border: 1px solid alpha(#16a34a, 0.36);
+}
+
+window.app-window .integration-status-warning {
+  color: #8a4b00;
+  background: alpha(#f59e0b, 0.18);
+  border: 1px solid alpha(#d97706, 0.38);
+}
+
+window.app-window .integration-status-error {
+  color: #8f1d1d;
+  background: alpha(#ef4444, 0.18);
+  border: 1px solid alpha(#dc2626, 0.4);
+}
+
+window.app-window.theme-dark .integration-status-idle {
+  color: #c7d5ea;
+  background: alpha(#475569, 0.38);
+  border-color: alpha(#64748b, 0.54);
+}
+
+window.app-window.theme-dark .integration-status-testing {
+  color: #bfdbfe;
+  background: alpha(#1d4ed8, 0.42);
+  border-color: alpha(#60a5fa, 0.56);
+}
+
+window.app-window.theme-dark .integration-status-success {
+  color: #bbf7d0;
+  background: alpha(#15803d, 0.42);
+  border-color: alpha(#22c55e, 0.54);
+}
+
+window.app-window.theme-dark .integration-status-warning {
+  color: #fde68a;
+  background: alpha(#a16207, 0.42);
+  border-color: alpha(#f59e0b, 0.56);
+}
+
+window.app-window.theme-dark .integration-status-error {
+  color: #fecaca;
+  background: alpha(#991b1b, 0.42);
+  border-color: alpha(#ef4444, 0.58);
+}
+
+window.app-window.theme-light frame.integration-card,
+window.app-window.theme-light frame.integration-card > border {
+  background: linear-gradient(175deg, alpha(#ffffff, 0.96) 0%, alpha(#f6faff, 0.95) 100%);
+  border-color: alpha(#bdd0e8, 0.86);
+  box-shadow: 0 10px 24px alpha(#6b7f99, 0.12);
+}
+
+window.app-window.theme-dark frame.integration-card,
+window.app-window.theme-dark frame.integration-card > border {
+  background: linear-gradient(176deg, alpha(#162840, 0.92) 0%, alpha(#13243a, 0.92) 100%);
+  border-color: alpha(#45607f, 0.88);
+  box-shadow: 0 12px 26px alpha(#030b16, 0.4);
+}
+
+window.app-window.theme-light .integration-card-title-row {
+  background: alpha(#ebf3ff, 0.85);
+  border: 1px solid alpha(#c3d5ea, 0.82);
+}
+
+window.app-window.theme-dark .integration-card-title-row {
+  background: alpha(#1a304d, 0.78);
+  border: 1px solid alpha(#466386, 0.82);
+}
+
+window.app-window frame.integration-tone-communication,
+window.app-window frame.integration-tone-communication > border {
+  border-color: alpha(#7c3aed, 0.84);
+  box-shadow: 0 0 0 1px alpha(#a78bfa, 0.22), 0 10px 24px alpha(#7c3aed, 0.14);
+}
+
+window.app-window frame.integration-tone-messaging,
+window.app-window frame.integration-tone-messaging > border {
+  border-color: alpha(#0284c7, 0.84);
+  box-shadow: 0 0 0 1px alpha(#38bdf8, 0.22), 0 10px 24px alpha(#0284c7, 0.14);
+}
+
+window.app-window frame.integration-tone-weather,
+window.app-window frame.integration-tone-weather > border {
+  border-color: alpha(#0ea5e9, 0.84);
+  box-shadow: 0 0 0 1px alpha(#7dd3fc, 0.22), 0 10px 24px alpha(#0284c7, 0.14);
+}
+
+window.app-window frame.integration-tone-google,
+window.app-window frame.integration-tone-google > border {
+  border-color: alpha(#16a34a, 0.84);
+  box-shadow: 0 0 0 1px alpha(#86efac, 0.22), 0 10px 24px alpha(#16a34a, 0.14);
+}
+
+window.app-window frame.integration-tone-dev,
+window.app-window frame.integration-tone-dev > border {
+  border-color: alpha(#6366f1, 0.84);
+  box-shadow: 0 0 0 1px alpha(#a5b4fc, 0.22), 0 10px 24px alpha(#4f46e5, 0.14);
+}
+
+window.app-window frame.integration-tone-productivity,
+window.app-window frame.integration-tone-productivity > border {
+  border-color: alpha(#0891b2, 0.84);
+  box-shadow: 0 0 0 1px alpha(#67e8f9, 0.22), 0 10px 24px alpha(#0891b2, 0.14);
+}
+
+window.app-window frame.integration-tone-commerce,
+window.app-window frame.integration-tone-commerce > border {
+  border-color: alpha(#d97706, 0.84);
+  box-shadow: 0 0 0 1px alpha(#fcd34d, 0.24), 0 10px 24px alpha(#d97706, 0.14);
+}
+
+window.app-window frame.integration-tone-data,
+window.app-window frame.integration-tone-data > border {
+  border-color: alpha(#2563eb, 0.84);
+  box-shadow: 0 0 0 1px alpha(#93c5fd, 0.22), 0 10px 24px alpha(#2563eb, 0.14);
+}
+
+window.app-window frame.integration-tone-automation,
+window.app-window frame.integration-tone-automation > border {
+  border-color: alpha(#059669, 0.84);
+  box-shadow: 0 0 0 1px alpha(#6ee7b7, 0.22), 0 10px 24px alpha(#059669, 0.14);
+}
+
+window.app-window frame.integration-tone-default,
+window.app-window frame.integration-tone-default > border {
+  border-color: alpha(#64748b, 0.82);
+}
+
+/* Premium cards v19: workflows, bots, runs chroma identity */
+window.app-window .entity-card-title-row {
+  border-radius: 8px;
+  padding: 2px 5px;
+}
+
+window.app-window.theme-light .entity-card-title-row {
+  background: alpha(#eef4ff, 0.78);
+  border: 1px solid alpha(#c9d7ea, 0.76);
+}
+
+window.app-window.theme-dark .entity-card-title-row {
+  background: alpha(#1b2c46, 0.72);
+  border: 1px solid alpha(#486283, 0.8);
+}
+
+window.app-window frame.workflow-card,
+window.app-window frame.workflow-card > border,
+window.app-window frame.bot-card,
+window.app-window frame.bot-card > border,
+window.app-window frame.run-card,
+window.app-window frame.run-card > border {
+  border-radius: 11px;
+}
+
+window.app-window.theme-light frame.workflow-card,
+window.app-window.theme-light frame.workflow-card > border,
+window.app-window.theme-light frame.bot-card,
+window.app-window.theme-light frame.bot-card > border,
+window.app-window.theme-light frame.run-card,
+window.app-window.theme-light frame.run-card > border {
+  box-shadow: 0 10px 24px alpha(#6b7f99, 0.12);
+}
+
+window.app-window.theme-dark frame.workflow-card,
+window.app-window.theme-dark frame.workflow-card > border,
+window.app-window.theme-dark frame.bot-card,
+window.app-window.theme-dark frame.bot-card > border,
+window.app-window.theme-dark frame.run-card,
+window.app-window.theme-dark frame.run-card > border {
+  box-shadow: 0 12px 26px alpha(#030b16, 0.4);
+}
+
+window.app-window frame.workflow-tone-ai,
+window.app-window frame.workflow-tone-ai > border {
+  border-color: alpha(#6366f1, 0.86);
+}
+
+window.app-window frame.workflow-tone-webhook,
+window.app-window frame.workflow-tone-webhook > border {
+  border-color: alpha(#0891b2, 0.86);
+}
+
+window.app-window frame.workflow-tone-schedule,
+window.app-window frame.workflow-tone-schedule > border {
+  border-color: alpha(#0ea5e9, 0.86);
+}
+
+window.app-window frame.workflow-tone-manual,
+window.app-window frame.workflow-tone-manual > border {
+  border-color: alpha(#64748b, 0.84);
+}
+
+window.app-window frame.workflow-tone-empty,
+window.app-window frame.workflow-tone-empty > border {
+  border-color: alpha(#d97706, 0.86);
+}
+
+window.app-window frame.workflow-tone-default,
+window.app-window frame.workflow-tone-default > border {
+  border-color: alpha(#4f7dde, 0.84);
+}
+
+window.app-window frame.workflow-tone-ai .workflow-title-row {
+  border-color: alpha(#818cf8, 0.82);
+}
+
+window.app-window frame.workflow-tone-webhook .workflow-title-row {
+  border-color: alpha(#67e8f9, 0.82);
+}
+
+window.app-window frame.workflow-tone-schedule .workflow-title-row {
+  border-color: alpha(#7dd3fc, 0.82);
+}
+
+window.app-window frame.workflow-tone-empty .workflow-title-row {
+  border-color: alpha(#fcd34d, 0.82);
+}
+
+window.app-window frame.bot-tone-local,
+window.app-window frame.bot-tone-local > border {
+  border-color: alpha(#16a34a, 0.86);
+}
+
+window.app-window frame.bot-tone-openai,
+window.app-window frame.bot-tone-openai > border {
+  border-color: alpha(#0ea5e9, 0.86);
+}
+
+window.app-window frame.bot-tone-anthropic,
+window.app-window frame.bot-tone-anthropic > border {
+  border-color: alpha(#7c3aed, 0.86);
+}
+
+window.app-window frame.bot-tone-default,
+window.app-window frame.bot-tone-default > border {
+  border-color: alpha(#64748b, 0.84);
+}
+
+window.app-window frame.bot-tone-local .bot-title-row {
+  border-color: alpha(#86efac, 0.82);
+}
+
+window.app-window frame.bot-tone-openai .bot-title-row {
+  border-color: alpha(#7dd3fc, 0.82);
+}
+
+window.app-window frame.bot-tone-anthropic .bot-title-row {
+  border-color: alpha(#c4b5fd, 0.82);
+}
+
+window.app-window frame.run-tone-success,
+window.app-window frame.run-tone-success > border {
+  border-color: alpha(#16a34a, 0.88);
+}
+
+window.app-window frame.run-tone-failed,
+window.app-window frame.run-tone-failed > border {
+  border-color: alpha(#dc2626, 0.88);
+}
+
+window.app-window frame.run-tone-running,
+window.app-window frame.run-tone-running > border {
+  border-color: alpha(#2563eb, 0.88);
+}
+
+window.app-window frame.run-tone-waiting,
+window.app-window frame.run-tone-waiting > border {
+  border-color: alpha(#d97706, 0.88);
+}
+
+window.app-window frame.run-tone-cancelled,
+window.app-window frame.run-tone-cancelled > border {
+  border-color: alpha(#64748b, 0.86);
+}
+
+window.app-window frame.run-tone-default,
+window.app-window frame.run-tone-default > border {
+  border-color: alpha(#4f7dde, 0.84);
+}
+
+window.app-window frame.run-tone-success .run-title-row {
+  border-color: alpha(#86efac, 0.82);
+}
+
+window.app-window frame.run-tone-failed .run-title-row {
+  border-color: alpha(#fca5a5, 0.82);
+}
+
+window.app-window frame.run-tone-running .run-title-row {
+  border-color: alpha(#93c5fd, 0.82);
+}
+
+window.app-window frame.run-tone-waiting .run-title-row {
+  border-color: alpha(#fcd34d, 0.82);
+}
+
+window.app-window frame.run-card-selected,
+window.app-window frame.run-card-selected > border {
+  box-shadow: 0 0 0 2px alpha(#60a5fa, 0.24), 0 12px 28px alpha(#1d4ed8, 0.18);
+}
+
+/* Premium studio v20: unified dark-glass workstation direction */
+window.app-window,
+window.app-window .background {
+  font-family: "SF Pro Text", "Inter", "Manrope", "Noto Sans", "Cantarell", sans-serif;
+  font-size: 12px;
+}
+
+window.app-window.theme-dark,
+window.app-window.theme-dark .background {
+  background-image:
+    radial-gradient(circle at 8% 10%, alpha(#2f6bff, 0.28) 0%, alpha(#2f6bff, 0) 38%),
+    radial-gradient(circle at 88% 6%, alpha(#12b5ff, 0.2) 0%, alpha(#12b5ff, 0) 34%),
+    radial-gradient(circle at 76% 86%, alpha(#7358ff, 0.14) 0%, alpha(#7358ff, 0) 34%),
+    linear-gradient(160deg, #0b111d 0%, #10182a 44%, #0d1627 100%);
+}
+
+window.app-window.theme-light,
+window.app-window.theme-light .background {
+  background-image:
+    radial-gradient(circle at 10% 10%, alpha(#60a5fa, 0.18) 0%, alpha(#60a5fa, 0) 36%),
+    radial-gradient(circle at 88% 8%, alpha(#22d3ee, 0.14) 0%, alpha(#22d3ee, 0) 34%),
+    linear-gradient(156deg, #edf4ff 0%, #e9f1ff 44%, #edf5ff 100%);
+}
+
+window.app-window .app-headerbar {
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+}
+
+window.app-window.theme-dark .app-headerbar {
+  background: alpha(#0f1828, 0.86);
+  border-bottom-color: alpha(#3f5677, 0.78);
+  box-shadow: 0 8px 20px alpha(#030712, 0.34);
+}
+
+window.app-window.theme-light .app-headerbar {
+  background: alpha(#f8fbff, 0.84);
+  border-bottom-color: alpha(#bed0e7, 0.78);
+  box-shadow: 0 8px 20px alpha(#30455d, 0.1);
+}
+
+window.app-window .app-view-chip {
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-weight: 700;
+}
+
+window.app-window.theme-dark .app-view-chip {
+  color: #dbeafe;
+  background: alpha(#1c2f4f, 0.86);
+  border: 1px solid alpha(#5e7eab, 0.82);
+}
+
+window.app-window.theme-light .app-view-chip {
+  color: #1e3a8a;
+  background: alpha(#dbeafe, 0.9);
+  border: 1px solid alpha(#7da3e6, 0.84);
+}
+
+window.app-window .header-action-button,
+window.app-window .daemon-state-chip {
+  border-radius: 10px;
+  padding: 2px 9px;
+}
+
+window.app-window .shell-sidebar,
+window.app-window .shell-sidebar > border,
+window.app-window .shell-content,
+window.app-window .shell-content > border {
+  border-radius: 14px;
+}
+
+window.app-window.theme-dark .shell-sidebar,
+window.app-window.theme-dark .shell-sidebar > border {
+  background: linear-gradient(180deg, alpha(#13233a, 0.86) 0%, alpha(#111e31, 0.88) 100%);
+  border: 1px solid alpha(#435d7d, 0.82);
+}
+
+window.app-window.theme-light .shell-sidebar,
+window.app-window.theme-light .shell-sidebar > border {
+  background: linear-gradient(180deg, alpha(#eaf2ff, 0.82) 0%, alpha(#e5eefc, 0.84) 100%);
+  border: 1px solid alpha(#bfd1e8, 0.82);
+}
+
+window.app-window.theme-dark .shell-content,
+window.app-window.theme-dark .shell-content > border {
+  background: alpha(#121f34, 0.8);
+  border: 1px solid alpha(#405978, 0.82);
+}
+
+window.app-window.theme-light .shell-content,
+window.app-window.theme-light .shell-content > border {
+  background: alpha(#f7fbff, 0.82);
+  border: 1px solid alpha(#c4d4e8, 0.82);
+}
+
+window.app-window .sidebar-brand {
+  border-radius: 12px;
+  padding: 8px 8px;
+}
+
+window.app-window.theme-dark .sidebar-brand {
+  background: linear-gradient(160deg, alpha(#1b3354, 0.78) 0%, alpha(#193252, 0.62) 100%);
+  border: 1px solid alpha(#5a78a6, 0.82);
+}
+
+window.app-window.theme-light .sidebar-brand {
+  background: linear-gradient(160deg, alpha(#ffffff, 0.9) 0%, alpha(#eff6ff, 0.88) 100%);
+  border: 1px solid alpha(#bcd0e8, 0.86);
+}
+
+window.app-window .navigation-sidebar {
+  padding: 5px;
+  border-radius: 12px;
+}
+
+window.app-window .navigation-sidebar row {
+  min-height: 24px;
+  margin: 2px 0;
+  border-radius: 10px;
+  padding: 1px 4px;
+}
+
+window.app-window .navigation-row-icon {
+  -gtk-icon-size: 13px;
+}
+
+window.app-window .navigation-row-label {
+  font-size: 11px;
+  font-weight: 640;
+}
+
+window.app-window.theme-dark .navigation-sidebar row {
+  color: #c9d7ec;
+}
+
+window.app-window.theme-dark .navigation-sidebar row:hover {
+  background: alpha(#263d61, 0.72);
+  color: #eef5ff;
+}
+
+window.app-window.theme-dark .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#4c7bd8, 0.78) 0%, alpha(#3f6ec7, 0.74) 100%);
+  border: 1px solid alpha(#84a8ef, 0.84);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px alpha(#9ec0ff, 0.22);
+}
+
+window.app-window.theme-light .navigation-sidebar row:hover {
+  background: alpha(#dbeafe, 0.88);
+  color: #1f3d7a;
+}
+
+window.app-window.theme-light .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#9ec2ff, 0.86) 0%, alpha(#87acef, 0.82) 100%);
+  border: 1px solid alpha(#6f98e8, 0.84);
+  color: #143160;
+}
+
+window.app-window .page-hero {
+  padding: 9px 11px;
+  border-radius: 12px;
+}
+
+window.app-window.theme-dark .page-hero {
+  background: linear-gradient(162deg, alpha(#1a2e4b, 0.74) 0%, alpha(#162842, 0.66) 100%);
+  border: 1px solid alpha(#4a6388, 0.8);
+}
+
+window.app-window.theme-light .page-hero {
+  background: linear-gradient(162deg, alpha(#ffffff, 0.88) 0%, alpha(#edf5ff, 0.86) 100%);
+  border: 1px solid alpha(#bfd1e8, 0.82);
+}
+
+window.app-window frame.panel-card,
+window.app-window frame.panel-card > border,
+window.app-window frame.entity-form-panel,
+window.app-window frame.entity-form-panel > border,
+window.app-window frame.list-card,
+window.app-window frame.list-card > border {
+  border-radius: 12px;
+  border-width: 1px;
+}
+
+window.app-window.theme-dark frame.panel-card,
+window.app-window.theme-dark frame.panel-card > border,
+window.app-window.theme-dark frame.entity-form-panel,
+window.app-window.theme-dark frame.entity-form-panel > border,
+window.app-window.theme-dark frame.list-card,
+window.app-window.theme-dark frame.list-card > border {
+  background: linear-gradient(176deg, alpha(#162840, 0.9) 0%, alpha(#132439, 0.9) 100%);
+  border-color: alpha(#476283, 0.84);
+  box-shadow: 0 12px 30px alpha(#020b16, 0.42);
+}
+
+window.app-window.theme-light frame.panel-card,
+window.app-window.theme-light frame.panel-card > border,
+window.app-window.theme-light frame.entity-form-panel,
+window.app-window.theme-light frame.entity-form-panel > border,
+window.app-window.theme-light frame.list-card,
+window.app-window.theme-light frame.list-card > border {
+  background: linear-gradient(176deg, alpha(#ffffff, 0.96) 0%, alpha(#f4f9ff, 0.95) 100%);
+  border-color: alpha(#bfd0e8, 0.84);
+  box-shadow: 0 10px 24px alpha(#5e7491, 0.12);
+}
+
+window.app-window .page-action-bar,
+window.app-window .canvas-toolbar-row {
+  border-radius: 11px;
+  padding: 4px 6px;
+}
+
+window.app-window.theme-dark .page-action-bar,
+window.app-window.theme-dark .canvas-toolbar-row {
+  background: alpha(#1a2d49, 0.66);
+  border: 1px solid alpha(#4b6689, 0.82);
+}
+
+window.app-window.theme-light .page-action-bar,
+window.app-window.theme-light .canvas-toolbar-row {
+  background: alpha(#ffffff, 0.72);
+  border: 1px solid alpha(#c6d6ea, 0.8);
+}
+
+window.app-window button,
+window.app-window entry,
+window.app-window spinbutton,
+window.app-window dropdown > button {
+  border-radius: 9px;
+  min-height: 24px;
+}
+
+window.app-window.theme-dark button {
+  background-image: linear-gradient(180deg, alpha(#243a5c, 0.92) 0%, alpha(#1b2d48, 0.92) 100%);
+  border-color: alpha(#55719a, 0.84);
+}
+
+window.app-window.theme-dark button:hover {
+  background-image: linear-gradient(180deg, alpha(#2a4368, 0.94) 0%, alpha(#203555, 0.94) 100%);
+  border-color: alpha(#79a0d9, 0.86);
+}
+
+window.app-window.theme-dark button.suggested-action {
+  background-image: linear-gradient(180deg, #3d8eff 0%, #2e6dde 100%);
+  border-color: alpha(#8ec0ff, 0.88);
+  color: #f7fbff;
+}
+
+window.app-window.theme-light button.suggested-action {
+  background-image: linear-gradient(180deg, #3d8eff 0%, #2e6dde 100%);
+  border-color: alpha(#2d65cc, 0.9);
+}
+
+window.app-window.theme-dark entry,
+window.app-window.theme-dark spinbutton,
+window.app-window.theme-dark dropdown > button,
+window.app-window.theme-dark textview,
+window.app-window.theme-dark textview text {
+  background: alpha(#1a2c46, 0.86);
+  border-color: alpha(#4c678a, 0.84);
+  color: #e8f0ff;
+}
+
+window.app-window.theme-light entry,
+window.app-window.theme-light spinbutton,
+window.app-window.theme-light dropdown > button,
+window.app-window.theme-light textview,
+window.app-window.theme-light textview text {
+  background: alpha(#f6faff, 0.95);
+  border-color: alpha(#c6d7ea, 0.82);
+}
+
+window.app-window .canvas-control-subtitle {
+  color: alpha(#9fb5d7, 0.96);
+}
+
+window.app-window.theme-light .canvas-control-subtitle {
+  color: alpha(#4a6389, 0.9);
+}
+
+window.app-window.theme-dark frame.canvas-stage-frame,
+window.app-window.theme-dark frame.canvas-stage-frame > border {
+  background: alpha(#111d31, 0.88);
+  border-color: alpha(#4b668a, 0.86);
+}
+
+window.app-window.theme-dark frame.canvas-inspector-frame,
+window.app-window.theme-dark frame.canvas-inspector-frame > border {
+  background: alpha(#172842, 0.86);
+  border-color: alpha(#4f6a8d, 0.86);
+}
+
+window.app-window.theme-light frame.canvas-stage-frame,
+window.app-window.theme-light frame.canvas-stage-frame > border {
+  background: alpha(#f8fbff, 0.88);
+  border-color: alpha(#c5d5e8, 0.84);
+}
+
+window.app-window.theme-light frame.canvas-inspector-frame,
+window.app-window.theme-light frame.canvas-inspector-frame > border {
+  background: alpha(#fbfdff, 0.9);
+  border-color: alpha(#c6d7ea, 0.84);
+}
+
+/* Premium studio v21: polished workstation shell + vivid card identity */
+window.app-window.theme-dark,
+window.app-window.theme-dark .background {
+  background-image:
+    radial-gradient(circle at 8% 8%, alpha(#2b74ff, 0.28) 0%, alpha(#2b74ff, 0) 40%),
+    radial-gradient(circle at 86% 10%, alpha(#20d2ff, 0.18) 0%, alpha(#20d2ff, 0) 36%),
+    radial-gradient(circle at 78% 88%, alpha(#7058ff, 0.16) 0%, alpha(#7058ff, 0) 34%),
+    linear-gradient(160deg, #0a101b 0%, #0f1727 48%, #0d1726 100%);
+}
+
+window.app-window.theme-dark .app-headerbar {
+  background: linear-gradient(180deg, alpha(#0e1728, 0.93) 0%, alpha(#0d1524, 0.9) 100%);
+  border-bottom: 1px solid alpha(#4a6489, 0.72);
+}
+
+window.app-window.theme-dark .shell-sidebar,
+window.app-window.theme-dark .shell-sidebar > border {
+  background: linear-gradient(180deg, alpha(#13263e, 0.92) 0%, alpha(#101f34, 0.94) 100%);
+  border: 1px solid alpha(#4e6b93, 0.82);
+  box-shadow: 0 14px 30px alpha(#020915, 0.42);
+}
+
+window.app-window.theme-dark .shell-content,
+window.app-window.theme-dark .shell-content > border {
+  background: linear-gradient(168deg, alpha(#131f33, 0.9) 0%, alpha(#111c2e, 0.92) 100%);
+  border: 1px solid alpha(#465f83, 0.82);
+}
+
+window.app-window.theme-dark .sidebar-brand {
+  background-image:
+    radial-gradient(circle at 96% 8%, alpha(#29b6ff, 0.24) 0%, alpha(#29b6ff, 0) 42%),
+    linear-gradient(165deg, alpha(#1e3a5d, 0.92) 0%, alpha(#192f4e, 0.9) 100%);
+  border: 1px solid alpha(#6d8fbe, 0.84);
+  box-shadow: 0 10px 24px alpha(#041224, 0.4);
+}
+
+window.app-window.theme-dark .sidebar-brand-kicker {
+  color: alpha(#78aaff, 0.95);
+}
+
+window.app-window.theme-dark .sidebar-brand-title {
+  color: #edf5ff;
+}
+
+window.app-window.theme-dark .sidebar-brand-subtitle {
+  color: alpha(#b6c8e6, 0.9);
+}
+
+window.app-window.theme-dark .navigation-sidebar {
+  background: alpha(#111f34, 0.64);
+  border: 1px solid alpha(#4d678d, 0.76);
+}
+
+window.app-window.theme-dark .navigation-sidebar row {
+  border: 1px solid alpha(#3d5576, 0.0);
+}
+
+window.app-window.theme-dark .navigation-sidebar row:hover {
+  background: linear-gradient(180deg, alpha(#2e466c, 0.8) 0%, alpha(#273f63, 0.78) 100%);
+  border-color: alpha(#7094ce, 0.54);
+}
+
+window.app-window.theme-dark .navigation-sidebar row:selected {
+  background-image:
+    radial-gradient(circle at 90% 50%, alpha(#69b8ff, 0.2) 0%, alpha(#69b8ff, 0) 44%),
+    linear-gradient(180deg, alpha(#5082de, 0.88) 0%, alpha(#406fc8, 0.84) 100%);
+  border-color: alpha(#97bcff, 0.86);
+  box-shadow: 0 0 0 1px alpha(#a9cbff, 0.24);
+}
+
+window.app-window.theme-dark .navigation-row-icon {
+  color: alpha(#cde1ff, 0.94);
+}
+
+window.app-window.theme-dark .navigation-row-label {
+  color: alpha(#dae8ff, 0.96);
+}
+
+window.app-window.theme-dark .page-hero {
+  background-image:
+    radial-gradient(circle at 95% 16%, alpha(#37b3ff, 0.18) 0%, alpha(#37b3ff, 0) 40%),
+    linear-gradient(164deg, alpha(#1b304d, 0.78) 0%, alpha(#16263d, 0.72) 100%);
+  border: 1px solid alpha(#55729a, 0.78);
+}
+
+window.app-window.theme-dark frame.panel-card,
+window.app-window.theme-dark frame.panel-card > border,
+window.app-window.theme-dark frame.entity-form-panel,
+window.app-window.theme-dark frame.entity-form-panel > border,
+window.app-window.theme-dark frame.list-card,
+window.app-window.theme-dark frame.list-card > border {
+  background-image:
+    radial-gradient(circle at 96% 10%, alpha(#3ea3ff, 0.12) 0%, alpha(#3ea3ff, 0) 42%),
+    linear-gradient(176deg, alpha(#172a43, 0.94) 0%, alpha(#142339, 0.94) 100%);
+  border: 1px solid alpha(#516d93, 0.82);
+  box-shadow: 0 12px 28px alpha(#020a15, 0.44);
+}
+
+window.app-window.theme-dark .page-action-bar,
+window.app-window.theme-dark .canvas-toolbar-row {
+  background: alpha(#1b314f, 0.72);
+  border: 1px solid alpha(#58759f, 0.76);
+}
+
+window.app-window.theme-dark button {
+  background-image: linear-gradient(180deg, alpha(#2b456b, 0.96) 0%, alpha(#223a5b, 0.96) 100%);
+  border: 1px solid alpha(#6f90bd, 0.72);
+  color: #eaf3ff;
+}
+
+window.app-window.theme-dark button:hover {
+  background-image: linear-gradient(180deg, alpha(#34537f, 0.98) 0%, alpha(#28466d, 0.98) 100%);
+  border-color: alpha(#9ec1f6, 0.82);
+}
+
+window.app-window.theme-dark button.suggested-action {
+  background-image: linear-gradient(180deg, #3aa7ff 0%, #2e79e4 100%);
+  border-color: alpha(#9bd1ff, 0.86);
+  color: #f8fcff;
+}
+
+window.app-window.theme-dark entry,
+window.app-window.theme-dark spinbutton,
+window.app-window.theme-dark dropdown > button,
+window.app-window.theme-dark textview,
+window.app-window.theme-dark textview text {
+  background: alpha(#1a2f4b, 0.9);
+  border-color: alpha(#5d7ca7, 0.76);
+}
+
+window.app-window.theme-dark entry:focus,
+window.app-window.theme-dark spinbutton:focus,
+window.app-window.theme-dark dropdown > button:focus,
+window.app-window.theme-dark textview:focus-within {
+  border-color: alpha(#8fc7ff, 0.96);
+  box-shadow: 0 0 0 2px alpha(#54a6ff, 0.26);
+}
+
+window.app-window.theme-dark .status-chip,
+window.app-window.theme-dark .provider-chip,
+window.app-window.theme-dark .workflow-meta-chip,
+window.app-window.theme-dark .run-meta-chip,
+window.app-window.theme-dark .integration-meta-chip {
+  background: alpha(#203757, 0.78);
+  border: 1px solid alpha(#6588b6, 0.72);
+  color: #dcecff;
+}
+
+window.app-window.theme-dark frame.integration-card,
+window.app-window.theme-dark frame.integration-card > border {
+  border-width: 1px;
+  box-shadow: 0 14px 28px alpha(#020a15, 0.46);
+}
+
+window.app-window.theme-dark .integration-card-title-row {
+  border-width: 1px;
+}
+
+window.app-window.theme-dark frame.integration-tone-communication,
+window.app-window.theme-dark frame.integration-tone-communication > border {
+  background-image: linear-gradient(170deg, alpha(#2d1f4b, 0.92) 0%, alpha(#251b3f, 0.9) 100%);
+}
+
+window.app-window.theme-dark frame.integration-tone-messaging,
+window.app-window.theme-dark frame.integration-tone-messaging > border {
+  background-image: linear-gradient(170deg, alpha(#173950, 0.92) 0%, alpha(#133044, 0.9) 100%);
+}
+
+window.app-window.theme-dark frame.integration-tone-weather,
+window.app-window.theme-dark frame.integration-tone-weather > border {
+  background-image: linear-gradient(170deg, alpha(#193f56, 0.92) 0%, alpha(#163349, 0.9) 100%);
+}
+
+window.app-window.theme-dark frame.integration-tone-google,
+window.app-window.theme-dark frame.integration-tone-google > border {
+  background-image: linear-gradient(170deg, alpha(#173f32, 0.92) 0%, alpha(#133428, 0.9) 100%);
+}
+
+window.app-window.theme-dark frame.integration-tone-dev,
+window.app-window.theme-dark frame.integration-tone-dev > border {
+  background-image: linear-gradient(170deg, alpha(#242e54, 0.92) 0%, alpha(#1d2748, 0.9) 100%);
+}
+
+window.app-window.theme-dark frame.integration-tone-productivity,
+window.app-window.theme-dark frame.integration-tone-productivity > border {
+  background-image: linear-gradient(170deg, alpha(#18424d, 0.92) 0%, alpha(#143642, 0.9) 100%);
+}
+
+window.app-window.theme-dark frame.integration-tone-commerce,
+window.app-window.theme-dark frame.integration-tone-commerce > border {
+  background-image: linear-gradient(170deg, alpha(#4a3517, 0.92) 0%, alpha(#3d2d14, 0.9) 100%);
+}
+
+window.app-window.theme-dark frame.integration-tone-data,
+window.app-window.theme-dark frame.integration-tone-data > border {
+  background-image: linear-gradient(170deg, alpha(#173457, 0.92) 0%, alpha(#142d4a, 0.9) 100%);
+}
+
+window.app-window.theme-dark frame.integration-tone-automation,
+window.app-window.theme-dark frame.integration-tone-automation > border {
+  background-image: linear-gradient(170deg, alpha(#17463a, 0.92) 0%, alpha(#12392f, 0.9) 100%);
+}
+
+window.app-window.theme-dark frame.workflow-card,
+window.app-window.theme-dark frame.workflow-card > border,
+window.app-window.theme-dark frame.bot-card,
+window.app-window.theme-dark frame.bot-card > border,
+window.app-window.theme-dark frame.run-card,
+window.app-window.theme-dark frame.run-card > border {
+  box-shadow: 0 12px 30px alpha(#020a15, 0.46);
+}
+
+window.app-window .canvas-inspector scale trough,
+window.app-window .settings-root scale trough,
+window.app-window .canvas-workflow-mode scale trough {
+  min-height: 4px;
+  border-radius: 999px;
+}
+
+window.app-window .canvas-inspector scale slider,
+window.app-window .settings-root scale slider,
+window.app-window .canvas-workflow-mode scale slider {
+  min-width: 9px;
+  min-height: 9px;
+  margin: 0;
+}
+
+window.app-window.theme-dark frame.canvas-stage-frame,
+window.app-window.theme-dark frame.canvas-stage-frame > border {
+  background-image: linear-gradient(168deg, alpha(#101d31, 0.92) 0%, alpha(#0f1a2c, 0.94) 100%);
+  border: 1px solid alpha(#4b678f, 0.86);
+}
+
+window.app-window.theme-dark frame.canvas-inspector-frame,
+window.app-window.theme-dark frame.canvas-inspector-frame > border {
+  background-image: linear-gradient(170deg, alpha(#162a44, 0.92) 0%, alpha(#13253d, 0.94) 100%);
+  border: 1px solid alpha(#5b79a5, 0.82);
+  box-shadow: 0 12px 28px alpha(#020a16, 0.44);
+}
+
+window.app-window.theme-dark frame.canvas-node-card,
+window.app-window.theme-dark frame.canvas-node-card > border {
+  border: 1px solid alpha(#5f7fae, 0.76);
+  box-shadow: 0 9px 18px alpha(#020b18, 0.38);
+}
+
+window.app-window.theme-dark frame.canvas-node-trigger,
+window.app-window.theme-dark frame.canvas-node-trigger > border {
+  background-image: linear-gradient(170deg, alpha(#1a3d37, 0.92) 0%, alpha(#16352f, 0.9) 100%);
+  border-color: alpha(#52c7a7, 0.86);
+}
+
+window.app-window.theme-dark frame.canvas-node-action,
+window.app-window.theme-dark frame.canvas-node-action > border {
+  background-image: linear-gradient(170deg, alpha(#163a4f, 0.92) 0%, alpha(#133144, 0.9) 100%);
+  border-color: alpha(#5ac0f0, 0.86);
+}
+
+window.app-window.theme-dark frame.canvas-node-ai,
+window.app-window.theme-dark frame.canvas-node-ai > border {
+  background-image: linear-gradient(170deg, alpha(#2f2f58, 0.92) 0%, alpha(#26264a, 0.9) 100%);
+  border-color: alpha(#9d8bff, 0.88);
+}
+
+window.app-window.theme-dark frame.canvas-node-condition,
+window.app-window.theme-dark frame.canvas-node-condition > border {
+  background-image: linear-gradient(170deg, alpha(#4b3b1f, 0.92) 0%, alpha(#3f331a, 0.9) 100%);
+  border-color: alpha(#f0c36a, 0.88);
+}
+
+window.app-window.theme-dark frame.canvas-node-selected,
+window.app-window.theme-dark frame.canvas-node-selected > border {
+  border-color: alpha(#99c8ff, 0.96);
+  box-shadow: 0 0 0 2px alpha(#6ab0ff, 0.32), 0 12px 26px alpha(#0f3d70, 0.24);
+}
+
+window.app-window.theme-dark frame.canvas-node-link-source,
+window.app-window.theme-dark frame.canvas-node-link-source > border {
+  box-shadow: 0 0 0 2px alpha(#8ed2ff, 0.34), 0 12px 24px alpha(#0e5a94, 0.26);
+}
+
+window.app-window.theme-dark frame.canvas-node-link-target,
+window.app-window.theme-dark frame.canvas-node-link-target > border {
+  box-shadow: 0 0 0 2px alpha(#94ffc5, 0.34), 0 12px 24px alpha(#0f6a45, 0.22);
+}
+
+window.app-window.theme-dark .canvas-node-port {
+  background: alpha(#18304c, 0.92);
+  border: 1px solid alpha(#7aa4da, 0.74);
+}
+
+window.app-window.theme-dark .canvas-node-port-hover {
+  background: alpha(#24466f, 0.98);
+  border-color: alpha(#9fd3ff, 0.94);
+}
+
+window.app-window.theme-light .shell-sidebar,
+window.app-window.theme-light .shell-sidebar > border {
+  background: linear-gradient(180deg, alpha(#eef5ff, 0.92) 0%, alpha(#e7f0fe, 0.94) 100%);
+}
+
+window.app-window.theme-light .shell-content,
+window.app-window.theme-light .shell-content > border {
+  background: linear-gradient(170deg, alpha(#fbfdff, 0.92) 0%, alpha(#f5f9ff, 0.94) 100%);
+}
+
+window.app-window.theme-light .navigation-sidebar row:selected {
+  background-image:
+    radial-gradient(circle at 90% 50%, alpha(#8cc2ff, 0.2) 0%, alpha(#8cc2ff, 0) 44%),
+    linear-gradient(180deg, alpha(#99beff, 0.88) 0%, alpha(#86acef, 0.86) 100%);
+}
+
+/* Premium studio v21b: light-mode card chroma so layouts are readable and distinct */
+window.app-window.theme-light frame.integration-tone-communication,
+window.app-window.theme-light frame.integration-tone-communication > border {
+  background-image: linear-gradient(170deg, alpha(#ffffff, 0.96) 0%, alpha(#f3ecff, 0.96) 100%);
+}
+
+window.app-window.theme-light frame.integration-tone-messaging,
+window.app-window.theme-light frame.integration-tone-messaging > border {
+  background-image: linear-gradient(170deg, alpha(#ffffff, 0.96) 0%, alpha(#ebf8ff, 0.96) 100%);
+}
+
+window.app-window.theme-light frame.integration-tone-weather,
+window.app-window.theme-light frame.integration-tone-weather > border {
+  background-image: linear-gradient(170deg, alpha(#ffffff, 0.96) 0%, alpha(#eaf7ff, 0.96) 100%);
+}
+
+window.app-window.theme-light frame.integration-tone-google,
+window.app-window.theme-light frame.integration-tone-google > border {
+  background-image: linear-gradient(170deg, alpha(#ffffff, 0.96) 0%, alpha(#ecfbf2, 0.96) 100%);
+}
+
+window.app-window.theme-light frame.integration-tone-dev,
+window.app-window.theme-light frame.integration-tone-dev > border {
+  background-image: linear-gradient(170deg, alpha(#ffffff, 0.96) 0%, alpha(#eef1ff, 0.96) 100%);
+}
+
+window.app-window.theme-light frame.integration-tone-productivity,
+window.app-window.theme-light frame.integration-tone-productivity > border {
+  background-image: linear-gradient(170deg, alpha(#ffffff, 0.96) 0%, alpha(#ebfbff, 0.96) 100%);
+}
+
+window.app-window.theme-light frame.integration-tone-commerce,
+window.app-window.theme-light frame.integration-tone-commerce > border {
+  background-image: linear-gradient(170deg, alpha(#ffffff, 0.96) 0%, alpha(#fff6ea, 0.96) 100%);
+}
+
+window.app-window.theme-light frame.integration-tone-data,
+window.app-window.theme-light frame.integration-tone-data > border {
+  background-image: linear-gradient(170deg, alpha(#ffffff, 0.96) 0%, alpha(#ecf4ff, 0.96) 100%);
+}
+
+window.app-window.theme-light frame.integration-tone-automation,
+window.app-window.theme-light frame.integration-tone-automation > border {
+  background-image: linear-gradient(170deg, alpha(#ffffff, 0.96) 0%, alpha(#ecfaf4, 0.96) 100%);
+}
+
+/* Premium studio v22: inspector slider containment + non-overlap */
+window.app-window .canvas-inspector .inspector-adjust-row,
+window.app-window .canvas-workflow-mode .inspector-adjust-row {
+  padding: 2px 4px;
+  margin: 1px 0 5px 0;
+  border-radius: 8px;
+}
+
+window.app-window .canvas-inspector scale.inspector-adjust-scale,
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale {
+  min-height: 14px;
+  margin: 0 8px 0 0;
+}
+
+window.app-window .canvas-inspector scale.inspector-adjust-scale trough,
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale trough {
+  min-height: 4px;
+}
+
+window.app-window .canvas-inspector scale.inspector-adjust-scale slider,
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale slider {
+  min-width: 8px;
+  min-height: 8px;
+  margin: 0;
+}
+
+window.app-window .canvas-inspector spinbutton.inspector-adjust-spin,
+window.app-window .canvas-workflow-mode spinbutton.inspector-adjust-spin {
+  min-width: 68px;
+}
+
+window.app-window .canvas-inspector scale.inspector-adjust-scale:focus,
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale:focus,
+window.app-window .canvas-inspector .inspector-adjust-row:focus-within,
+window.app-window .canvas-workflow-mode .inspector-adjust-row:focus-within {
+  box-shadow: none;
+}
+
+/* Premium studio v23: expanded color-rich theme presets (sunset, rose, amber) */
+window.app-window.theme-dark.theme-preset-sunset,
+window.app-window.theme-dark.theme-preset-sunset .background {
+  background-image:
+    radial-gradient(circle at 10% 10%, alpha(#ff8852, 0.28) 0%, alpha(#ff8852, 0) 40%),
+    radial-gradient(circle at 84% 10%, alpha(#ff4d7f, 0.2) 0%, alpha(#ff4d7f, 0) 36%),
+    radial-gradient(circle at 78% 84%, alpha(#ffb347, 0.14) 0%, alpha(#ffb347, 0) 34%),
+    linear-gradient(160deg, #1b1213 0%, #24161a 48%, #1f1518 100%);
+}
+
+window.app-window.theme-dark.theme-preset-rose,
+window.app-window.theme-dark.theme-preset-rose .background {
+  background-image:
+    radial-gradient(circle at 10% 10%, alpha(#f15bb5, 0.26) 0%, alpha(#f15bb5, 0) 40%),
+    radial-gradient(circle at 84% 10%, alpha(#b26bff, 0.2) 0%, alpha(#b26bff, 0) 36%),
+    radial-gradient(circle at 78% 84%, alpha(#ff7ec9, 0.14) 0%, alpha(#ff7ec9, 0) 34%),
+    linear-gradient(160deg, #16101f 0%, #1d1528 48%, #191322 100%);
+}
+
+window.app-window.theme-dark.theme-preset-amber,
+window.app-window.theme-dark.theme-preset-amber .background {
+  background-image:
+    radial-gradient(circle at 10% 10%, alpha(#ffb84d, 0.28) 0%, alpha(#ffb84d, 0) 40%),
+    radial-gradient(circle at 84% 10%, alpha(#ff8a3d, 0.2) 0%, alpha(#ff8a3d, 0) 36%),
+    radial-gradient(circle at 78% 84%, alpha(#ffd166, 0.14) 0%, alpha(#ffd166, 0) 34%),
+    linear-gradient(160deg, #1a170f 0%, #221d11 48%, #1e190f 100%);
+}
+
+window.app-window.theme-light.theme-preset-sunset,
+window.app-window.theme-light.theme-preset-sunset .background {
+  background-image:
+    radial-gradient(circle at 8% 10%, alpha(#fb923c, 0.18) 0%, alpha(#fb923c, 0) 38%),
+    radial-gradient(circle at 88% 10%, alpha(#f43f5e, 0.14) 0%, alpha(#f43f5e, 0) 34%),
+    linear-gradient(156deg, #fff7f2 0%, #fff1f2 44%, #fff7f5 100%);
+}
+
+window.app-window.theme-light.theme-preset-rose,
+window.app-window.theme-light.theme-preset-rose .background {
+  background-image:
+    radial-gradient(circle at 8% 10%, alpha(#ec4899, 0.16) 0%, alpha(#ec4899, 0) 38%),
+    radial-gradient(circle at 88% 10%, alpha(#a855f7, 0.13) 0%, alpha(#a855f7, 0) 34%),
+    linear-gradient(156deg, #fff5fc 0%, #f9f2ff 44%, #fff5fb 100%);
+}
+
+window.app-window.theme-light.theme-preset-amber,
+window.app-window.theme-light.theme-preset-amber .background {
+  background-image:
+    radial-gradient(circle at 8% 10%, alpha(#f59e0b, 0.16) 0%, alpha(#f59e0b, 0) 38%),
+    radial-gradient(circle at 88% 10%, alpha(#fb923c, 0.13) 0%, alpha(#fb923c, 0) 34%),
+    linear-gradient(156deg, #fff9ed 0%, #fff6e8 44%, #fffbf3 100%);
+}
+
+window.app-window.theme-preset-sunset .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#ff8a52, 0.78) 0%, alpha(#ff5a70, 0.74) 100%);
+  border-color: alpha(#ffc0a5, 0.88);
+}
+
+window.app-window.theme-preset-rose .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#d36bff, 0.78) 0%, alpha(#f15bb5, 0.74) 100%);
+  border-color: alpha(#efc0ff, 0.88);
+}
+
+window.app-window.theme-preset-amber .navigation-sidebar row:selected {
+  background: linear-gradient(180deg, alpha(#f4b24f, 0.78) 0%, alpha(#ee8f34, 0.74) 100%);
+  border-color: alpha(#ffdc9e, 0.88);
+}
+
+window.app-window.theme-preset-sunset button.suggested-action,
+window.app-window.theme-preset-sunset .settings-segment-button:checked {
+  background-image: linear-gradient(180deg, #ff8a52 0%, #ff5a70 100%);
+  border-color: alpha(#ffd0bd, 0.88);
+}
+
+window.app-window.theme-preset-rose button.suggested-action,
+window.app-window.theme-preset-rose .settings-segment-button:checked {
+  background-image: linear-gradient(180deg, #c979ff 0%, #f15bb5 100%);
+  border-color: alpha(#f0c6ff, 0.88);
+}
+
+window.app-window.theme-preset-amber button.suggested-action,
+window.app-window.theme-preset-amber .settings-segment-button:checked {
+  background-image: linear-gradient(180deg, #f4b24f 0%, #ee8f34 100%);
+  border-color: alpha(#ffe1ad, 0.88);
+}
+
+window.app-window.theme-preset-sunset .settings-root scale highlight,
+window.app-window.theme-preset-sunset .canvas-inspector scale highlight,
+window.app-window.theme-preset-sunset .canvas-workflow-mode scale highlight {
+  background: linear-gradient(90deg, alpha(#ff9a61, 0.96) 0%, alpha(#ff5a70, 0.96) 100%);
+}
+
+window.app-window.theme-preset-rose .settings-root scale highlight,
+window.app-window.theme-preset-rose .canvas-inspector scale highlight,
+window.app-window.theme-preset-rose .canvas-workflow-mode scale highlight {
+  background: linear-gradient(90deg, alpha(#c979ff, 0.96) 0%, alpha(#f15bb5, 0.96) 100%);
+}
+
+window.app-window.theme-preset-amber .settings-root scale highlight,
+window.app-window.theme-preset-amber .canvas-inspector scale highlight,
+window.app-window.theme-preset-amber .canvas-workflow-mode scale highlight {
+  background: linear-gradient(90deg, alpha(#f6bf63, 0.96) 0%, alpha(#ee8f34, 0.96) 100%);
+}
+
+window.app-window.theme-preset-sunset frame.canvas-node-selected,
+window.app-window.theme-preset-sunset frame.canvas-node-selected > border {
+  border-color: alpha(#ff9b6e, 0.94);
+  box-shadow: 0 0 0 2px alpha(#ff8a52, 0.28), 0 12px 26px alpha(#6b1d2a, 0.24);
+}
+
+window.app-window.theme-preset-rose frame.canvas-node-selected,
+window.app-window.theme-preset-rose frame.canvas-node-selected > border {
+  border-color: alpha(#e1a4ff, 0.94);
+  box-shadow: 0 0 0 2px alpha(#ce7dff, 0.28), 0 12px 26px alpha(#4e235f, 0.24);
+}
+
+window.app-window.theme-preset-amber frame.canvas-node-selected,
+window.app-window.theme-preset-amber frame.canvas-node-selected > border {
+  border-color: alpha(#ffd183, 0.94);
+  box-shadow: 0 0 0 2px alpha(#f4b24f, 0.28), 0 12px 26px alpha(#5e3b13, 0.24);
+}
+
+/* Premium studio v24: command palette contrast + readability */
+.command-palette-window,
+.command-palette-window .background {
+  color: #eaf2ff;
+}
+
+.command-palette-shell {
+  background: linear-gradient(176deg, alpha(#11243c, 0.97) 0%, alpha(#0d1b30, 0.97) 100%);
+  border: 1px solid alpha(#5b7fb0, 0.72);
+}
+
+.command-palette-header-title,
+.command-palette-title {
+  color: #eaf2ff;
+}
+
+.command-palette-subtitle,
+.command-palette-hint,
+.command-palette-window .dim-label {
+  color: alpha(#b8cbe8, 0.96);
+}
+
+.command-palette-entry {
+  color: #eaf2ff;
+  background: alpha(#1a2f4b, 0.92);
+  border: 1px solid alpha(#5f7faa, 0.82);
+}
+
+.command-palette-entry selection {
+  background-color: alpha(#5aa6ff, 0.34);
+  color: #f7fbff;
+}
+
+.command-palette-list,
+.command-palette-list row {
+  background: transparent;
+}
+
+.command-palette-list row {
+  border: 1px solid alpha(#486688, 0.46);
+}
+
+.command-palette-row-content {
+  background: alpha(#122740, 0.78);
+}
+
+.command-palette-list row:hover .command-palette-row-content {
+  background: alpha(#1d3e64, 0.9);
+}
+
+.command-palette-list row:selected .command-palette-row-content {
+  background: alpha(#245389, 0.94);
+}
+
+.command-palette-list row:selected .command-palette-title,
+.command-palette-list row:selected .command-palette-subtitle {
+  color: #f5fbff;
+}
+
+.command-palette-icon {
+  color: alpha(#c9ddfb, 0.94);
+}
+
+.command-palette-shortcut {
+  color: #e9f3ff;
+  background: alpha(#1e3f76, 0.72);
+  border-color: alpha(#78a8e7, 0.58);
+}
+
+window.theme-light .command-palette-window,
+window.theme-light .command-palette-window .background {
+  color: #0f2138;
+}
+
+window.theme-light .command-palette-shell {
+  background: linear-gradient(176deg, alpha(#ffffff, 0.98) 0%, alpha(#f1f7ff, 0.98) 100%);
+  border: 1px solid alpha(#9bb7dc, 0.76);
+}
+
+window.theme-light .command-palette-header-title,
+window.theme-light .command-palette-title {
+  color: #102540;
+}
+
+window.theme-light .command-palette-subtitle,
+window.theme-light .command-palette-hint,
+window.theme-light .command-palette-window .dim-label {
+  color: alpha(#334a68, 0.92);
+}
+
+window.theme-light .command-palette-entry {
+  color: #12263f;
+  background: alpha(#f8fbff, 0.98);
+  border: 1px solid alpha(#9bb7dc, 0.74);
+}
+
+window.theme-light .command-palette-row-content {
+  background: alpha(#ecf4ff, 0.9);
+}
+
+window.theme-light .command-palette-list row:hover .command-palette-row-content {
+  background: alpha(#deebff, 0.96);
+}
+
+window.theme-light .command-palette-list row:selected .command-palette-row-content {
+  background: alpha(#cfe2ff, 0.98);
+}
+
+window.theme-light .command-palette-icon {
+  color: alpha(#1f3f6d, 0.9);
+}
+
+window.theme-light .command-palette-shortcut {
+  color: #1b3f72;
+  background: alpha(#dce9ff, 0.94);
+  border-color: alpha(#8fb0de, 0.66);
+}
+
+/* Premium studio v25: visual theme preset gallery */
+.theme-preset-gallery {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.theme-preset-gallery flowboxchild {
+  padding: 3px;
+}
+
+.theme-preview-button {
+  min-height: 36px;
+  border-radius: 10px;
+  border: 1px solid alpha(#5a78a2, 0.62);
+  color: #eaf3ff;
+  font-weight: 640;
+  letter-spacing: 0.15px;
+  background-image: linear-gradient(180deg, alpha(#1e3556, 0.9) 0%, alpha(#142843, 0.9) 100%);
+}
+
+.theme-preview-button:checked {
+  border-color: alpha(#87b8ff, 0.92);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px alpha(#7ab2ff, 0.42), 0 8px 20px alpha(#081226, 0.42);
+}
+
+.theme-preview-graphite {
+  background-image: linear-gradient(120deg, alpha(#334155, 0.9) 0%, alpha(#1f2937, 0.92) 100%);
+}
+
+.theme-preview-indigo {
+  background-image: linear-gradient(120deg, alpha(#4f46e5, 0.9) 0%, alpha(#312e81, 0.92) 100%);
+}
+
+.theme-preview-carbon {
+  background-image: linear-gradient(120deg, alpha(#0f766e, 0.9) 0%, alpha(#134e4a, 0.92) 100%);
+}
+
+.theme-preview-aurora {
+  background-image: linear-gradient(120deg, alpha(#0891b2, 0.9) 0%, alpha(#0f766e, 0.92) 100%);
+}
+
+.theme-preview-frost {
+  background-image: linear-gradient(120deg, alpha(#38bdf8, 0.88) 0%, alpha(#1d4ed8, 0.9) 100%);
+}
+
+.theme-preview-sunset {
+  background-image: linear-gradient(120deg, alpha(#ea580c, 0.9) 0%, alpha(#be123c, 0.92) 100%);
+}
+
+.theme-preview-rose {
+  background-image: linear-gradient(120deg, alpha(#e11d48, 0.9) 0%, alpha(#7e22ce, 0.92) 100%);
+}
+
+.theme-preview-amber {
+  background-image: linear-gradient(120deg, alpha(#d97706, 0.92) 0%, alpha(#b45309, 0.94) 100%);
+}
+
+window.theme-light .theme-preview-button {
+  color: #13243c;
+  border-color: alpha(#7fa5d6, 0.82);
+  background-image: linear-gradient(180deg, alpha(#edf4ff, 0.98) 0%, alpha(#ddeaff, 0.98) 100%);
+}
+
+window.theme-light .theme-preview-button:checked {
+  border-color: alpha(#3b82f6, 0.92);
+  box-shadow: 0 0 0 1px alpha(#60a5fa, 0.34), 0 8px 20px alpha(#1d4ed8, 0.18);
+}
+
+/* Premium studio v26: canvas inspector compact controls + no overlap */
+window.app-window .canvas-workflow-mode .canvas-execution-grid {
+  border-radius: 8px;
+  padding: 2px 3px;
+}
+
+window.app-window .canvas-workflow-mode .canvas-execution-field,
+window.app-window .canvas-inspector .canvas-execution-field {
+  border-radius: 7px;
+}
+
+window.app-window .canvas-workflow-mode .canvas-execution-spin,
+window.app-window .canvas-inspector .canvas-execution-spin {
+  min-height: 22px;
+  min-width: 0;
+  margin: 0;
+}
+
+window.app-window .canvas-workflow-mode .inspector-adjust-row,
+window.app-window .canvas-inspector .inspector-adjust-row {
+  padding: 1px 3px;
+  margin: 0 0 4px 0;
+  border-radius: 7px;
+}
+
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale,
+window.app-window .canvas-inspector scale.inspector-adjust-scale {
+  min-height: 12px;
+  margin: 0 6px 0 0;
+}
+
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale trough,
+window.app-window .canvas-inspector scale.inspector-adjust-scale trough {
+  min-height: 4px;
+}
+
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale slider,
+window.app-window .canvas-inspector scale.inspector-adjust-scale slider {
+  min-width: 8px;
+  min-height: 8px;
+}
+
+window.app-window .canvas-workflow-mode spinbutton:focus,
+window.app-window .canvas-inspector spinbutton:focus,
+window.app-window .canvas-workflow-mode entry:focus,
+window.app-window .canvas-inspector entry:focus {
+  box-shadow: 0 0 0 1px alpha(#60a5fa, 0.24);
+}
