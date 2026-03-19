@@ -34,5 +34,7 @@ flatpak-builder \
   "${BUILD_DIR}" \
   "${MANIFEST}" >/dev/null
 
-flatpak build-bundle "${REPO_DIR}" "${OUTPUT_PATH}" "${APP_ID}" "${BRANCH}" >/dev/null
+if ! flatpak build-bundle "${REPO_DIR}" "${OUTPUT_PATH}" "${APP_ID}" "${BRANCH}" >/dev/null 2>&1; then
+  flatpak build-bundle "${REPO_DIR}" "${OUTPUT_PATH}" "${APP_ID}" master >/dev/null
+fi
 echo "Built ${OUTPUT_PATH}"
