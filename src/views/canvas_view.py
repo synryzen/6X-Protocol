@@ -182,6 +182,10 @@ class CanvasView(Gtk.Box):
         self.start_link_button.connect("clicked", self.on_start_link)
         self.start_link_button.add_css_class("compact-action-button")
 
+        self.auto_wire_button = Gtk.Button(label="Auto Wire")
+        self.auto_wire_button.connect("clicked", self.on_auto_wire)
+        self.auto_wire_button.add_css_class("compact-action-button")
+
         self.delete_selected_button = Gtk.Button(label="Delete")
         self.delete_selected_button.connect("clicked", self.on_delete_selected)
         self.delete_selected_button.add_css_class("compact-action-button")
@@ -210,6 +214,7 @@ class CanvasView(Gtk.Box):
         link_row.set_halign(Gtk.Align.FILL)
         link_row.append(self.link_type_dropdown)
         link_row.append(self.start_link_button)
+        link_row.append(self.auto_wire_button)
         link_row.append(self.delete_selected_button)
 
         run_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -3941,6 +3946,13 @@ class CanvasView(Gtk.Box):
         graph = workflow.normalized_graph()
         self.nodes = self.parse_nodes(graph)
         self.edges = self.parse_edges(graph)
+        if not self.edges and len(self.nodes) == 2:
+            inferred = self.auto_wire_nodes(strict_two_node=True)
+            if inferred > 0:
+                self.workflow_store.update_workflow_graph(
+                    workflow.id,
+                    self.build_graph_payload(),
+                )
         self.selected_node_id = None
         self.selected_node_ids = set()
         self.pending_link_source_id = None
@@ -3971,12 +3983,55 @@ class CanvasView(Gtk.Box):
 
     def parse_edges(self, graph: dict) -> list[CanvasEdge]:
         parsed: list[CanvasEdge] = []
-        for item in graph.get("edges", []):
+        seen_signatures: set[tuple[str, str, str]] = set()
+        raw_edges = graph.get("edges", [])
+        if not isinstance(raw_edges, list):
+            raw_edges = []
+        legacy_links = graph.get("links", [])
+        if isinstance(legacy_links, list):
+            raw_edges = [*raw_edges, *legacy_links]
+
+        for item in raw_edges:
             if not isinstance(item, dict):
                 continue
-            edge = CanvasEdge.from_dict(item)
-            if edge.source_node_id and edge.target_node_id:
-                parsed.append(edge)
+            source_id = str(
+                item.get("source_node_id")
+                or item.get("source")
+                or item.get("source_id")
+                or item.get("from")
+                or ""
+            ).strip()
+            target_id = str(
+                item.get("target_node_id")
+                or item.get("target")
+                or item.get("target_id")
+                or item.get("to")
+                or ""
+            ).strip()
+            if not source_id or not target_id:
+                continue
+
+            condition_raw = str(
+                item.get("condition")
+                or item.get("link_type")
+                or item.get("type")
+                or ""
+            ).strip().lower()
+            condition = condition_raw if condition_raw in {"true", "false"} else ""
+            signature = (source_id, target_id, condition)
+            if signature in seen_signatures:
+                continue
+            seen_signatures.add(signature)
+
+            edge_id = str(item.get("id", "")).strip() or str(uuid.uuid4())
+            parsed.append(
+                CanvasEdge(
+                    id=edge_id,
+                    source_node_id=source_id,
+                    target_node_id=target_id,
+                    condition=condition,
+                )
+            )
         return parsed
 
     def update_control_state(self):
@@ -3992,6 +4047,7 @@ class CanvasView(Gtk.Box):
             self.add_ai_button,
             self.add_condition_button,
             self.start_link_button,
+            self.auto_wire_button,
             self.delete_selected_button,
             self.save_graph_button,
             self.preflight_button,
@@ -4085,6 +4141,7 @@ class CanvasView(Gtk.Box):
         y: int,
         config: dict[str, str] | None = None,
     ):
+        previous_selected = self.selected_node_id
         self.push_undo_snapshot()
         node = CanvasNode(
             id=str(uuid.uuid4()),
@@ -4097,11 +4154,25 @@ class CanvasView(Gtk.Box):
             config=config or {},
         )
         self.nodes.append(node)
+        auto_linked = False
+        if previous_selected and previous_selected != node.id:
+            if self.node_type_key(node.node_type) != "trigger":
+                auto_linked = self.add_edge(
+                    previous_selected,
+                    node.id,
+                    condition_override="",
+                    push_history=False,
+                    auto_save=False,
+                    show_status_on_duplicate=False,
+                )
         self.selected_node_id = node.id
         self.selected_node_ids = {node.id}
         self.refresh_canvas()
         self.update_inspector(node)
-        self.maybe_auto_save("Node added and auto-saved.")
+        if auto_linked:
+            self.maybe_auto_save("Node added, auto-linked, and auto-saved.")
+        else:
+            self.maybe_auto_save("Node added and auto-saved.")
         self.inline_validate_graph()
         self.update_control_state()
 
@@ -4411,7 +4482,16 @@ class CanvasView(Gtk.Box):
         self.set_status("Snapped selected nodes to grid.")
         self.update_control_state()
 
-    def add_edge(self, source_node_id: str, target_node_id: str) -> bool:
+    def add_edge(
+        self,
+        source_node_id: str,
+        target_node_id: str,
+        *,
+        condition_override: str | None = None,
+        push_history: bool = True,
+        auto_save: bool = True,
+        show_status_on_duplicate: bool = True,
+    ) -> bool:
         if source_node_id == target_node_id:
             self.set_status("Cannot link a node to itself.")
             return False
@@ -4425,7 +4505,13 @@ class CanvasView(Gtk.Box):
             self.set_status("Trigger nodes cannot be used as link targets.")
             return False
 
-        condition = self.get_selected_link_condition()
+        condition = (
+            str(condition_override).strip().lower()
+            if condition_override is not None
+            else self.get_selected_link_condition()
+        )
+        if condition not in {"", "true", "false"}:
+            condition = ""
 
         for edge in self.edges:
             if (
@@ -4433,10 +4519,12 @@ class CanvasView(Gtk.Box):
                 and edge.target_node_id == target_node_id
                 and edge.condition == condition
             ):
-                self.set_status("That link already exists.")
+                if show_status_on_duplicate:
+                    self.set_status("That link already exists.")
                 return False
 
-        self.push_undo_snapshot()
+        if push_history:
+            self.push_undo_snapshot()
         self.edges.append(
             CanvasEdge(
                 id=str(uuid.uuid4()),
@@ -4447,8 +4535,67 @@ class CanvasView(Gtk.Box):
         )
         self.inline_validate_graph()
         self.link_layer.queue_draw()
-        self.maybe_auto_save("Link added and auto-saved.")
+        if auto_save:
+            self.maybe_auto_save("Link added and auto-saved.")
         return True
+
+    def ordered_nodes_for_auto_wire(self) -> list[CanvasNode]:
+        if not self.nodes:
+            return []
+        triggers = [node for node in self.nodes if self.node_type_key(node.node_type) == "trigger"]
+        non_triggers = [node for node in self.nodes if self.node_type_key(node.node_type) != "trigger"]
+        if triggers:
+            anchor = triggers[0]
+            ordered = [anchor, *[node for node in non_triggers if node.id != anchor.id]]
+            extras = [node for node in triggers[1:] if node.id != anchor.id]
+            ordered.extend(extras)
+            return ordered
+        return list(self.nodes)
+
+    def auto_wire_nodes(self, strict_two_node: bool = False) -> int:
+        ordered_nodes = self.ordered_nodes_for_auto_wire()
+        if strict_two_node and len(ordered_nodes) != 2:
+            return 0
+        if len(ordered_nodes) < 2:
+            return 0
+
+        created = 0
+        current_source = ordered_nodes[0]
+        for target in ordered_nodes[1:]:
+            if self.node_type_key(target.node_type) == "trigger":
+                current_source = target
+                continue
+            if self.add_edge(
+                current_source.id,
+                target.id,
+                condition_override="",
+                push_history=False,
+                auto_save=False,
+                show_status_on_duplicate=False,
+            ):
+                created += 1
+            current_source = target
+        return created
+
+    def on_auto_wire(self, _button):
+        if not self.active_workflow_id:
+            self.set_status("Select a workflow first.")
+            return
+        if len(self.nodes) < 2:
+            self.set_status("Add at least two nodes before auto-wiring.")
+            return
+
+        self.push_undo_snapshot()
+        created = self.auto_wire_nodes(strict_two_node=False)
+        self.refresh_canvas()
+        self.inline_validate_graph()
+        self.update_control_state()
+
+        if created <= 0:
+            self.set_status("No new links were created. Nodes may already be connected.")
+            return
+
+        self.maybe_auto_save(f"Auto-wired {created} link(s) and auto-saved.")
 
     def begin_link_preview(self, source_node_id: str):
         source = self.find_node(source_node_id)
