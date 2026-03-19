@@ -31,7 +31,7 @@ class CanvasView(Gtk.Box):
     ZOOM_STEP = 0.1
     SNAP_GRID = 20
     ALIGN_SNAP_DISTANCE = 14
-    LINK_TARGET_SNAP_DISTANCE = 34
+    LINK_TARGET_SNAP_DISTANCE = 72
     LINK_TYPES = ["next", "true", "false"]
     PROVIDER_OPTIONS = ["inherit", "local", "openai", "anthropic"]
     TRIGGER_MODE_OPTIONS = ["manual", "schedule_interval", "webhook", "file_watch", "cron"]
@@ -887,6 +887,16 @@ class CanvasView(Gtk.Box):
             "Action Type",
             action_template_row_box,
         )
+        self.action_saved_defaults_button = Gtk.Button(label="Load Saved Defaults")
+        self.action_saved_defaults_button.add_css_class("compact-action-button")
+        self.action_saved_defaults_button.connect(
+            "clicked",
+            self.on_load_saved_action_defaults_clicked,
+        )
+        self.action_saved_defaults_row, _ = self.build_inspector_field_row(
+            "Connector Defaults",
+            self.action_saved_defaults_button,
+        )
         self.action_template_hint_label = Gtk.Label(label="")
         self.action_template_hint_label.set_wrap(True)
         self.action_template_hint_label.set_halign(Gtk.Align.START)
@@ -1200,6 +1210,7 @@ class CanvasView(Gtk.Box):
         )
         self.action_integration_section.append(action_integration_title)
         self.action_integration_section.append(self.action_template_row)
+        self.action_integration_section.append(self.action_saved_defaults_row)
         self.action_integration_section.append(self.action_category_row)
         self.action_integration_section.append(self.action_template_hint_label)
         self.action_integration_section.append(self.action_requirements_label)
@@ -2140,6 +2151,125 @@ class CanvasView(Gtk.Box):
         if not key:
             return
         self.apply_action_template(key, announce=True)
+
+    def saved_action_defaults(self, integration: str) -> dict[str, str]:
+        key = str(integration).strip().lower()
+        settings = self.settings_store.load_settings()
+        defaults: dict[str, str] = {}
+
+        def add(target_key: str, value: str):
+            text = str(value).strip()
+            if text:
+                defaults[target_key] = text
+
+        if key == "slack_webhook":
+            add("endpoint", settings.get("slack_webhook_url", ""))
+        elif key == "discord_webhook":
+            add("endpoint", settings.get("discord_webhook_url", ""))
+        elif key == "teams_webhook":
+            add("endpoint", settings.get("teams_webhook_url", ""))
+        elif key == "telegram_bot":
+            add("api_key", settings.get("telegram_bot_token", ""))
+            add("chat_id", settings.get("telegram_default_chat_id", ""))
+        elif key == "openweather_current":
+            add("api_key", settings.get("openweather_api_key", ""))
+            add("location", settings.get("openweather_default_location", ""))
+        elif key == "google_apps_script":
+            add("endpoint", settings.get("google_apps_script_url", ""))
+        elif key == "google_sheets":
+            add("api_key", settings.get("google_sheets_api_key", ""))
+            add("spreadsheet_id", settings.get("google_sheets_spreadsheet_id", ""))
+            add("range", settings.get("google_sheets_range", ""))
+        elif key == "google_calendar_api":
+            add("api_key", settings.get("google_calendar_api_key", ""))
+            add("endpoint", settings.get("google_calendar_api_url", ""))
+        elif key == "outlook_graph":
+            add("api_key", settings.get("outlook_api_key", ""))
+            add("endpoint", settings.get("outlook_api_url", ""))
+        elif key == "gmail_send":
+            add("api_key", settings.get("gmail_api_key", ""))
+            add("from", settings.get("gmail_from_address", ""))
+        elif key == "twilio_sms":
+            add("account_sid", settings.get("twilio_account_sid", ""))
+            add("auth_token", settings.get("twilio_auth_token", ""))
+            add("from", settings.get("twilio_from_number", ""))
+        elif key == "resend_email":
+            add("api_key", settings.get("resend_api_key", ""))
+            add("from", settings.get("resend_from_address", ""))
+        elif key == "mailgun_email":
+            add("api_key", settings.get("mailgun_api_key", ""))
+            add("domain", settings.get("mailgun_domain", ""))
+            add("from", settings.get("mailgun_from_address", ""))
+        else:
+            integration_key_map = {
+                "notion_api": ("notion_api_key", "notion_api_url"),
+                "airtable_api": ("airtable_api_key", "airtable_api_url"),
+                "hubspot_api": ("hubspot_api_key", "hubspot_api_url"),
+                "stripe_api": ("stripe_api_key", "stripe_api_url"),
+                "github_rest": ("github_api_key", "github_api_url"),
+                "jira_api": ("jira_api_key", "jira_api_url"),
+                "asana_api": ("asana_api_key", "asana_api_url"),
+                "clickup_api": ("clickup_api_key", "clickup_api_url"),
+                "trello_api": ("trello_api_key", "trello_api_url"),
+                "monday_api": ("monday_api_key", "monday_api_url"),
+                "zendesk_api": ("zendesk_api_key", "zendesk_api_url"),
+                "pipedrive_api": ("pipedrive_api_key", "pipedrive_api_url"),
+                "salesforce_api": ("salesforce_api_key", "salesforce_api_url"),
+                "gitlab_api": ("gitlab_api_key", "gitlab_api_url"),
+                "linear_api": ("linear_api_key", ""),
+            }
+            api_key_key, url_key = integration_key_map.get(key, ("", ""))
+            if api_key_key:
+                add("api_key", settings.get(api_key_key, ""))
+            if url_key:
+                add("endpoint", settings.get(url_key, ""))
+
+        return defaults
+
+    def on_load_saved_action_defaults_clicked(self, _button):
+        integration = self.selected_action_integration()
+        defaults = self.saved_action_defaults(integration)
+        if not defaults:
+            self.set_status("No saved defaults found for this integration.")
+            return
+
+        if "endpoint" in defaults:
+            self.action_endpoint_entry.set_text(defaults["endpoint"])
+        if "api_key" in defaults:
+            self.action_api_key_entry.set_text(defaults["api_key"])
+        if "chat_id" in defaults:
+            self.action_chat_id_entry.set_text(defaults["chat_id"])
+        if "location" in defaults:
+            self.action_location_entry.set_text(defaults["location"])
+        if "account_sid" in defaults:
+            self.action_account_sid_entry.set_text(defaults["account_sid"])
+        if "auth_token" in defaults:
+            self.action_auth_token_entry.set_text(defaults["auth_token"])
+        if "from" in defaults:
+            self.action_from_entry.set_text(defaults["from"])
+        if "domain" in defaults:
+            self.action_domain_entry.set_text(defaults["domain"])
+
+        spreadsheet_id = defaults.get("spreadsheet_id", "")
+        range_value = defaults.get("range", "")
+        if integration == "google_sheets" and spreadsheet_id and range_value:
+            self.set_payload_if_missing(
+                (
+                    '{"spreadsheet_id":"'
+                    + spreadsheet_id.replace('"', '\\"')
+                    + '","range":"'
+                    + range_value.replace('"', '\\"')
+                    + '","values":[["${workflow_name}","${last_output}"]]}'
+                ),
+                force=False,
+            )
+
+        self.update_action_requirements_status()
+        count = len(defaults)
+        noun = "value" if count == 1 else "values"
+        self.set_status(
+            f"Loaded {count} saved {noun} for {integration or 'action integration'}."
+        )
 
     def infer_action_template_key(self, merged_config: dict[str, str]) -> str:
         explicit = str(merged_config.get("action_template", "")).strip().lower()
@@ -5039,6 +5169,7 @@ class CanvasView(Gtk.Box):
             self.trigger_value_entry,
             self.action_template_dropdown,
             self.action_template_apply_button,
+            self.action_saved_defaults_button,
             self.action_integration_dropdown,
             self.action_preset_dropdown,
             self.action_preset_apply_button,
@@ -6296,16 +6427,31 @@ class CanvasView(Gtk.Box):
     def on_output_port_drag_begin(
         self,
         gesture,
-        _start_x: float,
-        _start_y: float,
+        start_x: float,
+        start_y: float,
         node_id: str,
-        _output_port: Gtk.Widget,
+        output_port: Gtk.Widget,
     ):
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         self.port_drag_just_finished = False
-        self.begin_output_link_drag(node_id)
+        success, stage_x, stage_y = output_port.translate_coordinates(
+            self.fixed,
+            float(start_x),
+            float(start_y),
+        )
+        self.begin_output_link_drag(
+            node_id,
+            pointer_x=float(stage_x) if success else None,
+            pointer_y=float(stage_y) if success else None,
+        )
 
-    def begin_output_link_drag(self, node_id: str):
+    def begin_output_link_drag(
+        self,
+        node_id: str,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ):
         self.grab_focus()
         self.node_drag_active = False
         self.drag_origin = {}
@@ -6318,9 +6464,16 @@ class CanvasView(Gtk.Box):
             output_x, output_y = self.node_output_anchor(source_node)
             anchor_x = float(output_x)
             anchor_y = float(output_y)
+        pointer_bias_x = 0.0
+        pointer_bias_y = 0.0
+        if pointer_x is not None and pointer_y is not None:
+            pointer_bias_x = float(pointer_x) - anchor_x
+            pointer_bias_y = float(pointer_y) - anchor_y
         self.port_drag_origin = {
             "anchor_x": anchor_x,
             "anchor_y": anchor_y,
+            "pointer_bias_x": pointer_bias_x,
+            "pointer_bias_y": pointer_bias_y,
         }
         previous_selected = self.selected_node_id
         previous_source = self.pending_link_source_id
@@ -6353,8 +6506,10 @@ class CanvasView(Gtk.Box):
 
         anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
         anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
-        x = int(anchor_x + float(offset_x))
-        y = int(anchor_y + float(offset_y))
+        bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
+        bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
+        x = int(anchor_x + bias_x + float(offset_x))
+        y = int(anchor_y + bias_y + float(offset_y))
         source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
         target = self.valid_link_target_at(x, y, source_id)
         if target:
@@ -6375,8 +6530,10 @@ class CanvasView(Gtk.Box):
     ):
         anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
         anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
-        end_x = int(anchor_x + float(offset_x))
-        end_y = int(anchor_y + float(offset_y))
+        bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
+        bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
+        end_x = int(anchor_x + bias_x + float(offset_x))
+        end_y = int(anchor_y + bias_y + float(offset_y))
 
         if self.port_drag_active:
             self.finalize_link_preview_at(end_x, end_y)
@@ -6646,8 +6803,10 @@ class CanvasView(Gtk.Box):
         if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:
             anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
             anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
-            x = int(anchor_x + float(offset_x))
-            y = int(anchor_y + float(offset_y))
+            bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
+            bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
+            x = int(anchor_x + bias_x + float(offset_x))
+            y = int(anchor_y + bias_y + float(offset_y))
             source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
             target = self.valid_link_target_at(x, y, source_id)
             if target:
@@ -6711,8 +6870,10 @@ class CanvasView(Gtk.Box):
         if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:
             anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
             anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
-            end_x = int(anchor_x + float(_offset_x))
-            end_y = int(anchor_y + float(_offset_y))
+            bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
+            bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
+            end_x = int(anchor_x + bias_x + float(_offset_x))
+            end_y = int(anchor_y + bias_y + float(_offset_y))
             self.finalize_link_preview_at(end_x, end_y)
             self.port_drag_active = False
             self.port_drag_origin = {}
