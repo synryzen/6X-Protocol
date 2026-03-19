@@ -1638,6 +1638,27 @@ class CanvasView(Gtk.Box):
                 },
             },
             {
+                "key": "trello_board",
+                "label": "Project • Trello",
+                "description": "Call Trello API for boards, lists, and cards.",
+                "integration": "trello_api",
+                "defaults": {
+                    "endpoint": "https://api.trello.com/1/members/me",
+                    "method": "GET",
+                },
+            },
+            {
+                "key": "monday_query",
+                "label": "Project • Monday",
+                "description": "Call Monday GraphQL API for workspace entities.",
+                "integration": "monday_api",
+                "defaults": {
+                    "endpoint": "https://api.monday.com/v2",
+                    "method": "POST",
+                    "payload": "{\"query\":\"{ me { id name email } }\"}",
+                },
+            },
+            {
                 "key": "zendesk_ticket",
                 "label": "Support • Zendesk",
                 "description": "Call Zendesk API for ticket and user workflows.",
@@ -1654,6 +1675,16 @@ class CanvasView(Gtk.Box):
                 "integration": "salesforce_api",
                 "defaults": {
                     "endpoint": "https://your-instance.my.salesforce.com/services/data/v58.0/limits",
+                    "method": "GET",
+                },
+            },
+            {
+                "key": "pipedrive_deal",
+                "label": "CRM • Pipedrive",
+                "description": "Call Pipedrive API for people, deals, and pipeline state.",
+                "integration": "pipedrive_api",
+                "defaults": {
+                    "endpoint": "https://api.pipedrive.com/v1/users/me",
                     "method": "GET",
                 },
             },
@@ -1788,8 +1819,11 @@ class CanvasView(Gtk.Box):
             "jira_api": "jira_issue_lookup",
             "asana_api": "asana_task",
             "clickup_api": "clickup_task",
+            "trello_api": "trello_board",
+            "monday_api": "monday_query",
             "zendesk_api": "zendesk_ticket",
             "salesforce_api": "salesforce_query",
+            "pipedrive_api": "pipedrive_deal",
             "gitlab_api": "gitlab_rest",
             "file_append": "file_append",
             "shell_command": "shell_command",
@@ -2321,8 +2355,11 @@ class CanvasView(Gtk.Box):
             "jira_issue_lookup",
             "asana_task",
             "clickup_task",
+            "trello_board",
+            "monday_query",
             "zendesk_ticket",
             "salesforce_query",
+            "pipedrive_deal",
             "gitlab_rest",
         }:
             return "data"
