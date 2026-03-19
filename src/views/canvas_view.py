@@ -246,10 +246,15 @@ class CanvasView(Gtk.Box):
         self.zoom_fit_button.connect("clicked", self.on_zoom_fit_clicked)
         self.zoom_fit_button.add_css_class("compact-action-button")
 
+        self.minimap_reset_button = Gtk.Button(label="Mini")
+        self.minimap_reset_button.connect("clicked", self.on_minimap_reset_clicked)
+        self.minimap_reset_button.add_css_class("compact-action-button")
+
         view_row.append(self.zoom_out_button)
         view_row.append(self.zoom_reset_button)
         view_row.append(self.zoom_in_button)
         view_row.append(self.zoom_fit_button)
+        view_row.append(self.minimap_reset_button)
 
         arrange_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         arrange_row.add_css_class("canvas-toolbar-row")
@@ -467,12 +472,12 @@ class CanvasView(Gtk.Box):
         self.fixed.add_controller(stage_select_drag)
 
         minimap_click = Gtk.GestureClick()
-        minimap_click.set_button(0)
+        minimap_click.set_button(1)
         minimap_click.connect("released", self.on_minimap_released)
         self.minimap_area.add_controller(minimap_click)
 
         minimap_drag = Gtk.GestureDrag()
-        minimap_drag.set_button(1)
+        minimap_drag.set_button(0)
         minimap_drag.connect("drag-begin", self.on_minimap_drag_begin)
         minimap_drag.connect("drag-update", self.on_minimap_drag_update)
         minimap_drag.connect("drag-end", self.on_minimap_drag_end)
@@ -550,7 +555,7 @@ class CanvasView(Gtk.Box):
             label=(
                 "Shortcuts: Ctrl+S save  •  Ctrl+L link  •  Ctrl+P preflight  •  "
                 "Ctrl+Z undo/redo  •  Ctrl+Shift+G snap  •  Ctrl +/- zoom  •  "
-                "Shift-drag box select  •  Del remove"
+                "Shift-drag box select  •  Del remove  •  Drag mini map to move"
             )
         )
         shortcut_hint.set_wrap(True)
@@ -3612,6 +3617,15 @@ class CanvasView(Gtk.Box):
         self.center_view_on_logical((min_x + max_x) / 2, (min_y + max_y) / 2)
         self.set_status(f"Zoom fit applied ({int(round(self.zoom_factor * 100))}%).")
 
+    def on_minimap_reset_clicked(self, _button):
+        self.minimap_user_placed = False
+        self.minimap_position_initialized = False
+        self.ensure_minimap_position()
+        self.persist_minimap_position()
+        if hasattr(self, "minimap_area") and self.minimap_area:
+            self.minimap_area.queue_draw()
+        self.set_status("Mini map reset to default position.")
+
     def on_canvas_viewport_changed(self, *_args):
         self.ensure_minimap_position()
         if hasattr(self, "minimap_area") and self.minimap_area:
@@ -3705,9 +3719,9 @@ class CanvasView(Gtk.Box):
         if overlay_w <= 0 or overlay_h <= 0:
             return False
 
-        mini_w, _mini_h = self.minimap_size()
+        _mini_w, _mini_h = self.minimap_size()
         if not self.minimap_position_initialized:
-            default_x = max(10, overlay_w - mini_w - 12)
+            default_x = 12
             self.apply_minimap_position(default_x, 10, mark_user_placed=False)
             return False
 
@@ -3946,12 +3960,15 @@ class CanvasView(Gtk.Box):
         graph = workflow.normalized_graph()
         self.nodes = self.parse_nodes(graph)
         self.edges = self.parse_edges(graph)
-        if not self.edges and len(self.nodes) == 2:
-            inferred = self.auto_wire_nodes(strict_two_node=True)
+        if not self.edges and len(self.nodes) >= 2:
+            inferred = self.auto_wire_nodes(strict_two_node=False)
             if inferred > 0:
                 self.workflow_store.update_workflow_graph(
                     workflow.id,
                     self.build_graph_payload(),
+                )
+                self.set_status(
+                    f"Recovered {inferred} link(s) for '{workflow.name}' from an unlinked graph."
                 )
         self.selected_node_id = None
         self.selected_node_ids = set()
@@ -6262,7 +6279,7 @@ class CanvasView(Gtk.Box):
         cr.arc(width * 0.82, height * 0.18, min(width, height) * 0.13, 0, math.tau)
         cr.fill()
 
-        step = 24
+        step = 22
         major_step = step * 5
 
         line_minor = palette["line_minor"]
@@ -6270,10 +6287,10 @@ class CanvasView(Gtk.Box):
         dot_minor = palette["dot"]
         dot_major = palette["dot_major"]
         # Keep the stage legible across all presets with slightly stronger guides.
-        line_minor_alpha = min(1.0, float(line_minor[3]) * 1.3)
-        line_major_alpha = min(1.0, float(line_major[3]) * 1.22)
-        dot_minor_alpha = min(1.0, float(dot_minor[3]) * 1.22)
-        dot_major_alpha = min(1.0, float(dot_major[3]) * 1.18)
+        line_minor_alpha = min(1.0, float(line_minor[3]) * 1.45)
+        line_major_alpha = min(1.0, float(line_major[3]) * 1.32)
+        dot_minor_alpha = min(1.0, float(dot_minor[3]) * 1.36)
+        dot_major_alpha = min(1.0, float(dot_major[3]) * 1.34)
 
         # Draw a subtle base line grid under the dot grid to improve stage readability.
         cr.new_path()
@@ -6290,7 +6307,7 @@ class CanvasView(Gtk.Box):
             cr.move_to(0, py)
             cr.line_to(width, py)
         cr.set_source_rgba(line_minor[0], line_minor[1], line_minor[2], line_minor_alpha)
-        cr.set_line_width(0.66)
+        cr.set_line_width(0.7)
         cr.stroke()
 
         cr.new_path()
@@ -6303,7 +6320,7 @@ class CanvasView(Gtk.Box):
             cr.move_to(0, py)
             cr.line_to(width, py)
         cr.set_source_rgba(line_major[0], line_major[1], line_major[2], line_major_alpha)
-        cr.set_line_width(0.92)
+        cr.set_line_width(1.0)
         cr.stroke()
 
         cr.new_path()
@@ -6313,7 +6330,7 @@ class CanvasView(Gtk.Box):
                 if is_major:
                     continue
                 cr.new_sub_path()
-                cr.arc(x, y, 0.8, 0, math.tau)
+                cr.arc(x, y, 0.9, 0, math.tau)
         cr.set_source_rgba(dot_minor[0], dot_minor[1], dot_minor[2], dot_minor_alpha)
         cr.fill()
 
@@ -6324,7 +6341,7 @@ class CanvasView(Gtk.Box):
                 if not is_major:
                     continue
                 cr.new_sub_path()
-                cr.arc(x, y, 1.34, 0, math.tau)
+                cr.arc(x, y, 1.48, 0, math.tau)
         cr.set_source_rgba(dot_major[0], dot_major[1], dot_major[2], dot_major_alpha)
         cr.fill()
 
