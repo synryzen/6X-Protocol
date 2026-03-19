@@ -31,7 +31,7 @@ dist/
 qt-online-installer-linux-x64-online.run
 *.AppImage
 *.deb
+*.flatpak
 *.rpm
 *.tar.gz
 *.zip
-

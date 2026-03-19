@@ -44,7 +44,21 @@ Optional desktop launcher:
 ./install-desktop-entry.sh
 ```
 
-### 3) Source Run (Developer Mode)
+### 3) AppImage
+Download and run:
+```bash
+chmod +x 6x-protocol-studio_<version>_x86_64.AppImage
+./6x-protocol-studio_<version>_x86_64.AppImage
+```
+
+### 4) Flatpak Bundle
+Download and install:
+```bash
+flatpak install --user ./6x-protocol-studio_<version>_x86_64.flatpak
+flatpak run com.sixxprotocol.studio
+```
+
+### 5) Source Run (Developer Mode)
 Install dependencies and run from source:
 ```bash
 sudo apt update
@@ -78,6 +92,8 @@ Build local installer artifacts:
 Output files are created in `dist/`:
 - `.deb` installer
 - portable `.tar.gz`
+- `.AppImage`
+- `.flatpak` bundle
 - `SHA256SUMS.txt`
 
 ## License

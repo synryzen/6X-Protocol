@@ -91,6 +91,18 @@ cd 6x-protocol-studio
 ./6x-protocol-studio
 ./install-desktop-entry.sh</code></pre>
         </article>
+        <article class="install-card">
+          <h3>AppImage</h3>
+          <p>Single-file launcher format for Linux.</p>
+          <pre><code>chmod +x 6x-protocol-studio_&lt;version&gt;_x86_64.AppImage
+./6x-protocol-studio_&lt;version&gt;_x86_64.AppImage</code></pre>
+        </article>
+        <article class="install-card">
+          <h3>Flatpak Bundle</h3>
+          <p>Install as a sandboxed app with desktop integration.</p>
+          <pre><code>flatpak install --user ./6x-protocol-studio_&lt;version&gt;_x86_64.flatpak
+flatpak run com.sixxprotocol.studio</code></pre>
+        </article>
       </div>
       <p class="muted">
         Runtime dependencies: `python3`, `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1`.

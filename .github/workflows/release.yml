@@ -17,10 +17,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Packaging Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder desktop-file-utils libglib2.0-bin
+
+      - name: Install appimagetool
+        run: |
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool
+          chmod +x /tmp/appimagetool
+          echo "APPIMAGETOOL=/tmp/appimagetool" >> "$GITHUB_ENV"
+
       - name: Build Linux Packages
         run: |
           chmod +x scripts/build_*.sh
-          ./scripts/build_packages.sh
+          REQUIRE_ALL_PACKAGES=1 ./scripts/build_packages.sh
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -29,6 +40,8 @@ jobs:
           path: |
             dist/*.deb
             dist/*.tar.gz
+            dist/*.AppImage
+            dist/*.flatpak
             dist/SHA256SUMS.txt
 
       - name: Create GitHub Release
@@ -39,4 +52,6 @@ jobs:
           files: |
             dist/*.deb
             dist/*.tar.gz
+            dist/*.AppImage
+            dist/*.flatpak
             dist/SHA256SUMS.txt

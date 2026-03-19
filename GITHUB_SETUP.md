@@ -27,6 +27,8 @@ git push origin v0.1.0
 3. The `Build Release Packages` workflow will auto-build and attach:
    - `.deb` installer
    - portable `.tar.gz`
+   - `.AppImage`
+   - `.flatpak` bundle
    - `SHA256SUMS.txt`
 4. Open the release in GitHub and verify assets are attached.
 5. Publish/edit release notes.

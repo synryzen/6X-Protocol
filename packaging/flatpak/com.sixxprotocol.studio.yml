@@ -1,0 +1,31 @@
+app-id: com.sixxprotocol.studio
+runtime: org.gnome.Platform
+runtime-version: "47"
+sdk: org.gnome.Sdk
+command: 6x-protocol-studio
+finish-args:
+  - --share=network
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=home
+
+modules:
+  - name: sixx-protocol-studio
+    buildsystem: simple
+    build-commands:
+      - install -d /app/opt/6x-protocol-studio /app/bin /app/share/applications /app/share/icons/hicolor/scalable/apps
+      - cp -a src /app/opt/6x-protocol-studio/
+      - install -m 0644 main.py /app/opt/6x-protocol-studio/main.py
+      - install -m 0644 README.md /app/opt/6x-protocol-studio/README.md
+      - install -m 0644 LICENSE /app/opt/6x-protocol-studio/LICENSE
+      - install -m 0644 VERSION /app/opt/6x-protocol-studio/VERSION
+      - install -m 0755 packaging/flatpak/6x-protocol-studio /app/bin/6x-protocol-studio
+      - install -m 0644 packaging/linux/com.sixxprotocol.studio.desktop /app/share/applications/com.sixxprotocol.studio.desktop
+      - install -m 0644 packaging/linux/icons/com.sixxprotocol.studio.svg /app/share/icons/hicolor/scalable/apps/com.sixxprotocol.studio.svg
+      - desktop-file-edit --set-key=Exec --set-value=6x-protocol-studio /app/share/applications/com.sixxprotocol.studio.desktop
+      - find /app/opt/6x-protocol-studio -type d -name "__pycache__" -prune -exec rm -rf {} +
+      - find /app/opt/6x-protocol-studio -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete
+    sources:
+      - type: dir
+        path: ../../
