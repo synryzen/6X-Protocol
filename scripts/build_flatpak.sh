@@ -20,7 +20,8 @@ if ! command -v flatpak >/dev/null 2>&1 || ! command -v flatpak-builder >/dev/nu
   exit 1
 fi
 
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null
+flatpak --user update --appstream -y flathub >/dev/null 2>&1 || true
 
 rm -rf "${BUILD_ROOT}"
 mkdir -p "${BUILD_DIR}" "${REPO_DIR}" "${OUTPUT_DIR}"
