@@ -90,6 +90,14 @@ class IntegrationsView(Gtk.Box):
             str(settings.get("discord_webhook_url", "")).strip()
         )
 
+        self.quick_teams_webhook_entry = Gtk.Entry()
+        self.quick_teams_webhook_entry.set_placeholder_text(
+            "https://outlook.office.com/webhook/..."
+        )
+        self.quick_teams_webhook_entry.set_text(
+            str(settings.get("teams_webhook_url", "")).strip()
+        )
+
         self.quick_telegram_token_entry = Gtk.Entry()
         self.quick_telegram_token_entry.set_placeholder_text("Telegram bot token")
         self.quick_telegram_token_entry.set_visibility(False)
@@ -110,12 +118,26 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_openweather_location_entry = Gtk.Entry()
         self.quick_openweather_location_entry.set_placeholder_text("Location  •  Example: Austin,US")
-        self.quick_openweather_location_entry.set_text("Austin,US")
+        self.quick_openweather_location_entry.set_text(
+            str(settings.get("openweather_default_location", "")).strip() or "Austin,US"
+        )
 
         self.quick_gmail_key_entry = Gtk.Entry()
         self.quick_gmail_key_entry.set_placeholder_text("OAuth bearer token")
         self.quick_gmail_key_entry.set_visibility(False)
         self.quick_gmail_key_entry.set_text(str(settings.get("gmail_api_key", "")).strip())
+
+        self.quick_outlook_key_entry = Gtk.Entry()
+        self.quick_outlook_key_entry.set_placeholder_text("Outlook / Graph OAuth bearer token")
+        self.quick_outlook_key_entry.set_visibility(False)
+        self.quick_outlook_key_entry.set_text(str(settings.get("outlook_api_key", "")).strip())
+
+        self.quick_outlook_url_entry = Gtk.Entry()
+        self.quick_outlook_url_entry.set_placeholder_text("https://graph.microsoft.com/v1.0/me")
+        self.quick_outlook_url_entry.set_text(
+            str(settings.get("outlook_api_url", "")).strip()
+            or "https://graph.microsoft.com/v1.0/me"
+        )
 
         self.quick_gmail_from_entry = Gtk.Entry()
         self.quick_gmail_from_entry.set_placeholder_text("From address")
@@ -125,6 +147,22 @@ class IntegrationsView(Gtk.Box):
         self.quick_sheets_key_entry.set_placeholder_text("OAuth bearer token")
         self.quick_sheets_key_entry.set_visibility(False)
         self.quick_sheets_key_entry.set_text(str(settings.get("google_sheets_api_key", "")).strip())
+
+        self.quick_google_calendar_key_entry = Gtk.Entry()
+        self.quick_google_calendar_key_entry.set_placeholder_text("Google Calendar OAuth bearer token")
+        self.quick_google_calendar_key_entry.set_visibility(False)
+        self.quick_google_calendar_key_entry.set_text(
+            str(settings.get("google_calendar_api_key", "")).strip()
+        )
+
+        self.quick_google_calendar_url_entry = Gtk.Entry()
+        self.quick_google_calendar_url_entry.set_placeholder_text(
+            "https://www.googleapis.com/calendar/v3/users/me/calendarList"
+        )
+        self.quick_google_calendar_url_entry.set_text(
+            str(settings.get("google_calendar_api_url", "")).strip()
+            or "https://www.googleapis.com/calendar/v3/users/me/calendarList"
+        )
 
         self.quick_sheets_spreadsheet_entry = Gtk.Entry()
         self.quick_sheets_spreadsheet_entry.set_placeholder_text("Spreadsheet ID")
@@ -151,7 +189,9 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_github_url_entry = Gtk.Entry()
         self.quick_github_url_entry.set_placeholder_text("https://api.github.com/user")
-        self.quick_github_url_entry.set_text("https://api.github.com/user")
+        self.quick_github_url_entry.set_text(
+            str(settings.get("github_api_url", "")).strip() or "https://api.github.com/user"
+        )
 
         self.quick_notion_key_entry = Gtk.Entry()
         self.quick_notion_key_entry.set_placeholder_text("Notion API key")
@@ -160,7 +200,10 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_notion_url_entry = Gtk.Entry()
         self.quick_notion_url_entry.set_placeholder_text("https://api.notion.com/v1/users")
-        self.quick_notion_url_entry.set_text("https://api.notion.com/v1/users")
+        self.quick_notion_url_entry.set_text(
+            str(settings.get("notion_api_url", "")).strip()
+            or "https://api.notion.com/v1/users"
+        )
 
         self.quick_jira_key_entry = Gtk.Entry()
         self.quick_jira_key_entry.set_placeholder_text("Jira API token")
@@ -172,7 +215,8 @@ class IntegrationsView(Gtk.Box):
             "https://your-domain.atlassian.net/rest/api/3/myself"
         )
         self.quick_jira_url_entry.set_text(
-            "https://your-domain.atlassian.net/rest/api/3/myself"
+            str(settings.get("jira_api_url", "")).strip()
+            or "https://your-domain.atlassian.net/rest/api/3/myself"
         )
 
         self.quick_asana_key_entry = Gtk.Entry()
@@ -182,7 +226,10 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_asana_url_entry = Gtk.Entry()
         self.quick_asana_url_entry.set_placeholder_text("https://app.asana.com/api/1.0/users/me")
-        self.quick_asana_url_entry.set_text("https://app.asana.com/api/1.0/users/me")
+        self.quick_asana_url_entry.set_text(
+            str(settings.get("asana_api_url", "")).strip()
+            or "https://app.asana.com/api/1.0/users/me"
+        )
 
         self.quick_clickup_key_entry = Gtk.Entry()
         self.quick_clickup_key_entry.set_placeholder_text("ClickUp API token")
@@ -191,7 +238,10 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_clickup_url_entry = Gtk.Entry()
         self.quick_clickup_url_entry.set_placeholder_text("https://api.clickup.com/api/v2/user")
-        self.quick_clickup_url_entry.set_text("https://api.clickup.com/api/v2/user")
+        self.quick_clickup_url_entry.set_text(
+            str(settings.get("clickup_api_url", "")).strip()
+            or "https://api.clickup.com/api/v2/user"
+        )
 
         self.quick_trello_key_entry = Gtk.Entry()
         self.quick_trello_key_entry.set_placeholder_text("Trello API token/key")
@@ -200,7 +250,10 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_trello_url_entry = Gtk.Entry()
         self.quick_trello_url_entry.set_placeholder_text("https://api.trello.com/1/members/me")
-        self.quick_trello_url_entry.set_text("https://api.trello.com/1/members/me")
+        self.quick_trello_url_entry.set_text(
+            str(settings.get("trello_api_url", "")).strip()
+            or "https://api.trello.com/1/members/me"
+        )
 
         self.quick_monday_key_entry = Gtk.Entry()
         self.quick_monday_key_entry.set_placeholder_text("Monday.com API token")
@@ -209,7 +262,9 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_monday_url_entry = Gtk.Entry()
         self.quick_monday_url_entry.set_placeholder_text("https://api.monday.com/v2")
-        self.quick_monday_url_entry.set_text("https://api.monday.com/v2")
+        self.quick_monday_url_entry.set_text(
+            str(settings.get("monday_api_url", "")).strip() or "https://api.monday.com/v2"
+        )
 
         self.quick_zendesk_key_entry = Gtk.Entry()
         self.quick_zendesk_key_entry.set_placeholder_text("Zendesk API token")
@@ -221,7 +276,8 @@ class IntegrationsView(Gtk.Box):
             "https://your-domain.zendesk.com/api/v2/users/me.json"
         )
         self.quick_zendesk_url_entry.set_text(
-            "https://your-domain.zendesk.com/api/v2/users/me.json"
+            str(settings.get("zendesk_api_url", "")).strip()
+            or "https://your-domain.zendesk.com/api/v2/users/me.json"
         )
 
         self.quick_pipedrive_key_entry = Gtk.Entry()
@@ -231,7 +287,10 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_pipedrive_url_entry = Gtk.Entry()
         self.quick_pipedrive_url_entry.set_placeholder_text("https://api.pipedrive.com/v1/users/me")
-        self.quick_pipedrive_url_entry.set_text("https://api.pipedrive.com/v1/users/me")
+        self.quick_pipedrive_url_entry.set_text(
+            str(settings.get("pipedrive_api_url", "")).strip()
+            or "https://api.pipedrive.com/v1/users/me"
+        )
 
         self.quick_salesforce_key_entry = Gtk.Entry()
         self.quick_salesforce_key_entry.set_placeholder_text("Salesforce OAuth access token")
@@ -243,7 +302,8 @@ class IntegrationsView(Gtk.Box):
             "https://your-instance.my.salesforce.com/services/data/v58.0/limits"
         )
         self.quick_salesforce_url_entry.set_text(
-            "https://your-instance.my.salesforce.com/services/data/v58.0/limits"
+            str(settings.get("salesforce_api_url", "")).strip()
+            or "https://your-instance.my.salesforce.com/services/data/v58.0/limits"
         )
 
         self.quick_gitlab_key_entry = Gtk.Entry()
@@ -253,7 +313,10 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_gitlab_url_entry = Gtk.Entry()
         self.quick_gitlab_url_entry.set_placeholder_text("https://gitlab.com/api/v4/user")
-        self.quick_gitlab_url_entry.set_text("https://gitlab.com/api/v4/user")
+        self.quick_gitlab_url_entry.set_text(
+            str(settings.get("gitlab_api_url", "")).strip()
+            or "https://gitlab.com/api/v4/user"
+        )
 
         self.quick_hubspot_key_entry = Gtk.Entry()
         self.quick_hubspot_key_entry.set_placeholder_text("HubSpot private app token")
@@ -265,7 +328,8 @@ class IntegrationsView(Gtk.Box):
             "https://api.hubapi.com/crm/v3/objects/contacts?limit=1"
         )
         self.quick_hubspot_url_entry.set_text(
-            "https://api.hubapi.com/crm/v3/objects/contacts?limit=1"
+            str(settings.get("hubspot_api_url", "")).strip()
+            or "https://api.hubapi.com/crm/v3/objects/contacts?limit=1"
         )
 
         self.quick_stripe_key_entry = Gtk.Entry()
@@ -275,7 +339,10 @@ class IntegrationsView(Gtk.Box):
 
         self.quick_stripe_url_entry = Gtk.Entry()
         self.quick_stripe_url_entry.set_placeholder_text("https://api.stripe.com/v1/balance")
-        self.quick_stripe_url_entry.set_text("https://api.stripe.com/v1/balance")
+        self.quick_stripe_url_entry.set_text(
+            str(settings.get("stripe_api_url", "")).strip()
+            or "https://api.stripe.com/v1/balance"
+        )
 
         self.quick_twilio_sid_entry = Gtk.Entry()
         self.quick_twilio_sid_entry.set_placeholder_text("Twilio Account SID")
@@ -463,15 +530,9 @@ class IntegrationsView(Gtk.Box):
         page_content.append(section_title)
         page_content.append(self.empty_label)
         page_content.append(self.list_box)
-
-        page_scroll = Gtk.ScrolledWindow()
-        page_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        page_scroll.set_hexpand(True)
-        page_scroll.set_vexpand(True)
-        page_scroll.add_css_class("settings-page-scroll")
-        page_scroll.set_child(page_content)
-
-        self.append(page_scroll)
+        page_content.set_hexpand(True)
+        page_content.set_vexpand(True)
+        self.append(page_content)
 
         self.refresh_list()
 
@@ -700,6 +761,8 @@ class IntegrationsView(Gtk.Box):
                     "jira_api_key",
                     self.quick_jira_key_entry,
                     "Jira",
+                    url_settings_key="jira_api_url",
+                    url_entry=self.quick_jira_url_entry,
                 ),
                 on_test=lambda button: self.on_test_token_url_quick_setup(
                     button,
@@ -731,6 +794,8 @@ class IntegrationsView(Gtk.Box):
                     "asana_api_key",
                     self.quick_asana_key_entry,
                     "Asana",
+                    url_settings_key="asana_api_url",
+                    url_entry=self.quick_asana_url_entry,
                 ),
                 on_test=lambda button: self.on_test_token_url_quick_setup(
                     button,
@@ -762,6 +827,8 @@ class IntegrationsView(Gtk.Box):
                     "clickup_api_key",
                     self.quick_clickup_key_entry,
                     "ClickUp",
+                    url_settings_key="clickup_api_url",
+                    url_entry=self.quick_clickup_url_entry,
                 ),
                 on_test=lambda button: self.on_test_token_url_quick_setup(
                     button,
@@ -793,6 +860,8 @@ class IntegrationsView(Gtk.Box):
                     "trello_api_key",
                     self.quick_trello_key_entry,
                     "Trello",
+                    url_settings_key="trello_api_url",
+                    url_entry=self.quick_trello_url_entry,
                 ),
                 on_test=lambda button: self.on_test_token_url_quick_setup(
                     button,
@@ -824,6 +893,8 @@ class IntegrationsView(Gtk.Box):
                     "monday_api_key",
                     self.quick_monday_key_entry,
                     "Monday",
+                    url_settings_key="monday_api_url",
+                    url_entry=self.quick_monday_url_entry,
                 ),
                 on_test=lambda button: self.on_test_token_url_quick_setup(
                     button,
@@ -857,6 +928,8 @@ class IntegrationsView(Gtk.Box):
                     "zendesk_api_key",
                     self.quick_zendesk_key_entry,
                     "Zendesk",
+                    url_settings_key="zendesk_api_url",
+                    url_entry=self.quick_zendesk_url_entry,
                 ),
                 on_test=lambda button: self.on_test_token_url_quick_setup(
                     button,
@@ -888,6 +961,8 @@ class IntegrationsView(Gtk.Box):
                     "pipedrive_api_key",
                     self.quick_pipedrive_key_entry,
                     "Pipedrive",
+                    url_settings_key="pipedrive_api_url",
+                    url_entry=self.quick_pipedrive_url_entry,
                 ),
                 on_test=lambda button: self.on_test_token_url_quick_setup(
                     button,
@@ -919,6 +994,8 @@ class IntegrationsView(Gtk.Box):
                     "salesforce_api_key",
                     self.quick_salesforce_key_entry,
                     "Salesforce",
+                    url_settings_key="salesforce_api_url",
+                    url_entry=self.quick_salesforce_url_entry,
                 ),
                 on_test=lambda button: self.on_test_token_url_quick_setup(
                     button,
@@ -950,6 +1027,8 @@ class IntegrationsView(Gtk.Box):
                     "gitlab_api_key",
                     self.quick_gitlab_key_entry,
                     "GitLab",
+                    url_settings_key="gitlab_api_url",
+                    url_entry=self.quick_gitlab_url_entry,
                 ),
                 on_test=lambda button: self.on_test_token_url_quick_setup(
                     button,
@@ -963,6 +1042,88 @@ class IntegrationsView(Gtk.Box):
             ),
             2,
             6,
+            1,
+            1,
+        )
+        quick_grid.attach(
+            self.build_quick_setup_card(
+                card_key="teams",
+                title="Teams Webhook",
+                icon_name="mail-message-new-symbolic",
+                fields=[
+                    build_labeled_field("Webhook URL", self.quick_teams_webhook_entry),
+                ],
+                on_save=self.on_save_teams_quick_setup,
+                on_test=self.on_test_teams_quick_setup,
+            ),
+            0,
+            7,
+            1,
+            1,
+        )
+        quick_grid.attach(
+            self.build_quick_setup_card(
+                card_key="google_calendar",
+                title="Google Calendar API",
+                icon_name="view-calendar-symbolic",
+                fields=[
+                    build_labeled_field("API Key", self.quick_google_calendar_key_entry),
+                    build_labeled_field("Request URL", self.quick_google_calendar_url_entry),
+                ],
+                on_save=lambda button: self.on_save_token_url_quick_setup(
+                    button,
+                    "google_calendar",
+                    "google_calendar_api_key",
+                    self.quick_google_calendar_key_entry,
+                    "Google Calendar",
+                    url_settings_key="google_calendar_api_url",
+                    url_entry=self.quick_google_calendar_url_entry,
+                ),
+                on_test=lambda button: self.on_test_token_url_quick_setup(
+                    button,
+                    "google_calendar",
+                    "google_calendar_api",
+                    "google_calendar_api_key",
+                    self.quick_google_calendar_key_entry,
+                    self.quick_google_calendar_url_entry,
+                    "Google Calendar",
+                ),
+            ),
+            1,
+            7,
+            1,
+            1,
+        )
+        quick_grid.attach(
+            self.build_quick_setup_card(
+                card_key="outlook",
+                title="Outlook Graph API",
+                icon_name="mail-send-symbolic",
+                fields=[
+                    build_labeled_field("API Key", self.quick_outlook_key_entry),
+                    build_labeled_field("Request URL", self.quick_outlook_url_entry),
+                ],
+                on_save=lambda button: self.on_save_token_url_quick_setup(
+                    button,
+                    "outlook",
+                    "outlook_api_key",
+                    self.quick_outlook_key_entry,
+                    "Outlook Graph",
+                    url_settings_key="outlook_api_url",
+                    url_entry=self.quick_outlook_url_entry,
+                ),
+                on_test=lambda button: self.on_test_token_url_quick_setup(
+                    button,
+                    "outlook",
+                    "outlook_graph",
+                    "outlook_api_key",
+                    self.quick_outlook_key_entry,
+                    self.quick_outlook_url_entry,
+                    "Outlook Graph",
+                ),
+            ),
+            2,
+            7,
             1,
             1,
         )
@@ -1082,9 +1243,15 @@ class IntegrationsView(Gtk.Box):
         settings_key: str,
         token_entry: Gtk.Entry,
         label: str,
+        *,
+        url_settings_key: str = "",
+        url_entry: Gtk.Entry | None = None,
     ):
         token = token_entry.get_text().strip()
-        self.save_settings_updates({settings_key: token})
+        updates = {settings_key: token}
+        if url_settings_key and url_entry is not None:
+            updates[url_settings_key] = url_entry.get_text().strip()
+        self.save_settings_updates(updates)
         self.set_quick_setup_status(card_key, f"{label} settings saved.")
         self.status_label.set_text(f"Saved {label} quick setup.")
 
@@ -1106,6 +1273,8 @@ class IntegrationsView(Gtk.Box):
             settings_key,
             token_entry,
             label,
+            url_settings_key=f"{integration_key}_url",
+            url_entry=url_entry,
         )
         token = token_entry.get_text().strip()
         url = url_entry.get_text().strip()
@@ -1141,6 +1310,12 @@ class IntegrationsView(Gtk.Box):
         self.set_quick_setup_status("discord", "Discord settings saved.")
         self.status_label.set_text("Saved Discord quick setup.")
 
+    def on_save_teams_quick_setup(self, _button):
+        webhook_url = self.quick_teams_webhook_entry.get_text().strip()
+        self.save_settings_updates({"teams_webhook_url": webhook_url})
+        self.set_quick_setup_status("teams", "Teams settings saved.")
+        self.status_label.set_text("Saved Teams quick setup.")
+
     def on_save_telegram_quick_setup(self, _button):
         token = self.quick_telegram_token_entry.get_text().strip()
         chat_id = self.quick_telegram_chat_entry.get_text().strip()
@@ -1155,7 +1330,13 @@ class IntegrationsView(Gtk.Box):
 
     def on_save_openweather_quick_setup(self, _button):
         api_key = self.quick_openweather_key_entry.get_text().strip()
-        self.save_settings_updates({"openweather_api_key": api_key})
+        location = self.quick_openweather_location_entry.get_text().strip()
+        self.save_settings_updates(
+            {
+                "openweather_api_key": api_key,
+                "openweather_default_location": location,
+            }
+        )
         self.set_quick_setup_status("openweather", "OpenWeather settings saved.")
         self.status_label.set_text("Saved OpenWeather quick setup.")
 
@@ -1193,25 +1374,49 @@ class IntegrationsView(Gtk.Box):
 
     def on_save_github_quick_setup(self, _button):
         api_key = self.quick_github_key_entry.get_text().strip()
-        self.save_settings_updates({"github_api_key": api_key})
+        url = self.quick_github_url_entry.get_text().strip()
+        self.save_settings_updates(
+            {
+                "github_api_key": api_key,
+                "github_api_url": url,
+            }
+        )
         self.set_quick_setup_status("github", "GitHub settings saved.")
         self.status_label.set_text("Saved GitHub quick setup.")
 
     def on_save_notion_quick_setup(self, _button):
         api_key = self.quick_notion_key_entry.get_text().strip()
-        self.save_settings_updates({"notion_api_key": api_key})
+        url = self.quick_notion_url_entry.get_text().strip()
+        self.save_settings_updates(
+            {
+                "notion_api_key": api_key,
+                "notion_api_url": url,
+            }
+        )
         self.set_quick_setup_status("notion", "Notion settings saved.")
         self.status_label.set_text("Saved Notion quick setup.")
 
     def on_save_hubspot_quick_setup(self, _button):
         api_key = self.quick_hubspot_key_entry.get_text().strip()
-        self.save_settings_updates({"hubspot_api_key": api_key})
+        url = self.quick_hubspot_url_entry.get_text().strip()
+        self.save_settings_updates(
+            {
+                "hubspot_api_key": api_key,
+                "hubspot_api_url": url,
+            }
+        )
         self.set_quick_setup_status("hubspot", "HubSpot settings saved.")
         self.status_label.set_text("Saved HubSpot quick setup.")
 
     def on_save_stripe_quick_setup(self, _button):
         api_key = self.quick_stripe_key_entry.get_text().strip()
-        self.save_settings_updates({"stripe_api_key": api_key})
+        url = self.quick_stripe_url_entry.get_text().strip()
+        self.save_settings_updates(
+            {
+                "stripe_api_key": api_key,
+                "stripe_api_url": url,
+            }
+        )
         self.set_quick_setup_status("stripe", "Stripe settings saved.")
         self.status_label.set_text("Saved Stripe quick setup.")
 
@@ -1257,6 +1462,22 @@ class IntegrationsView(Gtk.Box):
             directives={
                 "webhook_url": webhook_url,
                 "content": "6X Protocol Studio quick setup test.",
+            },
+            input_context="Quick setup test from Integrations page.",
+        )
+
+    def on_test_teams_quick_setup(self, _button):
+        self.on_save_teams_quick_setup(None)
+        webhook_url = self.quick_teams_webhook_entry.get_text().strip()
+        if not webhook_url:
+            self.set_quick_setup_status("teams", "Enter Teams webhook URL first.")
+            return
+        self.run_quick_setup_test(
+            card_key="teams",
+            integration_key="teams_webhook",
+            directives={
+                "webhook_url": webhook_url,
+                "text": "6X Protocol Studio quick setup test.",
             },
             input_context="Quick setup test from Integrations page.",
         )
@@ -2041,13 +2262,30 @@ class IntegrationsView(Gtk.Box):
         normalized_key = str(key).strip().lower()
         normalized_category = str(category).strip().lower()
 
-        if normalized_key in {"slack", "slack_webhook", "discord", "discord_webhook", "telegram", "telegram_bot"}:
+        if normalized_key in {
+            "slack",
+            "slack_webhook",
+            "discord",
+            "discord_webhook",
+            "teams",
+            "teams_webhook",
+            "telegram",
+            "telegram_bot",
+            "outlook",
+            "outlook_graph",
+        }:
             return "integration-tone-communication"
         if normalized_key in {"gmail", "gmail_send", "twilio", "twilio_sms", "resend_email", "mailgun_email"}:
             return "integration-tone-messaging"
         if normalized_key in {"openweather", "openweather_current"}:
             return "integration-tone-weather"
-        if normalized_key in {"google_sheets", "apps_script", "google_apps_script"}:
+        if normalized_key in {
+            "google_sheets",
+            "apps_script",
+            "google_apps_script",
+            "google_calendar",
+            "google_calendar_api",
+        }:
             return "integration-tone-google"
         if normalized_key in {"github", "github_rest", "gitlab", "gitlab_api", "linear_api"}:
             return "integration-tone-dev"
@@ -2119,12 +2357,16 @@ class IntegrationsView(Gtk.Box):
             "discord_webhook": {
                 "webhook_url": str(settings.get("discord_webhook_url", "")).strip(),
             },
+            "teams_webhook": {
+                "webhook_url": str(settings.get("teams_webhook_url", "")).strip(),
+            },
             "telegram_bot": {
                 "api_key": str(settings.get("telegram_bot_token", "")).strip(),
                 "chat_id": str(settings.get("telegram_default_chat_id", "")).strip(),
             },
             "openweather_current": {
                 "api_key": str(settings.get("openweather_api_key", "")).strip(),
+                "location": str(settings.get("openweather_default_location", "")).strip(),
             },
             "google_apps_script": {
                 "script_url": str(settings.get("google_apps_script_url", "")).strip(),
@@ -2134,25 +2376,75 @@ class IntegrationsView(Gtk.Box):
                 "spreadsheet_id": str(settings.get("google_sheets_spreadsheet_id", "")).strip(),
                 "range": str(settings.get("google_sheets_range", "")).strip(),
             },
+            "google_calendar_api": {
+                "api_key": str(settings.get("google_calendar_api_key", "")).strip(),
+                "url": str(settings.get("google_calendar_api_url", "")).strip(),
+            },
+            "outlook_graph": {
+                "api_key": str(settings.get("outlook_api_key", "")).strip(),
+                "url": str(settings.get("outlook_api_url", "")).strip(),
+            },
             "gmail_send": {
                 "api_key": str(settings.get("gmail_api_key", "")).strip(),
                 "from": str(settings.get("gmail_from_address", "")).strip(),
             },
-            "notion_api": {"api_key": str(settings.get("notion_api_key", "")).strip()},
-            "airtable_api": {"api_key": str(settings.get("airtable_api_key", "")).strip()},
-            "hubspot_api": {"api_key": str(settings.get("hubspot_api_key", "")).strip()},
-            "stripe_api": {"api_key": str(settings.get("stripe_api_key", "")).strip()},
-            "github_rest": {"api_key": str(settings.get("github_api_key", "")).strip()},
+            "notion_api": {
+                "api_key": str(settings.get("notion_api_key", "")).strip(),
+                "url": str(settings.get("notion_api_url", "")).strip(),
+            },
+            "airtable_api": {
+                "api_key": str(settings.get("airtable_api_key", "")).strip(),
+                "url": str(settings.get("airtable_api_url", "")).strip(),
+            },
+            "hubspot_api": {
+                "api_key": str(settings.get("hubspot_api_key", "")).strip(),
+                "url": str(settings.get("hubspot_api_url", "")).strip(),
+            },
+            "stripe_api": {
+                "api_key": str(settings.get("stripe_api_key", "")).strip(),
+                "url": str(settings.get("stripe_api_url", "")).strip(),
+            },
+            "github_rest": {
+                "api_key": str(settings.get("github_api_key", "")).strip(),
+                "url": str(settings.get("github_api_url", "")).strip(),
+            },
             "linear_api": {"api_key": str(settings.get("linear_api_key", "")).strip()},
-            "jira_api": {"api_key": str(settings.get("jira_api_key", "")).strip()},
-            "asana_api": {"api_key": str(settings.get("asana_api_key", "")).strip()},
-            "clickup_api": {"api_key": str(settings.get("clickup_api_key", "")).strip()},
-            "trello_api": {"api_key": str(settings.get("trello_api_key", "")).strip()},
-            "monday_api": {"api_key": str(settings.get("monday_api_key", "")).strip()},
-            "zendesk_api": {"api_key": str(settings.get("zendesk_api_key", "")).strip()},
-            "pipedrive_api": {"api_key": str(settings.get("pipedrive_api_key", "")).strip()},
-            "salesforce_api": {"api_key": str(settings.get("salesforce_api_key", "")).strip()},
-            "gitlab_api": {"api_key": str(settings.get("gitlab_api_key", "")).strip()},
+            "jira_api": {
+                "api_key": str(settings.get("jira_api_key", "")).strip(),
+                "url": str(settings.get("jira_api_url", "")).strip(),
+            },
+            "asana_api": {
+                "api_key": str(settings.get("asana_api_key", "")).strip(),
+                "url": str(settings.get("asana_api_url", "")).strip(),
+            },
+            "clickup_api": {
+                "api_key": str(settings.get("clickup_api_key", "")).strip(),
+                "url": str(settings.get("clickup_api_url", "")).strip(),
+            },
+            "trello_api": {
+                "api_key": str(settings.get("trello_api_key", "")).strip(),
+                "url": str(settings.get("trello_api_url", "")).strip(),
+            },
+            "monday_api": {
+                "api_key": str(settings.get("monday_api_key", "")).strip(),
+                "url": str(settings.get("monday_api_url", "")).strip(),
+            },
+            "zendesk_api": {
+                "api_key": str(settings.get("zendesk_api_key", "")).strip(),
+                "url": str(settings.get("zendesk_api_url", "")).strip(),
+            },
+            "pipedrive_api": {
+                "api_key": str(settings.get("pipedrive_api_key", "")).strip(),
+                "url": str(settings.get("pipedrive_api_url", "")).strip(),
+            },
+            "salesforce_api": {
+                "api_key": str(settings.get("salesforce_api_key", "")).strip(),
+                "url": str(settings.get("salesforce_api_url", "")).strip(),
+            },
+            "gitlab_api": {
+                "api_key": str(settings.get("gitlab_api_key", "")).strip(),
+                "url": str(settings.get("gitlab_api_url", "")).strip(),
+            },
             "twilio_sms": {
                 "account_sid": str(settings.get("twilio_account_sid", "")).strip(),
                 "auth_token": str(settings.get("twilio_auth_token", "")).strip(),

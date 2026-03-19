@@ -5,9 +5,17 @@ from src.models.canvas_node import CanvasNode
 from src.services.workflow_validation_service import WorkflowValidationService
 
 
+class DummySettingsStore:
+    def __init__(self, settings):
+        self._settings = dict(settings)
+
+    def load_settings(self):
+        return dict(self._settings)
+
+
 class WorkflowValidationServiceTests(unittest.TestCase):
     def setUp(self):
-        self.service = WorkflowValidationService()
+        self.service = WorkflowValidationService(settings_store=DummySettingsStore({}))
 
     def test_required_field_alias_allows_webhook_url_via_url(self):
         trigger = CanvasNode(
@@ -116,6 +124,45 @@ class WorkflowValidationServiceTests(unittest.TestCase):
         result = self.service.validate_workflow(
             Workflow(id="wf_1", name="Legacy", trigger="", action="", graph=graph)
         )
+        self.assertTrue(result.ok, result.errors)
+
+    def test_required_field_can_be_satisfied_from_saved_settings(self):
+        service = WorkflowValidationService(
+            settings_store=DummySettingsStore(
+                {
+                    "slack_webhook_url": "https://hooks.slack.com/services/T/B/K",
+                }
+            )
+        )
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="Slack",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={"integration": "slack_webhook"},
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = service.validate_graph([trigger, action], edges, "Settings Fallback")
         self.assertTrue(result.ok, result.errors)
 
 

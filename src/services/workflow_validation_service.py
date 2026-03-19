@@ -5,6 +5,7 @@ from src.models.canvas_edge import CanvasEdge
 from src.models.canvas_node import CanvasNode
 from src.models.workflow import Workflow
 from src.services.integration_registry_service import IntegrationRegistryService
+from src.services.settings_store import SettingsStore
 
 
 @dataclass
@@ -91,8 +92,10 @@ class WorkflowValidationService:
     def __init__(
         self,
         integration_registry: Optional[IntegrationRegistryService] = None,
+        settings_store: Optional[SettingsStore] = None,
     ):
         self.integration_registry = integration_registry or IntegrationRegistryService()
+        self.settings_store = settings_store or SettingsStore()
 
     def validate_workflow(self, workflow: Workflow) -> ValidationResult:
         graph = workflow.normalized_graph()
@@ -106,6 +109,7 @@ class WorkflowValidationService:
         edges: List[CanvasEdge],
         workflow_name: str = "",
     ) -> ValidationResult:
+        app_settings = self.settings_store.load_settings()
         result = ValidationResult()
         label = workflow_name.strip() or "Workflow"
 
@@ -137,7 +141,7 @@ class WorkflowValidationService:
                     node_id=node.id,
                 )
 
-            self._validate_node_contract(node, node_kind, result)
+            self._validate_node_contract(node, node_kind, result, app_settings)
 
         incoming_count = {node_id: 0 for node_id in node_map}
         outgoing_count = {node_id: 0 for node_id in node_map}
@@ -202,6 +206,7 @@ class WorkflowValidationService:
         node: CanvasNode,
         node_kind: str,
         result: ValidationResult,
+        app_settings: Dict[str, str],
     ):
         config = dict(node.config)
         directives = self._parse_directives(node.detail)
@@ -224,7 +229,12 @@ class WorkflowValidationService:
                     key = str(field).strip()
                     if not key:
                         continue
-                    if not self._required_field_value(config, key):
+                    if not self._required_field_value(
+                        config,
+                        key,
+                        integration_key=integration_key,
+                        app_settings=app_settings,
+                    ):
                         result.add_error(
                             f"Action node '{node_name}' is missing required field '{key}'.",
                             node_id=node.id,
@@ -360,11 +370,96 @@ class WorkflowValidationService:
             directives[key.strip().lower()] = value.strip()
         return directives
 
-    def _required_field_value(self, config: Dict[str, str], field_name: str) -> str:
+    def _required_field_value(
+        self,
+        config: Dict[str, str],
+        field_name: str,
+        *,
+        integration_key: str = "",
+        app_settings: Optional[Dict[str, str]] = None,
+    ) -> str:
         key = str(field_name).strip().lower()
         candidates = [key, *self.REQUIRED_FIELD_ALIASES.get(key, [])]
         for candidate in candidates:
             value = str(config.get(candidate, "")).strip()
             if value:
                 return value
+        settings = app_settings if isinstance(app_settings, dict) else {}
+        if settings and integration_key:
+            for setting_key in self._setting_keys_for_required_field(
+                integration_key,
+                key,
+            ):
+                value = str(settings.get(setting_key, "")).strip()
+                if value:
+                    return value
         return ""
+
+    def _setting_keys_for_required_field(self, integration_key: str, field_name: str) -> List[str]:
+        key = str(integration_key).strip().lower()
+        field = str(field_name).strip().lower()
+        mapping: Dict[str, Dict[str, List[str]]] = {
+            "slack_webhook": {"webhook_url": ["slack_webhook_url"], "url": ["slack_webhook_url"]},
+            "discord_webhook": {
+                "webhook_url": ["discord_webhook_url"],
+                "url": ["discord_webhook_url"],
+            },
+            "teams_webhook": {"webhook_url": ["teams_webhook_url"], "url": ["teams_webhook_url"]},
+            "telegram_bot": {
+                "api_key": ["telegram_bot_token"],
+                "chat_id": ["telegram_default_chat_id"],
+            },
+            "openweather_current": {
+                "api_key": ["openweather_api_key"],
+                "location": ["openweather_default_location"],
+            },
+            "google_apps_script": {"script_url": ["google_apps_script_url"], "url": ["google_apps_script_url"]},
+            "google_sheets": {
+                "api_key": ["google_sheets_api_key"],
+                "spreadsheet_id": ["google_sheets_spreadsheet_id"],
+                "range": ["google_sheets_range"],
+            },
+            "google_calendar_api": {
+                "api_key": ["google_calendar_api_key"],
+                "url": ["google_calendar_api_url"],
+            },
+            "outlook_graph": {
+                "api_key": ["outlook_api_key"],
+                "url": ["outlook_api_url"],
+            },
+            "gmail_send": {"api_key": ["gmail_api_key"], "from": ["gmail_from_address"]},
+            "notion_api": {"api_key": ["notion_api_key"], "url": ["notion_api_url"]},
+            "airtable_api": {"api_key": ["airtable_api_key"], "url": ["airtable_api_url"]},
+            "hubspot_api": {"api_key": ["hubspot_api_key"], "url": ["hubspot_api_url"]},
+            "stripe_api": {"api_key": ["stripe_api_key"], "url": ["stripe_api_url"]},
+            "github_rest": {"api_key": ["github_api_key"], "url": ["github_api_url"]},
+            "jira_api": {"api_key": ["jira_api_key"], "url": ["jira_api_url"]},
+            "asana_api": {"api_key": ["asana_api_key"], "url": ["asana_api_url"]},
+            "clickup_api": {"api_key": ["clickup_api_key"], "url": ["clickup_api_url"]},
+            "trello_api": {"api_key": ["trello_api_key"], "url": ["trello_api_url"]},
+            "monday_api": {"api_key": ["monday_api_key"], "url": ["monday_api_url"]},
+            "zendesk_api": {"api_key": ["zendesk_api_key"], "url": ["zendesk_api_url"]},
+            "pipedrive_api": {"api_key": ["pipedrive_api_key"], "url": ["pipedrive_api_url"]},
+            "salesforce_api": {"api_key": ["salesforce_api_key"], "url": ["salesforce_api_url"]},
+            "gitlab_api": {"api_key": ["gitlab_api_key"], "url": ["gitlab_api_url"]},
+            "twilio_sms": {
+                "account_sid": ["twilio_account_sid"],
+                "auth_token": ["twilio_auth_token"],
+                "from": ["twilio_from_number"],
+            },
+            "resend_email": {"api_key": ["resend_api_key"], "from": ["resend_from_address"]},
+            "mailgun_email": {
+                "api_key": ["mailgun_api_key"],
+                "domain": ["mailgun_domain"],
+                "from": ["mailgun_from_address"],
+            },
+            "postgres_sql": {"connection_url": ["postgres_connection_url"]},
+            "mysql_sql": {"connection_url": ["mysql_connection_url"]},
+            "redis_command": {"connection_url": ["redis_connection_url"]},
+        }
+        integration_mapping = mapping.get(key, {})
+        if field in integration_mapping:
+            return integration_mapping[field]
+        if field == "url":
+            return integration_mapping.get("webhook_url", []) + integration_mapping.get("script_url", [])
+        return []

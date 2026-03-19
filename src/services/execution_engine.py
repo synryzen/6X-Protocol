@@ -32,6 +32,50 @@ class ApprovalRequiredError(RuntimeError):
 
 
 class ExecutionEngine:
+    ACTION_FAST_INTEGRATIONS = {
+        "slack_webhook",
+        "discord_webhook",
+        "teams_webhook",
+        "telegram_bot",
+        "twilio_sms",
+        "openweather_current",
+    }
+    ACTION_STANDARD_INTEGRATIONS = {
+        "http_post",
+        "http_request",
+        "google_apps_script",
+        "google_sheets",
+        "google_calendar_api",
+        "outlook_graph",
+        "notion_api",
+        "airtable_api",
+        "hubspot_api",
+        "stripe_api",
+        "github_rest",
+        "gitlab_api",
+        "linear_api",
+        "jira_api",
+        "asana_api",
+        "clickup_api",
+        "trello_api",
+        "monday_api",
+        "zendesk_api",
+        "pipedrive_api",
+        "salesforce_api",
+        "gmail_send",
+        "resend_email",
+        "mailgun_email",
+    }
+    ACTION_HEAVY_INTEGRATIONS = {
+        "shell_command",
+        "file_append",
+        "postgres_sql",
+        "mysql_sql",
+        "sqlite_sql",
+        "redis_command",
+        "s3_cli",
+    }
+
     def __init__(
         self,
         run_store: Optional[RunStore] = None,
@@ -775,13 +819,40 @@ class ExecutionEngine:
                 f"Discord response: {self._truncate(response_text or 'ok', 220)}",
             ]
 
+        if integration_handler == "teams_webhook":
+            webhook_url = (
+                str(config.get("webhook_url", "")).strip()
+                or str(config.get("url", "")).strip()
+                or str(app_settings.get("teams_webhook_url", "")).strip()
+                or os.environ.get("TEAMS_WEBHOOK_URL", "").strip()
+            )
+            if not webhook_url:
+                raise ValueError("Action teams_webhook requires a 'webhook_url:' value.")
+            payload = {
+                "text": str(config.get("text", "")).strip() or output or "Workflow message",
+            }
+            response_text = self._integration_http_post(
+                webhook_url,
+                json.dumps(payload),
+                timeout_seconds=self._parse_positive_float(config.get("timeout_sec", ""), 30.0),
+            )
+            context["last_output"] = response_text or "ok"
+            context["last_status"] = "success"
+            return [
+                f"Action node '{node.name}' posted to Teams webhook.",
+                f"Teams response: {self._truncate(response_text or 'ok', 220)}",
+            ]
+
         if integration_handler == "openweather_current":
             api_key = str(config.get("api_key", "")).strip() or os.environ.get(
                 "OPENWEATHER_API_KEY",
             ).strip()
             if not api_key:
                 api_key = str(app_settings.get("openweather_api_key", "")).strip()
-            location = str(config.get("location", "")).strip()
+            location = (
+                str(config.get("location", "")).strip()
+                or str(app_settings.get("openweather_default_location", "")).strip()
+            )
             units = str(config.get("units", "")).strip() or "metric"
             if not api_key:
                 raise ValueError("Action openweather_current requires an 'api_key:' value.")
@@ -986,6 +1057,8 @@ class ExecutionEngine:
             "hubspot_api",
             "stripe_api",
             "github_rest",
+            "google_calendar_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -1000,6 +1073,26 @@ class ExecutionEngine:
             method = str(config.get("method", "")).strip().upper() or "POST"
             payload_text = str(config.get("payload", "")).strip() or output
             api_key = str(config.get("api_key", "")).strip()
+            if not url:
+                url_map = {
+                    "notion_api": "notion_api_url",
+                    "airtable_api": "airtable_api_url",
+                    "hubspot_api": "hubspot_api_url",
+                    "stripe_api": "stripe_api_url",
+                    "github_rest": "github_api_url",
+                    "google_calendar_api": "google_calendar_api_url",
+                    "outlook_graph": "outlook_api_url",
+                    "jira_api": "jira_api_url",
+                    "asana_api": "asana_api_url",
+                    "clickup_api": "clickup_api_url",
+                    "trello_api": "trello_api_url",
+                    "monday_api": "monday_api_url",
+                    "zendesk_api": "zendesk_api_url",
+                    "pipedrive_api": "pipedrive_api_url",
+                    "salesforce_api": "salesforce_api_url",
+                    "gitlab_api": "gitlab_api_url",
+                }
+                url = app_value(url_map.get(integration_handler, ""))
             if not api_key:
                 key_map = {
                     "notion_api": "notion_api_key",
@@ -1007,6 +1100,8 @@ class ExecutionEngine:
                     "hubspot_api": "hubspot_api_key",
                     "stripe_api": "stripe_api_key",
                     "github_rest": "github_api_key",
+                    "google_calendar_api": "google_calendar_api_key",
+                    "outlook_graph": "outlook_api_key",
                     "jira_api": "jira_api_key",
                     "asana_api": "asana_api_key",
                     "clickup_api": "clickup_api_key",
@@ -1585,27 +1680,37 @@ class ExecutionEngine:
         node_policy = node.config.get("execution", {})
         if not isinstance(node_policy, dict):
             node_policy = {}
+        defaults = self._node_execution_defaults(node)
 
         retry_max = self._parse_non_negative_int(
             node_policy.get(
                 "retry_max",
-                node.config.get("retry_max", graph_policy.get("retry_max", 0)),
+                node.config.get(
+                    "retry_max",
+                    graph_policy.get("retry_max", defaults["retry_max"]),
+                ),
             ),
-            0,
+            int(defaults["retry_max"]),
         )
         retry_backoff_ms = self._parse_non_negative_int(
             node_policy.get(
                 "retry_backoff_ms",
-                node.config.get("retry_backoff_ms", graph_policy.get("retry_backoff_ms", 250)),
+                node.config.get(
+                    "retry_backoff_ms",
+                    graph_policy.get("retry_backoff_ms", defaults["retry_backoff_ms"]),
+                ),
             ),
-            250,
+            int(defaults["retry_backoff_ms"]),
         )
         timeout_sec = self._parse_positive_float(
             node_policy.get(
                 "timeout_sec",
-                node.config.get("timeout_sec", graph_policy.get("timeout_sec", 0.0)),
+                node.config.get(
+                    "timeout_sec",
+                    graph_policy.get("timeout_sec", defaults["timeout_sec"]),
+                ),
             ),
-            0.0,
+            float(defaults["timeout_sec"]),
         )
 
         return {
@@ -1613,6 +1718,40 @@ class ExecutionEngine:
             "retry_backoff_ms": float(retry_backoff_ms),
             "timeout_sec": float(timeout_sec),
         }
+
+    def _node_kind(self, node_type: str) -> str:
+        normalized = str(node_type).strip().lower()
+        if normalized.startswith("trigger"):
+            return "trigger"
+        if normalized.startswith("action") or normalized.startswith("template"):
+            return "action"
+        if normalized.startswith("ai"):
+            return "ai"
+        if normalized.startswith("condition"):
+            return "condition"
+        return normalized
+
+    def _node_execution_defaults(self, node: CanvasNode) -> Dict[str, float]:
+        node_kind = self._node_kind(node.node_type)
+        integration = str(node.config.get("integration", "")).strip().lower()
+
+        if node_kind == "trigger":
+            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0}
+        if node_kind == "condition":
+            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 8.0}
+        if node_kind == "ai":
+            return {"retry_max": 1.0, "retry_backoff_ms": 300.0, "timeout_sec": 120.0}
+        if node_kind == "action":
+            if integration == "approval_gate":
+                return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 0.0}
+            if integration in self.ACTION_FAST_INTEGRATIONS:
+                return {"retry_max": 1.0, "retry_backoff_ms": 200.0, "timeout_sec": 25.0}
+            if integration in self.ACTION_HEAVY_INTEGRATIONS:
+                return {"retry_max": 1.0, "retry_backoff_ms": 400.0, "timeout_sec": 90.0}
+            if integration in self.ACTION_STANDARD_INTEGRATIONS:
+                return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 45.0}
+            return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 45.0}
+        return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 60.0}
 
     def _timeline_event(
         self,

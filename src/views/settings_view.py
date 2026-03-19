@@ -141,6 +141,12 @@ class SettingsView(Gtk.Box):
         self.discord_webhook_entry.set_visibility(False)
         self.discord_webhook_entry.set_placeholder_text("https://discord.com/api/webhooks/...")
 
+        self.teams_webhook_entry = Gtk.Entry()
+        self.teams_webhook_entry.set_visibility(False)
+        self.teams_webhook_entry.set_placeholder_text(
+            "https://outlook.office.com/webhook/..."
+        )
+
         self.openweather_api_entry = Gtk.Entry()
         self.openweather_api_entry.set_visibility(False)
         self.openweather_api_entry.set_placeholder_text("OpenWeather API key")
@@ -160,12 +166,24 @@ class SettingsView(Gtk.Box):
         self.gmail_api_key_entry.set_visibility(False)
         self.gmail_api_key_entry.set_placeholder_text("Gmail OAuth bearer token")
 
+        self.outlook_api_key_entry = Gtk.Entry()
+        self.outlook_api_key_entry.set_visibility(False)
+        self.outlook_api_key_entry.set_placeholder_text(
+            "Outlook / Microsoft Graph OAuth bearer token"
+        )
+
         self.gmail_from_entry = Gtk.Entry()
         self.gmail_from_entry.set_placeholder_text("alerts@yourdomain.com")
 
         self.google_sheets_api_key_entry = Gtk.Entry()
         self.google_sheets_api_key_entry.set_visibility(False)
         self.google_sheets_api_key_entry.set_placeholder_text("Google Sheets OAuth bearer token")
+
+        self.google_calendar_api_key_entry = Gtk.Entry()
+        self.google_calendar_api_key_entry.set_visibility(False)
+        self.google_calendar_api_key_entry.set_placeholder_text(
+            "Google Calendar OAuth bearer token"
+        )
 
         self.google_sheets_sheet_id_entry = Gtk.Entry()
         self.google_sheets_sheet_id_entry.set_placeholder_text("Spreadsheet ID")
@@ -656,6 +674,7 @@ class SettingsView(Gtk.Box):
             [
                 build_labeled_field("Slack Webhook URL", self.slack_webhook_entry),
                 build_labeled_field("Discord Webhook URL", self.discord_webhook_entry),
+                build_labeled_field("Teams Webhook URL", self.teams_webhook_entry),
                 build_labeled_field("Telegram Bot Token", self.telegram_token_entry),
                 build_labeled_field("Telegram Default Chat ID", self.telegram_chat_id_entry),
                 build_labeled_field("Twilio Account SID", self.twilio_sid_entry),
@@ -672,6 +691,7 @@ class SettingsView(Gtk.Box):
                 build_labeled_field("OpenWeather API Key", self.openweather_api_entry),
                 build_labeled_field("Google Apps Script URL", self.google_script_url_entry),
                 build_labeled_field("Google Sheets API Key", self.google_sheets_api_key_entry),
+                build_labeled_field("Google Calendar API Key", self.google_calendar_api_key_entry),
                 build_labeled_field("Google Sheets Spreadsheet ID", self.google_sheets_sheet_id_entry),
                 build_labeled_field("Google Sheets Range", self.google_sheets_range_entry),
                 build_labeled_field("Gmail API Key", self.gmail_api_key_entry),
@@ -707,6 +727,7 @@ class SettingsView(Gtk.Box):
                 build_labeled_field("GitLab API Key", self.gitlab_api_key_entry),
                 build_labeled_field("GitHub API Key", self.github_api_key_entry),
                 build_labeled_field("Linear API Key", self.linear_api_key_entry),
+                build_labeled_field("Outlook Graph API Key", self.outlook_api_key_entry),
                 build_labeled_field("Resend API Key", self.resend_api_key_entry),
                 build_labeled_field("Resend From Address", self.resend_from_entry),
                 build_labeled_field("Mailgun API Key", self.mailgun_api_key_entry),
@@ -895,12 +916,15 @@ class SettingsView(Gtk.Box):
             ("appearance", ["motion"], self.motion_switch),
             ("integrations", ["integration", "slack"], self.slack_webhook_entry),
             ("integrations", ["discord"], self.discord_webhook_entry),
+            ("integrations", ["teams", "microsoft"], self.teams_webhook_entry),
             ("integrations", ["telegram"], self.telegram_token_entry),
             ("integrations", ["twilio", "sms"], self.twilio_sid_entry),
             ("integrations", ["weather", "openweather"], self.openweather_api_entry),
             ("integrations", ["google", "script"], self.google_script_url_entry),
+            ("integrations", ["google", "calendar"], self.google_calendar_api_key_entry),
             ("integrations", ["sheets"], self.google_sheets_sheet_id_entry),
             ("integrations", ["gmail", "email"], self.gmail_api_key_entry),
+            ("integrations", ["outlook", "graph"], self.outlook_api_key_entry),
             ("integrations", ["notion"], self.notion_api_key_entry),
             ("integrations", ["airtable"], self.airtable_api_key_entry),
             ("integrations", ["stripe"], self.stripe_api_key_entry),
@@ -1155,14 +1179,17 @@ class SettingsView(Gtk.Box):
         self.anthropic_entry.set_text(self.settings.get("anthropic_api_key", ""))
         self.slack_webhook_entry.set_text(self.settings.get("slack_webhook_url", ""))
         self.discord_webhook_entry.set_text(self.settings.get("discord_webhook_url", ""))
+        self.teams_webhook_entry.set_text(self.settings.get("teams_webhook_url", ""))
         self.telegram_token_entry.set_text(self.settings.get("telegram_bot_token", ""))
         self.telegram_chat_id_entry.set_text(self.settings.get("telegram_default_chat_id", ""))
         self.openweather_api_entry.set_text(self.settings.get("openweather_api_key", ""))
         self.google_script_url_entry.set_text(self.settings.get("google_apps_script_url", ""))
         self.google_sheets_api_key_entry.set_text(self.settings.get("google_sheets_api_key", ""))
+        self.google_calendar_api_key_entry.set_text(self.settings.get("google_calendar_api_key", ""))
         self.google_sheets_sheet_id_entry.set_text(self.settings.get("google_sheets_spreadsheet_id", ""))
         self.google_sheets_range_entry.set_text(self.settings.get("google_sheets_range", ""))
         self.gmail_api_key_entry.set_text(self.settings.get("gmail_api_key", ""))
+        self.outlook_api_key_entry.set_text(self.settings.get("outlook_api_key", ""))
         self.gmail_from_entry.set_text(self.settings.get("gmail_from_address", ""))
         self.notion_api_key_entry.set_text(self.settings.get("notion_api_key", ""))
         self.airtable_api_key_entry.set_text(self.settings.get("airtable_api_key", ""))
@@ -1293,14 +1320,17 @@ class SettingsView(Gtk.Box):
             "anthropic_api_key": self.anthropic_entry.get_text().strip(),
             "slack_webhook_url": self.slack_webhook_entry.get_text().strip(),
             "discord_webhook_url": self.discord_webhook_entry.get_text().strip(),
+            "teams_webhook_url": self.teams_webhook_entry.get_text().strip(),
             "telegram_bot_token": self.telegram_token_entry.get_text().strip(),
             "telegram_default_chat_id": self.telegram_chat_id_entry.get_text().strip(),
             "openweather_api_key": self.openweather_api_entry.get_text().strip(),
             "google_apps_script_url": self.google_script_url_entry.get_text().strip(),
             "google_sheets_api_key": self.google_sheets_api_key_entry.get_text().strip(),
+            "google_calendar_api_key": self.google_calendar_api_key_entry.get_text().strip(),
             "google_sheets_spreadsheet_id": self.google_sheets_sheet_id_entry.get_text().strip(),
             "google_sheets_range": self.google_sheets_range_entry.get_text().strip(),
             "gmail_api_key": self.gmail_api_key_entry.get_text().strip(),
+            "outlook_api_key": self.outlook_api_key_entry.get_text().strip(),
             "gmail_from_address": self.gmail_from_entry.get_text().strip(),
             "notion_api_key": self.notion_api_key_entry.get_text().strip(),
             "airtable_api_key": self.airtable_api_key_entry.get_text().strip(),
@@ -1588,6 +1618,8 @@ class SettingsView(Gtk.Box):
             add("webhook_url", self.slack_webhook_entry.get_text())
         elif normalized == "discord_webhook":
             add("webhook_url", self.discord_webhook_entry.get_text())
+        elif normalized == "teams_webhook":
+            add("webhook_url", self.teams_webhook_entry.get_text())
         elif normalized == "telegram_bot":
             add("api_key", self.telegram_token_entry.get_text())
             add("chat_id", self.telegram_chat_id_entry.get_text())
@@ -1602,6 +1634,14 @@ class SettingsView(Gtk.Box):
             add("spreadsheet_id", self.google_sheets_sheet_id_entry.get_text())
             add("range", self.google_sheets_range_entry.get_text())
             add("payload", "{\"values\":[[\"6X Test\",\"ok\"]]}")
+        elif normalized == "google_calendar_api":
+            add("api_key", self.google_calendar_api_key_entry.get_text())
+            add("url", "https://www.googleapis.com/calendar/v3/users/me/calendarList")
+            add("method", "GET")
+        elif normalized == "outlook_graph":
+            add("api_key", self.outlook_api_key_entry.get_text())
+            add("url", "https://graph.microsoft.com/v1.0/me")
+            add("method", "GET")
         elif normalized == "gmail_send":
             add("api_key", self.gmail_api_key_entry.get_text())
             add("from", self.gmail_from_entry.get_text())
