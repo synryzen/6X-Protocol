@@ -1,27 +1,29 @@
-# Matthew's iOS + macOS Apps Showcase (Template)
+# Matthew's iOS + macOS App Showcase
 
-Use this file as your source of truth for links and copy blocks used on GitHub Pages.
-
-## How to use
-1. Add each app below with the real App Store URL.
-2. Reuse the same copy in `docs/index.html` app showcase cards.
-3. Create one dedicated page per app when possible (`docs/apps/<app-slug>.html`).
+Canonical links and naming for GitHub Pages + in-app About references.
 
 ## App list
-### App 1
-- Name: `TBD`
+### NodeSpark
 - Platform: `iOS / macOS`
-- App Store URL: `TBD`
-- One-line value: `TBD`
+- App Store URL: `https://apps.apple.com/us/app/nodespark/id6756223114?itscg=30200&itsct=apps_box_link&mttnsubad=6756223114`
+- Showcase page: `docs/apps/nodespark.html`
 
-### App 2
-- Name: `TBD`
+### IQPearl
 - Platform: `iOS / macOS`
-- App Store URL: `TBD`
-- One-line value: `TBD`
+- App Store URL: `https://apps.apple.com/us/app/iqpearl/id6759575423?itscg=30200&itsct=apps_box_link&mttnsubad=6759575423`
+- Showcase page: `docs/apps/iqpearl.html`
 
-### App 3
-- Name: `TBD`
+### Write JSON
 - Platform: `iOS / macOS`
-- App Store URL: `TBD`
-- One-line value: `TBD`
+- App Store URL: `https://apps.apple.com/us/app/write-json/id6757762427?itscg=30200&itsct=apps_box_link&mttnsubad=6757762427`
+- Showcase page: `docs/apps/write-json.html`
+
+### Lexora
+- Platform: `iOS / macOS`
+- App Store URL: `https://apps.apple.com/us/app/lexora/id6746369347?itscg=30200&itsct=apps_box_link&mttnsubad=6746369347`
+- Showcase page: `docs/apps/lexora.html`
+
+### GhostLedger
+- Platform: `iOS / macOS`
+- App Store URL: `https://apps.apple.com/us/app/ghostledger/id6747046603?itscg=30200&itsct=apps_box_link&mttnsubad=6747046603`
+- Showcase page: `docs/apps/ghostledger.html`

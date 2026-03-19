@@ -88,6 +88,13 @@ Planned Pages URL:
 - Add one page per iOS/macOS app (best for search visibility and clearer call-to-action).
 - Cross-link every app page back to this repo for trust and audience growth.
 
+### App Store Links
+- NodeSpark: `https://apps.apple.com/us/app/nodespark/id6756223114?itscg=30200&itsct=apps_box_link&mttnsubad=6756223114`
+- IQPearl: `https://apps.apple.com/us/app/iqpearl/id6759575423?itscg=30200&itsct=apps_box_link&mttnsubad=6759575423`
+- Write JSON: `https://apps.apple.com/us/app/write-json/id6757762427?itscg=30200&itsct=apps_box_link&mttnsubad=6757762427`
+- Lexora: `https://apps.apple.com/us/app/lexora/id6746369347?itscg=30200&itsct=apps_box_link&mttnsubad=6746369347`
+- GhostLedger: `https://apps.apple.com/us/app/ghostledger/id6747046603?itscg=30200&itsct=apps_box_link&mttnsubad=6747046603`
+
 ## Release Plan
 See:
 - [`APP_FINISH_PLAN.md`](APP_FINISH_PLAN.md)

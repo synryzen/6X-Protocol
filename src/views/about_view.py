@@ -11,6 +11,13 @@ class AboutView(Gtk.Box):
     WEBSITE_URL = "https://synryzen.com"
     GITHUB_URL = "https://github.com/synryzen/6X-Protocol"
     SUPPORT_EMAIL = "6X-Protocol@gmail.com"
+    APP_LINKS = [
+        ("NodeSpark", "https://apps.apple.com/us/app/nodespark/id6756223114?itscg=30200&itsct=apps_box_link&mttnsubad=6756223114"),
+        ("IQPearl", "https://apps.apple.com/us/app/iqpearl/id6759575423?itscg=30200&itsct=apps_box_link&mttnsubad=6759575423"),
+        ("Write JSON", "https://apps.apple.com/us/app/write-json/id6757762427?itscg=30200&itsct=apps_box_link&mttnsubad=6757762427"),
+        ("Lexora", "https://apps.apple.com/us/app/lexora/id6746369347?itscg=30200&itsct=apps_box_link&mttnsubad=6746369347"),
+        ("GhostLedger", "https://apps.apple.com/us/app/ghostledger/id6747046603?itscg=30200&itsct=apps_box_link&mttnsubad=6747046603"),
+    ]
 
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -53,6 +60,7 @@ class AboutView(Gtk.Box):
 
         details_grid.attach(self.build_identity_card(), 0, 0, 1, 1)
         details_grid.attach(self.build_marketing_card(), 1, 0, 1, 1)
+        details_grid.attach(self.build_apps_card(), 0, 1, 2, 1)
 
         self.status_label = Gtk.Label(label="")
         self.status_label.add_css_class("dim-label")
@@ -159,6 +167,57 @@ class AboutView(Gtk.Box):
         actions.append(github_button)
         box.append(actions)
 
+        frame.set_child(box)
+        return frame
+
+    def build_apps_card(self) -> Gtk.Frame:
+        frame = Gtk.Frame()
+        frame.add_css_class("panel-card")
+        frame.add_css_class("about-card")
+        frame.set_hexpand(True)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.set_margin_top(10)
+        box.set_margin_bottom(10)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        box.append(build_icon_section("Apps By Matthew", "applications-system-symbolic"))
+
+        subtitle = Gtk.Label(
+            label=(
+                "Discover Matthew's iOS and macOS apps on the App Store. "
+                "These links are also published on the GitHub project page."
+            )
+        )
+        subtitle.set_wrap(True)
+        subtitle.set_halign(Gtk.Align.START)
+        subtitle.add_css_class("dim-label")
+        box.append(subtitle)
+
+        list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        for app_name, app_url in self.APP_LINKS:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            row.add_css_class("about-info-row")
+
+            label = Gtk.Label(label=f"{app_name}  •  App Store")
+            label.set_halign(Gtk.Align.START)
+            label.set_hexpand(True)
+            label.add_css_class("about-value")
+
+            open_button = Gtk.Button(label="Open")
+            open_button.add_css_class("compact-action-button")
+            open_button.connect("clicked", lambda _b, uri=app_url: self.open_uri(uri))
+
+            copy_button = Gtk.Button(label="Copy")
+            copy_button.add_css_class("compact-action-button")
+            copy_button.connect("clicked", lambda _b, value=app_url: self.copy_to_clipboard(value))
+
+            row.append(label)
+            row.append(open_button)
+            row.append(copy_button)
+            list_box.append(row)
+
+        box.append(list_box)
         frame.set_child(box)
         return frame
 
