@@ -817,10 +817,13 @@ class CanvasView(Gtk.Box):
         self.action_quick_specs: list[tuple[str, str, str]] = [
             ("Slack", "slack_webhook", "notify_slack"),
             ("Discord", "discord_webhook", "notify_discord"),
+            ("Teams", "teams_webhook", "notify_teams"),
             ("HTTP", "http_request", "http_request"),
             ("Calendar", "google_apps_script", "calendar_event"),
+            ("GCal API", "google_calendar_api", "google_calendar_event"),
             ("Telegram", "telegram_bot", "message_telegram"),
             ("Gmail", "gmail_send", "message_email"),
+            ("Outlook", "outlook_graph", "outlook_message"),
             ("Twilio", "twilio_sms", "message_sms"),
             ("Weather", "openweather_current", "weather_lookup"),
             ("Jira", "jira_api", "jira_issue_lookup"),
@@ -1557,6 +1560,13 @@ class CanvasView(Gtk.Box):
                 "defaults": {"message": "Workflow update: ${last_output}"},
             },
             {
+                "key": "notify_teams",
+                "label": "Notify • Teams",
+                "description": "Send workflow updates to a Microsoft Teams webhook.",
+                "integration": "teams_webhook",
+                "defaults": {"message": "Workflow update: ${last_output}"},
+            },
+            {
                 "key": "message_email",
                 "label": "Message • Email",
                 "description": "Send an email using Gmail integration settings.",
@@ -1592,6 +1602,26 @@ class CanvasView(Gtk.Box):
                 "integration": "google_apps_script",
                 "defaults": {
                     "payload": "{\"operation\":\"calendar_event\",\"title\":\"Automation Event\",\"summary\":\"${last_output}\"}",
+                },
+            },
+            {
+                "key": "google_calendar_event",
+                "label": "Calendar • Google API",
+                "description": "Call Google Calendar API with OAuth bearer token.",
+                "integration": "google_calendar_api",
+                "defaults": {
+                    "endpoint": "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+                    "method": "GET",
+                },
+            },
+            {
+                "key": "outlook_message",
+                "label": "Message • Outlook",
+                "description": "Call Outlook Graph API for mail/calendar actions.",
+                "integration": "outlook_graph",
+                "defaults": {
+                    "endpoint": "https://graph.microsoft.com/v1.0/me/messages?$top=5",
+                    "method": "GET",
                 },
             },
             {
@@ -1817,10 +1847,13 @@ class CanvasView(Gtk.Box):
         mapping = {
             "slack_webhook": "notify_slack",
             "discord_webhook": "notify_discord",
+            "teams_webhook": "notify_teams",
             "gmail_send": "message_email",
             "twilio_sms": "message_sms",
             "telegram_bot": "message_telegram",
+            "outlook_graph": "outlook_message",
             "google_apps_script": "calendar_event",
+            "google_calendar_api": "google_calendar_event",
             "openweather_current": "weather_lookup",
             "http_request": "http_request",
             "http_post": "webhook_post",
@@ -1875,6 +1908,11 @@ class CanvasView(Gtk.Box):
             return [
                 {"label": "Discord Alert", "message": "Automation alert: action completed.", "timeout_sec": "30.0"},
                 {"label": "Discord Summary", "message": "Workflow summary: ${last_output}", "timeout_sec": "30.0"},
+            ]
+        if key == "teams_webhook":
+            return [
+                {"label": "Teams Alert", "message": "Automation alert: action completed.", "timeout_sec": "30.0"},
+                {"label": "Teams Summary", "message": "Workflow summary: ${last_output}", "timeout_sec": "30.0"},
             ]
         if key == "http_post":
             return [
@@ -1956,6 +1994,36 @@ class CanvasView(Gtk.Box):
                     "payload": "{\"spreadsheet_id\":\"REPLACE_ID\",\"range\":\"Sheet1!A:B\",\"values\":[[\"${workflow_name}\",\"${last_output}\"]]}",
                     "timeout_sec": "30.0",
                 }
+            ]
+        if key == "google_calendar_api":
+            return [
+                {
+                    "label": "Calendar List",
+                    "endpoint": "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+                    "method": "GET",
+                    "timeout_sec": "30.0",
+                },
+                {
+                    "label": "List Upcoming Events",
+                    "endpoint": "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=5&singleEvents=true&orderBy=startTime",
+                    "method": "GET",
+                    "timeout_sec": "30.0",
+                },
+            ]
+        if key == "outlook_graph":
+            return [
+                {
+                    "label": "Outlook Me",
+                    "endpoint": "https://graph.microsoft.com/v1.0/me",
+                    "method": "GET",
+                    "timeout_sec": "30.0",
+                },
+                {
+                    "label": "Recent Outlook Messages",
+                    "endpoint": "https://graph.microsoft.com/v1.0/me/messages?$top=5",
+                    "method": "GET",
+                    "timeout_sec": "30.0",
+                },
             ]
         if key == "notion_api":
             return [
@@ -2302,6 +2370,7 @@ class CanvasView(Gtk.Box):
         if target in {
             "slack_webhook",
             "discord_webhook",
+            "teams_webhook",
         }:
             return "notify"
         if target in {
@@ -2310,6 +2379,7 @@ class CanvasView(Gtk.Box):
             "twilio_sms",
             "resend_email",
             "mailgun_email",
+            "outlook_graph",
         }:
             return "message"
         if target in {
@@ -2318,6 +2388,7 @@ class CanvasView(Gtk.Box):
             "openweather_current",
             "google_apps_script",
             "google_sheets",
+            "google_calendar_api",
             "notion_api",
             "airtable_api",
             "hubspot_api",
@@ -2351,15 +2422,16 @@ class CanvasView(Gtk.Box):
             return "control"
         if template in {"shell_command", "file_append"}:
             return "system"
-        if template in {"notify_slack", "notify_discord"}:
+        if template in {"notify_slack", "notify_discord", "notify_teams"}:
             return "notify"
-        if template in {"message_email", "message_sms", "message_telegram"}:
+        if template in {"message_email", "message_sms", "message_telegram", "outlook_message"}:
             return "message"
         if template in {
             "http_request",
             "webhook_post",
             "weather_lookup",
             "calendar_event",
+            "google_calendar_event",
             "jira_issue_lookup",
             "asana_task",
             "clickup_task",
@@ -2398,6 +2470,17 @@ class CanvasView(Gtk.Box):
             self.set_entry_if_missing(
                 self.action_endpoint_entry,
                 "https://discord.com/api/webhooks/REPLACE/REPLACE",
+                force=force,
+            )
+            self.set_entry_if_missing(
+                self.action_message_entry,
+                "Workflow update: ${last_output}",
+                force=force,
+            )
+        elif key == "teams_webhook":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "https://outlook.office.com/webhook/REPLACE/IncomingWebhook/REPLACE/REPLACE",
                 force=force,
             )
             self.set_entry_if_missing(
@@ -2527,6 +2610,20 @@ class CanvasView(Gtk.Box):
         elif key == "openweather_current":
             self.set_entry_if_missing(self.action_location_entry, "Austin,US", force=force)
             self.action_units_dropdown.set_selected(self.action_units_index("metric"))
+        elif key == "google_calendar_api":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+                force=force,
+            )
+            self.action_method_dropdown.set_selected(self.action_method_index("GET"))
+        elif key == "outlook_graph":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "https://graph.microsoft.com/v1.0/me/messages?$top=5",
+                force=force,
+            )
+            self.action_method_dropdown.set_selected(self.action_method_index("GET"))
         elif key == "shell_command":
             self.set_entry_if_missing(
                 self.action_command_entry,
@@ -2566,6 +2663,7 @@ class CanvasView(Gtk.Box):
                 in {
                     "slack_webhook",
                     "discord_webhook",
+                    "teams_webhook",
                     "telegram_bot",
                     "gmail_send",
                     "twilio_sms",
@@ -2574,6 +2672,7 @@ class CanvasView(Gtk.Box):
                     "approval_gate",
                     "file_append",
                     "google_apps_script",
+                    "outlook_graph",
                 }
             )
             self.action_payload_group.set_expanded(
@@ -2583,6 +2682,7 @@ class CanvasView(Gtk.Box):
                     "http_request",
                     "google_apps_script",
                     "google_sheets",
+                    "google_calendar_api",
                     "notion_api",
                     "airtable_api",
                     "hubspot_api",
@@ -2613,6 +2713,7 @@ class CanvasView(Gtk.Box):
                     "telegram_bot",
                     "gmail_send",
                     "google_sheets",
+                    "google_calendar_api",
                     "notion_api",
                     "airtable_api",
                     "hubspot_api",
@@ -2629,6 +2730,7 @@ class CanvasView(Gtk.Box):
                     "pipedrive_api",
                     "salesforce_api",
                     "twilio_sms",
+                    "outlook_graph",
                     "resend_email",
                     "mailgun_email",
                 }
@@ -2687,6 +2789,7 @@ class CanvasView(Gtk.Box):
             "http_request",
             "slack_webhook",
             "discord_webhook",
+            "teams_webhook",
             "google_apps_script",
             "notion_api",
             "airtable_api",
@@ -2695,6 +2798,8 @@ class CanvasView(Gtk.Box):
             "github_rest",
             "gitlab_api",
             "linear_api",
+            "google_calendar_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -2714,6 +2819,8 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_calendar_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -2726,6 +2833,7 @@ class CanvasView(Gtk.Box):
         show_message = integration in {
             "slack_webhook",
             "discord_webhook",
+            "teams_webhook",
             "approval_gate",
             "file_append",
             "telegram_bot",
@@ -2734,6 +2842,7 @@ class CanvasView(Gtk.Box):
             "resend_email",
             "mailgun_email",
             "google_apps_script",
+            "outlook_graph",
         }
         show_to = integration in {"gmail_send", "resend_email", "mailgun_email", "twilio_sms"}
         show_from = integration in {"gmail_send", "resend_email", "mailgun_email", "twilio_sms"}
@@ -2748,6 +2857,7 @@ class CanvasView(Gtk.Box):
             "http_request",
             "google_apps_script",
             "google_sheets",
+            "google_calendar_api",
             "notion_api",
             "airtable_api",
             "hubspot_api",
@@ -2755,6 +2865,7 @@ class CanvasView(Gtk.Box):
             "github_rest",
             "gitlab_api",
             "linear_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -2783,6 +2894,8 @@ class CanvasView(Gtk.Box):
             "zendesk_api",
             "pipedrive_api",
             "salesforce_api",
+            "google_calendar_api",
+            "outlook_graph",
         }
         show_api_key = integration in {
             "openweather_current",
@@ -2790,6 +2903,7 @@ class CanvasView(Gtk.Box):
             "telegram_bot",
             "gmail_send",
             "google_sheets",
+            "google_calendar_api",
             "notion_api",
             "airtable_api",
             "hubspot_api",
@@ -2797,6 +2911,7 @@ class CanvasView(Gtk.Box):
             "github_rest",
             "gitlab_api",
             "linear_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -2817,12 +2932,14 @@ class CanvasView(Gtk.Box):
             "http_request",
             "slack_webhook",
             "discord_webhook",
+            "teams_webhook",
             "openweather_current",
             "google_apps_script",
             "shell_command",
             "telegram_bot",
             "gmail_send",
             "google_sheets",
+            "google_calendar_api",
             "notion_api",
             "airtable_api",
             "hubspot_api",
@@ -2830,6 +2947,7 @@ class CanvasView(Gtk.Box):
             "github_rest",
             "gitlab_api",
             "linear_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -2895,12 +3013,28 @@ class CanvasView(Gtk.Box):
             self.action_endpoint_label.set_text("Discord Webhook URL")
             self.action_endpoint_entry.set_placeholder_text("https://discord.com/api/webhooks/...")
             self.action_message_label.set_text("Discord Content")
+        elif integration == "teams_webhook":
+            self.action_endpoint_label.set_text("Teams Webhook URL")
+            self.action_endpoint_entry.set_placeholder_text("https://outlook.office.com/webhook/...")
+            self.action_message_label.set_text("Teams Message")
         elif integration == "google_apps_script":
             self.action_endpoint_label.set_text("Script URL")
             self.action_endpoint_entry.set_placeholder_text(
                 "https://script.google.com/macros/s/.../exec"
             )
             self.action_message_label.set_text("Event Title")
+        elif integration == "google_calendar_api":
+            self.action_endpoint_label.set_text("Google Calendar URL")
+            self.action_endpoint_entry.set_placeholder_text(
+                "https://www.googleapis.com/calendar/v3/users/me/calendarList"
+            )
+            self.action_message_label.set_text("Optional Message")
+        elif integration == "outlook_graph":
+            self.action_endpoint_label.set_text("Outlook Graph URL")
+            self.action_endpoint_entry.set_placeholder_text(
+                "https://graph.microsoft.com/v1.0/me/messages?$top=5"
+            )
+            self.action_message_label.set_text("Optional Message")
         elif integration == "openweather_current":
             self.action_message_label.set_text("Message")
         elif integration in {"telegram_bot", "gmail_send", "resend_email", "mailgun_email"}:
@@ -3006,7 +3140,7 @@ class CanvasView(Gtk.Box):
             endpoint = ""
             if integration in {"http_post", "http_request"}:
                 endpoint = str(merged_config.get("url", "")).strip()
-            elif integration in {"slack_webhook", "discord_webhook"}:
+            elif integration in {"slack_webhook", "discord_webhook", "teams_webhook"}:
                 endpoint = (
                     str(merged_config.get("webhook_url", "")).strip()
                     or str(merged_config.get("url", "")).strip()
@@ -3024,6 +3158,8 @@ class CanvasView(Gtk.Box):
                 "github_rest",
                 "gitlab_api",
                 "linear_api",
+                "google_calendar_api",
+                "outlook_graph",
                 "jira_api",
                 "asana_api",
                 "clickup_api",
@@ -3046,6 +3182,8 @@ class CanvasView(Gtk.Box):
                 message = str(merged_config.get("text", "")).strip()
             elif integration == "discord_webhook":
                 message = str(merged_config.get("content", "")).strip()
+            elif integration == "teams_webhook":
+                message = str(merged_config.get("text", "")).strip()
             elif integration == "approval_gate":
                 message = str(merged_config.get("approval_message", "")).strip()
             elif integration == "file_append":
@@ -3178,7 +3316,7 @@ class CanvasView(Gtk.Box):
         if endpoint:
             if integration in {"http_post", "http_request"}:
                 updated_config["url"] = endpoint
-            elif integration in {"slack_webhook", "discord_webhook"}:
+            elif integration in {"slack_webhook", "discord_webhook", "teams_webhook"}:
                 updated_config["webhook_url"] = endpoint
                 updated_config["url"] = endpoint
             elif integration == "google_apps_script":
@@ -3194,6 +3332,8 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_calendar_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -3212,6 +3352,8 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_calendar_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -3230,6 +3372,7 @@ class CanvasView(Gtk.Box):
             "telegram_bot",
             "gmail_send",
             "google_sheets",
+            "google_calendar_api",
             "notion_api",
             "airtable_api",
             "hubspot_api",
@@ -3237,6 +3380,7 @@ class CanvasView(Gtk.Box):
             "github_rest",
             "gitlab_api",
             "linear_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -3253,7 +3397,7 @@ class CanvasView(Gtk.Box):
             "sqlite_sql",
         }:
             updated_config["payload"] = payload
-        if username and integration in {"slack_webhook", "discord_webhook"}:
+        if username and integration in {"slack_webhook", "discord_webhook", "teams_webhook"}:
             updated_config["username"] = username
 
         if message:
@@ -3261,6 +3405,8 @@ class CanvasView(Gtk.Box):
                 updated_config["text"] = message
             elif integration == "discord_webhook":
                 updated_config["content"] = message
+            elif integration == "teams_webhook":
+                updated_config["text"] = message
             elif integration == "approval_gate":
                 updated_config["approval_message"] = message
             elif integration == "file_append":
@@ -3274,6 +3420,7 @@ class CanvasView(Gtk.Box):
             "telegram_bot",
             "gmail_send",
             "google_sheets",
+            "google_calendar_api",
             "notion_api",
             "airtable_api",
             "hubspot_api",
@@ -3281,6 +3428,7 @@ class CanvasView(Gtk.Box):
             "github_rest",
             "gitlab_api",
             "linear_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -3320,12 +3468,14 @@ class CanvasView(Gtk.Box):
             "http_request",
             "slack_webhook",
             "discord_webhook",
+            "teams_webhook",
             "openweather_current",
             "google_apps_script",
             "shell_command",
             "telegram_bot",
             "gmail_send",
             "google_sheets",
+            "google_calendar_api",
             "notion_api",
             "airtable_api",
             "hubspot_api",
@@ -3333,6 +3483,7 @@ class CanvasView(Gtk.Box):
             "github_rest",
             "gitlab_api",
             "linear_api",
+            "outlook_graph",
             "jira_api",
             "asana_api",
             "clickup_api",
