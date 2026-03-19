@@ -72,6 +72,21 @@ class ValidationResult:
 
 class WorkflowValidationService:
     VALID_EDGE_CONDITIONS = {"", "next", "true", "false"}
+    REQUIRED_FIELD_ALIASES = {
+        "url": ["webhook_url", "script_url", "connection_url"],
+        "webhook_url": ["url"],
+        "script_url": ["url"],
+        "connection_url": ["url"],
+        "sql": ["payload", "query", "command"],
+        "query": ["sql", "payload"],
+        "command": ["payload", "query"],
+        "api_key": ["auth_token"],
+        "auth_token": ["api_key"],
+        "payload": ["message", "text", "content", "approval_message"],
+        "message": ["payload", "text", "content", "approval_message"],
+        "text": ["message", "payload", "content"],
+        "content": ["message", "payload", "text"],
+    }
 
     def __init__(
         self,
@@ -209,7 +224,7 @@ class WorkflowValidationService:
                     key = str(field).strip()
                     if not key:
                         continue
-                    if not str(config.get(key, "")).strip():
+                    if not self._required_field_value(config, key):
                         result.add_error(
                             f"Action node '{node_name}' is missing required field '{key}'.",
                             node_id=node.id,
@@ -287,12 +302,52 @@ class WorkflowValidationService:
 
     def _parse_edges(self, graph: Dict) -> List[CanvasEdge]:
         parsed_edges: List[CanvasEdge] = []
-        for item in graph.get("edges", []):
+        seen: set[tuple[str, str, str]] = set()
+        raw_edges = graph.get("edges", [])
+        if not isinstance(raw_edges, list):
+            raw_edges = []
+        legacy_links = graph.get("links", [])
+        if isinstance(legacy_links, list):
+            raw_edges = [*raw_edges, *legacy_links]
+
+        for item in raw_edges:
             if not isinstance(item, dict):
                 continue
-            edge = CanvasEdge.from_dict(item)
-            if edge.source_node_id and edge.target_node_id:
-                parsed_edges.append(edge)
+            source = str(
+                item.get("source_node_id")
+                or item.get("source")
+                or item.get("source_id")
+                or item.get("from")
+                or ""
+            ).strip()
+            target = str(
+                item.get("target_node_id")
+                or item.get("target")
+                or item.get("target_id")
+                or item.get("to")
+                or ""
+            ).strip()
+            if not source or not target:
+                continue
+            condition_raw = str(
+                item.get("condition")
+                or item.get("link_type")
+                or item.get("type")
+                or ""
+            ).strip().lower()
+            condition = condition_raw if condition_raw in {"next", "true", "false"} else ""
+            signature = (source, target, condition)
+            if signature in seen:
+                continue
+            seen.add(signature)
+            parsed_edges.append(
+                CanvasEdge(
+                    id=str(item.get("id", "")).strip(),
+                    source_node_id=source,
+                    target_node_id=target,
+                    condition=condition,
+                )
+            )
         return parsed_edges
 
     def _parse_directives(self, text: str) -> Dict[str, str]:
@@ -304,3 +359,12 @@ class WorkflowValidationService:
             key, value = raw.split(":", 1)
             directives[key.strip().lower()] = value.strip()
         return directives
+
+    def _required_field_value(self, config: Dict[str, str], field_name: str) -> str:
+        key = str(field_name).strip().lower()
+        candidates = [key, *self.REQUIRED_FIELD_ALIASES.get(key, [])]
+        for candidate in candidates:
+            value = str(config.get(candidate, "")).strip()
+            if value:
+                return value
+        return ""
