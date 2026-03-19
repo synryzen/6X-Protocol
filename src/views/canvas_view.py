@@ -1527,6 +1527,7 @@ class CanvasView(Gtk.Box):
         self.update_inspector_adjustment_states()
         self.update_action_integration_section_visibility(None)
         self.update_action_integration_field_visibility()
+        self.bind_action_field_change_events()
         self.render_preflight_issue_list()
         self.clear_inspector()
 
@@ -2580,6 +2581,7 @@ class CanvasView(Gtk.Box):
             self.action_timeout_spin.set_value(max(0.0, self.parse_float(timeout_raw, 0.0)))
 
         preset_name = preset.get("label", "preset")
+        self.update_action_requirements_status()
         self.set_status(f"Applied action preset: {preset_name}.")
 
     def on_action_integration_changed(self, *_args):
@@ -3700,6 +3702,108 @@ class CanvasView(Gtk.Box):
         selected_node = self.get_selected_node()
         if selected_node and self.node_type_key(selected_node.node_type) in {"action", "template"}:
             self.update_node_execution_hint(selected_node.node_type, integration)
+        self.update_action_requirements_status()
+
+    def bind_action_field_change_events(self):
+        action_entries = [
+            self.action_endpoint_entry,
+            self.action_message_entry,
+            self.action_to_entry,
+            self.action_from_entry,
+            self.action_subject_entry,
+            self.action_chat_id_entry,
+            self.action_account_sid_entry,
+            self.action_auth_token_entry,
+            self.action_domain_entry,
+            self.action_username_entry,
+            self.action_headers_entry,
+            self.action_api_key_entry,
+            self.action_location_entry,
+            self.action_path_entry,
+            self.action_command_entry,
+        ]
+        for entry in action_entries:
+            entry.connect("changed", self.on_action_fields_changed)
+
+        self.action_method_dropdown.connect("notify::selected", self.on_action_fields_changed)
+        self.action_units_dropdown.connect("notify::selected", self.on_action_fields_changed)
+        self.action_timeout_spin.connect("value-changed", self.on_action_fields_changed)
+        self.action_payload_buffer.connect("changed", self.on_action_fields_changed)
+
+    def on_action_fields_changed(self, *_args):
+        if self.loading_action_controls:
+            return
+        self.update_action_requirements_status()
+
+    def update_action_requirements_status(self):
+        integration = self.selected_action_integration()
+        summary = self.integration_requirement_summary(integration)
+        selected_node = self.get_selected_node()
+        if not selected_node or self.node_type_key(selected_node.node_type) not in {"action", "template"}:
+            self.action_requirements_label.set_text(summary)
+            return
+
+        merged = self.parse_detail_directives(selected_node.detail)
+        merged.update(selected_node.config)
+        merged["integration"] = integration
+
+        # Mirror active inspector edits so requirement hints are live while typing.
+        endpoint = self.action_endpoint_entry.get_text().strip()
+        message = self.action_message_entry.get_text().strip()
+        payload = self.action_payload_text().strip()
+        api_key = self.action_api_key_entry.get_text().strip()
+        path = self.action_path_entry.get_text().strip()
+        command = self.action_command_entry.get_text().strip()
+        if endpoint:
+            merged["url"] = endpoint
+            merged["webhook_url"] = endpoint
+        if message:
+            merged["message"] = message
+        if payload:
+            merged["payload"] = payload
+        if api_key:
+            merged["api_key"] = api_key
+            merged["auth_token"] = api_key
+        if path:
+            merged["path"] = path
+        if command:
+            merged["command"] = command
+        to_value = self.action_to_entry.get_text().strip()
+        from_value = self.action_from_entry.get_text().strip()
+        subject_value = self.action_subject_entry.get_text().strip()
+        chat_value = self.action_chat_id_entry.get_text().strip()
+        sid_value = self.action_account_sid_entry.get_text().strip()
+        token_value = self.action_auth_token_entry.get_text().strip()
+        domain_value = self.action_domain_entry.get_text().strip()
+        location_value = self.action_location_entry.get_text().strip()
+        if to_value:
+            merged["to"] = to_value
+        if from_value:
+            merged["from"] = from_value
+        if subject_value:
+            merged["subject"] = subject_value
+        if chat_value:
+            merged["chat_id"] = chat_value
+        if sid_value:
+            merged["account_sid"] = sid_value
+        if token_value:
+            merged["auth_token"] = token_value
+        if domain_value:
+            merged["domain"] = domain_value
+        if location_value:
+            merged["location"] = location_value
+
+        missing_fields = self.missing_required_action_fields(merged)
+        if not missing_fields:
+            self.action_requirements_label.set_text(f"{summary} Ready: required fields are filled.")
+            return
+
+        missing_preview = ", ".join(missing_fields[:4])
+        if len(missing_fields) > 4:
+            missing_preview = f"{missing_preview}, +{len(missing_fields) - 4} more"
+        self.action_requirements_label.set_text(
+            f"{summary} Missing now: {missing_preview}."
+        )
 
     def parse_detail_directives(self, text: str) -> dict[str, str]:
         directives: dict[str, str] = {}
