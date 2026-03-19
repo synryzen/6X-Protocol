@@ -23,7 +23,7 @@ mkdir -p \
 
 cp -a "${ROOT_DIR}/src" "${APP_DIR}/"
 cp "${ROOT_DIR}/main.py" "${ROOT_DIR}/README.md" "${ROOT_DIR}/LICENSE" "${ROOT_DIR}/VERSION" "${APP_DIR}/"
-cp "${ROOT_DIR}/packaging/linux/icons/com.sixxprotocol.studio.svg" "${APP_DIR}/packaging/linux/icons/"
+cp "${ROOT_DIR}/packaging/linux/icons/com.sixxprotocol.studio.png" "${APP_DIR}/packaging/linux/icons/"
 
 # Keep portable archive clean and deterministic.
 find "${APP_DIR}" -type d -name "__pycache__" -prune -exec rm -rf {} +
@@ -43,12 +43,12 @@ set -euo pipefail
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 APPLICATIONS_DIR="${XDG_DATA_HOME}/applications"
-ICONS_DIR="${XDG_DATA_HOME}/icons/hicolor/scalable/apps"
+ICONS_DIR="${XDG_DATA_HOME}/icons/hicolor/512x512/apps"
 DESKTOP_FILE="${APPLICATIONS_DIR}/com.sixxprotocol.studio.desktop"
-ICON_FILE="${ICONS_DIR}/com.sixxprotocol.studio.svg"
+ICON_FILE="${ICONS_DIR}/com.sixxprotocol.studio.png"
 
 mkdir -p "${APPLICATIONS_DIR}" "${ICONS_DIR}"
-cp "${APP_DIR}/packaging/linux/icons/com.sixxprotocol.studio.svg" "${ICON_FILE}"
+cp "${APP_DIR}/packaging/linux/icons/com.sixxprotocol.studio.png" "${ICON_FILE}"
 
 cat > "${DESKTOP_FILE}" <<DESKTOP
 [Desktop Entry]

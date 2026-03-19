@@ -27,14 +27,14 @@ mkdir -p \
   "${STAGE_DIR}/DEBIAN" \
   "${STAGE_DIR}/usr/bin" \
   "${STAGE_DIR}/usr/share/applications" \
-  "${STAGE_DIR}/usr/share/icons/hicolor/scalable/apps" \
+  "${STAGE_DIR}/usr/share/icons/hicolor/512x512/apps" \
   "${APP_DIR}" \
   "${OUTPUT_DIR}"
 
 cp -a "${ROOT_DIR}/src" "${APP_DIR}/"
 cp "${ROOT_DIR}/main.py" "${ROOT_DIR}/README.md" "${ROOT_DIR}/LICENSE" "${ROOT_DIR}/VERSION" "${APP_DIR}/"
 cp "${ROOT_DIR}/packaging/linux/com.sixxprotocol.studio.desktop" "${STAGE_DIR}/usr/share/applications/"
-cp "${ROOT_DIR}/packaging/linux/icons/com.sixxprotocol.studio.svg" "${STAGE_DIR}/usr/share/icons/hicolor/scalable/apps/"
+cp "${ROOT_DIR}/packaging/linux/icons/com.sixxprotocol.studio.png" "${STAGE_DIR}/usr/share/icons/hicolor/512x512/apps/"
 cp "${ROOT_DIR}/packaging/linux/bin/6x-protocol-studio" "${STAGE_DIR}/usr/bin/6x-protocol-studio"
 
 chmod 0755 "${STAGE_DIR}/usr/bin/6x-protocol-studio"

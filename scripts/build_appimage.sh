@@ -23,18 +23,18 @@ fi
 rm -rf "${BUILD_ROOT}"
 mkdir -p \
   "${APPDIR}/usr/share/applications" \
-  "${APPDIR}/usr/share/icons/hicolor/scalable/apps" \
+  "${APPDIR}/usr/share/icons/hicolor/512x512/apps" \
   "${APPDIR}/opt/${PACKAGE_NAME}" \
   "${OUTPUT_DIR}"
 
 cp -a "${ROOT_DIR}/src" "${APPDIR}/opt/${PACKAGE_NAME}/"
 cp "${ROOT_DIR}/main.py" "${ROOT_DIR}/README.md" "${ROOT_DIR}/LICENSE" "${ROOT_DIR}/VERSION" "${APPDIR}/opt/${PACKAGE_NAME}/"
 cp "${ROOT_DIR}/packaging/linux/com.sixxprotocol.studio.desktop" "${APPDIR}/usr/share/applications/"
-cp "${ROOT_DIR}/packaging/linux/icons/com.sixxprotocol.studio.svg" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/"
+cp "${ROOT_DIR}/packaging/linux/icons/com.sixxprotocol.studio.png" "${APPDIR}/usr/share/icons/hicolor/512x512/apps/"
 
 # AppImage expects these at AppDir root too.
 cp "${ROOT_DIR}/packaging/linux/com.sixxprotocol.studio.desktop" "${APPDIR}/com.sixxprotocol.studio.desktop"
-cp "${ROOT_DIR}/packaging/linux/icons/com.sixxprotocol.studio.svg" "${APPDIR}/com.sixxprotocol.studio.svg"
+cp "${ROOT_DIR}/packaging/linux/icons/com.sixxprotocol.studio.png" "${APPDIR}/com.sixxprotocol.studio.png"
 
 find "${APPDIR}/opt/${PACKAGE_NAME}" -type d -name "__pycache__" -prune -exec rm -rf {} +
 find "${APPDIR}/opt/${PACKAGE_NAME}" -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete
