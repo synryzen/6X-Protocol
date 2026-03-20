@@ -113,7 +113,7 @@ See:
 - Planning doc: [`docs/DOCKER_WEB_EDITION_PLAN.md`](docs/DOCKER_WEB_EDITION_PLAN.md)
 - Starter scaffold: [`docker/README.md`](docker/README.md)
 - Compose scaffold: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
-- API scaffold: `docker/api` (FastAPI health/meta endpoints)
+- API scaffold: `docker/api` (FastAPI health + workflows/runs/settings endpoints)
 
 ## Package Build Commands
 Build local installer artifacts:

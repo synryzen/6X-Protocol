@@ -36,8 +36,11 @@ services:
       APP_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
+      SCAFFOLD_DATA_DIR: ${SCAFFOLD_DATA_DIR:-/data/6x-protocol}
     ports:
       - "${API_PORT:-8787}:8787"
+    volumes:
+      - api_data:/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/healthz').read()"]
       interval: 10s
@@ -58,6 +61,9 @@ services:
       APP_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
+      SCAFFOLD_DATA_DIR: ${SCAFFOLD_DATA_DIR:-/data/6x-protocol}
+    volumes:
+      - api_data:/data
 
   web:
     build:
@@ -74,3 +80,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  api_data:

@@ -24,11 +24,27 @@ This builds and runs:
 - Worker scaffold process
 - Placeholder web shell on `http://localhost:3000`
 - Postgres and Redis
+- Shared scaffold JSON data volume (`api_data`)
 
 API checks:
 ```bash
 curl http://localhost:8787/healthz
 curl http://localhost:8787/api/v1/meta
+```
+
+Core scaffold routes:
+- `GET /api/v1/overview`
+- `GET/POST/PUT/DELETE /api/v1/workflows`
+- `PATCH /api/v1/workflows/{id}/graph`
+- `GET/POST/PATCH/DELETE /api/v1/runs`
+- `GET/PATCH /api/v1/settings`
+- `POST /api/v1/settings/reset`
+
+Create a workflow example:
+```bash
+curl -X POST http://localhost:8787/api/v1/workflows \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Web API Starter","description":"Created from curl","graph":{"nodes":[],"edges":[]}}'
 ```
 
 ## Next Implementation Steps

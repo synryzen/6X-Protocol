@@ -54,4 +54,5 @@ Add a cross-platform self-hosted path (Linux/macOS/Windows) without replacing th
 ## Current Status
 - Active scaffold stage.
 - Compose now includes a real FastAPI scaffold API, worker process scaffold, and web placeholder.
+- API scaffold now includes persistence-backed routes for workflows, runs, and settings.
 - See `docker/README.md` and `docker/docker-compose.web.yml`.
