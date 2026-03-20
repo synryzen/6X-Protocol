@@ -3,4 +3,9 @@ contact_links:
   - name: Security Report
     url: https://github.com/synryzen/6X-Protocol/security/advisories/new
     about: Report sensitive vulnerabilities privately.
-
+  - name: Contribution Guidelines
+    url: https://github.com/synryzen/6X-Protocol/blob/main/CONTRIBUTING.md
+    about: Read contribution expectations before opening large feature requests.
+  - name: Roadmap
+    url: https://github.com/synryzen/6X-Protocol/blob/main/ROADMAP.md
+    about: Check current priorities and planned direction.

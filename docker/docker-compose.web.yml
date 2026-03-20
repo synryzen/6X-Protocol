@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: 6xp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: 6xp-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    image: python:3.12-slim
+    container_name: 6xp-api
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    command: >
+      sh -lc "echo '6X-Protocol API scaffold placeholder'; sleep infinity"
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "${API_PORT:-8787}:8787"
+
+  worker:
+    image: python:3.12-slim
+    container_name: 6xp-worker
+    restart: unless-stopped
+    depends_on:
+      - api
+    command: >
+      sh -lc "echo '6X-Protocol worker scaffold placeholder'; sleep infinity"
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+
+  web:
+    image: nginx:alpine
+    container_name: 6xp-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-3000}:80"
+
+volumes:
+  postgres_data:
+  redis_data:

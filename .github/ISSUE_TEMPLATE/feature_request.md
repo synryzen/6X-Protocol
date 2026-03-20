@@ -12,9 +12,12 @@ What user problem does this solve?
 ## Proposed Solution
 Describe the ideal behavior.
 
+## Scope
+- [ ] Small/contained improvement
+- [ ] Major feature (open discussion first)
+
 ## Alternatives Considered
 Any other options you considered.
 
 ## Additional Context
 Mockups, screenshots, references, and use cases.
-

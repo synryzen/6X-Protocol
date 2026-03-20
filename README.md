@@ -97,7 +97,16 @@ See:
 - [`APP_FINISH_PLAN.md`](APP_FINISH_PLAN.md)
 - [`CHANGELOG.md`](CHANGELOG.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- [`GOVERNANCE.md`](GOVERNANCE.md)
+- [`ROADMAP.md`](ROADMAP.md)
+- [`TRADEMARKS.md`](TRADEMARKS.md)
 - [`SECURITY.md`](SECURITY.md)
+
+## Docker / Web Edition (Planning)
+- Planning doc: [`docs/DOCKER_WEB_EDITION_PLAN.md`](docs/DOCKER_WEB_EDITION_PLAN.md)
+- Starter scaffold: [`docker/README.md`](docker/README.md)
+- Compose scaffold: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
 
 ## Package Build Commands
 Build local installer artifacts:
