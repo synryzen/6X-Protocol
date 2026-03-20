@@ -252,6 +252,16 @@ def retry_run(run_id: str, payload: RetryRunRequest) -> dict[str, Any]:
     start_node_id = ""
     if payload.from_failed_node:
         start_node_id = str(previous.get("last_failed_node_id", "")).strip()
+        if previous_status != "failed":
+            raise HTTPException(
+                status_code=409,
+                detail="Retry from failed node requires a failed run.",
+            )
+        if not start_node_id:
+            raise HTTPException(
+                status_code=409,
+                detail="No failed node was recorded for this run.",
+            )
 
     try:
         previous_attempt = int(previous.get("attempt", 1))

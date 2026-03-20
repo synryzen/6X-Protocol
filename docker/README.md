@@ -61,6 +61,10 @@ curl -X POST http://localhost:8787/api/v1/workflows \
   -d '{"name":"Web API Starter","description":"Created from curl","graph":{"nodes":[],"edges":[]}}'
 ```
 
+Retry behavior notes:
+- `from_failed_node: true` requires the source run to be `failed`.
+- The source run must include `last_failed_node_id`, otherwise retry-from-failed returns `409`.
+
 ## Next Implementation Steps
 1. Expand API routes for workflows, runs, integrations, and settings.
 2. Add DB migrations and auth model.
