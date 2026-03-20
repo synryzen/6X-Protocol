@@ -6401,7 +6401,8 @@ class CanvasView(Gtk.Box):
 
         drag = Gtk.GestureDrag()
         drag.set_button(0)
-        drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
+        drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        drag.set_exclusive(True)
         drag.connect("drag-begin", self.on_node_drag_begin, node.id)
         drag.connect("drag-update", self.on_node_drag_update, node.id)
         drag.connect("drag-end", self.on_node_drag_end, node.id)
