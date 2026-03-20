@@ -6798,6 +6798,24 @@ class CanvasView(Gtk.Box):
         )
         return hit_circle or hit_lane
 
+    def gesture_stage_point(self, gesture) -> tuple[float, float] | None:
+        widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
+        if not widget:
+            return None
+        try:
+            has_point, local_x, local_y = gesture.get_point()
+        except Exception:
+            return None
+        if not has_point:
+            return None
+        try:
+            translated = widget.translate_coordinates(self.fixed, float(local_x), float(local_y))
+        except Exception:
+            return None
+        if not translated or not translated[0]:
+            return None
+        return float(translated[1]), float(translated[2])
+
     def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
         # When explicit link mode is active, prioritize creating the link over dragging.
         source_id = self.pending_link_source_id
@@ -6841,11 +6859,33 @@ class CanvasView(Gtk.Box):
             self.set_single_selection(node_id)
         else:
             self.set_selection(set(self.selected_node_ids), primary_id=node_id)
+        stage_pointer = self.gesture_stage_point(gesture)
+        if stage_pointer:
+            pointer_stage_x, pointer_stage_y = stage_pointer
+        else:
+            gesture_widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
+            if gesture_widget:
+                success, translated_x, translated_y = gesture_widget.translate_coordinates(
+                    self.fixed,
+                    float(start_x),
+                    float(start_y),
+                )
+                if success:
+                    pointer_stage_x = float(translated_x)
+                    pointer_stage_y = float(translated_y)
+                else:
+                    pointer_stage_x = float(self.to_screen(node.x))
+                    pointer_stage_y = float(self.to_screen(node.y))
+            else:
+                pointer_stage_x = float(self.to_screen(node.x))
+                pointer_stage_y = float(self.to_screen(node.y))
         self.node_drag_active = True
         self.drag_origin = {
             "node_id": node_id,
             "x": node.x,
             "y": node.y,
+            "pointer_stage_x": pointer_stage_x,
+            "pointer_stage_y": pointer_stage_y,
         }
         self.drag_group_origins = {
             item.id: (item.x, item.y)
@@ -6897,6 +6937,13 @@ class CanvasView(Gtk.Box):
 
         proposed_x = float(start_x + (offset_x / self.zoom_factor))
         proposed_y = float(start_y + (offset_y / self.zoom_factor))
+        stage_pointer = self.gesture_stage_point(_gesture)
+        if stage_pointer:
+            pointer_stage_x, pointer_stage_y = stage_pointer
+            start_pointer_x = float(self.drag_origin.get("pointer_stage_x", self.to_screen(start_x)))
+            start_pointer_y = float(self.drag_origin.get("pointer_stage_y", self.to_screen(start_y)))
+            proposed_x = float(start_x + ((pointer_stage_x - start_pointer_x) / self.zoom_factor))
+            proposed_y = float(start_y + ((pointer_stage_y - start_pointer_y) / self.zoom_factor))
         # Keep node motion visually stable while dragging. Forcing grid/guide snap on
         # every motion event can cause rapid oscillation near boundaries.
         snapped_x = proposed_x
