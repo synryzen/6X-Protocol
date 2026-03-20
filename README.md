@@ -128,5 +128,11 @@ Output files are created in `dist/`:
 - `.flatpak` bundle
 - `SHA256SUMS.txt`
 
+## Docker Smoke Test
+After installing Docker, validate the web scaffold end-to-end:
+```bash
+./scripts/test_docker_web.sh
+```
+
 ## License
 MIT. See [`LICENSE`](LICENSE).

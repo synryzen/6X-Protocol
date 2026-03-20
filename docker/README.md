@@ -26,10 +26,21 @@ This builds and runs:
 - Postgres and Redis
 - Shared scaffold JSON data volume (`api_data`)
 
+If Docker daemon access is denied for your user:
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
 API checks:
 ```bash
 curl http://localhost:8787/healthz
 curl http://localhost:8787/api/v1/meta
+```
+
+Automated smoke test from repo root:
+```bash
+./scripts/test_docker_web.sh
 ```
 
 Core scaffold routes:
