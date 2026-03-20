@@ -114,6 +114,7 @@ See:
 - Starter scaffold: [`docker/README.md`](docker/README.md)
 - Compose scaffold: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
 - API scaffold: `docker/api` (FastAPI health + workflows/runs/settings endpoints)
+- Run controls scaffolded: `start`, `cancel`, `retry` state transitions
 
 ## Package Build Commands
 Build local installer artifacts:

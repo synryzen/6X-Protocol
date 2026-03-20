@@ -31,12 +31,37 @@ class RunIn(BaseModel):
     trigger: str = "manual"
     log: str = ""
     node_results: list[dict[str, Any]] = Field(default_factory=list)
+    summary: str = ""
+    workflow_name: str = ""
+    finished_at: str = ""
+    attempt: int = 1
+    retry_count: int = 0
+    replay_of_run_id: str = ""
+    idempotency_key: str = ""
+    cancellation_requested: bool = False
+    last_failed_node_id: str = ""
+    last_failed_node_name: str = ""
 
 
 class RunPatch(BaseModel):
     status: str | None = None
     log: str | None = None
+    summary: str | None = None
     node_results: list[dict[str, Any]] | None = None
+    cancellation_requested: bool | None = None
+    last_failed_node_id: str | None = None
+    last_failed_node_name: str | None = None
+
+
+class StartRunRequest(BaseModel):
+    workflow_id: str
+    trigger: str = "manual"
+    start_node_id: str = ""
+    idempotency_key: str = ""
+
+
+class RetryRunRequest(BaseModel):
+    from_failed_node: bool = True
 
 
 class RunOut(RunIn):
@@ -91,12 +116,22 @@ def make_run(payload: RunIn) -> dict[str, Any]:
     return {
         "id": str(uuid4()),
         "workflow_id": payload.workflow_id,
+        "workflow_name": payload.workflow_name,
         "status": payload.status,
         "trigger": payload.trigger,
         "log": payload.log,
+        "summary": payload.summary,
         "node_results": payload.node_results,
+        "finished_at": payload.finished_at,
         "created_at": now,
         "updated_at": now,
+        "attempt": max(1, int(payload.attempt)),
+        "retry_count": max(0, int(payload.retry_count)),
+        "replay_of_run_id": payload.replay_of_run_id,
+        "idempotency_key": payload.idempotency_key,
+        "cancellation_requested": bool(payload.cancellation_requested),
+        "last_failed_node_id": payload.last_failed_node_id,
+        "last_failed_node_name": payload.last_failed_node_name,
     }
 
 

@@ -48,6 +48,9 @@ Core scaffold routes:
 - `GET/POST/PUT/DELETE /api/v1/workflows`
 - `PATCH /api/v1/workflows/{id}/graph`
 - `GET/POST/PATCH/DELETE /api/v1/runs`
+- `POST /api/v1/runs/start`
+- `POST /api/v1/runs/{id}/cancel`
+- `POST /api/v1/runs/{id}/retry`
 - `GET/PATCH /api/v1/settings`
 - `POST /api/v1/settings/reset`
 

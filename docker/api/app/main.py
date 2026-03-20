@@ -7,12 +7,15 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 
+from app.run_controller import ACTIVE_STATUSES, RunController
 from app.schemas import (
     DEFAULT_SETTINGS,
     RunIn,
     RunOut,
     RunPatch,
+    RetryRunRequest,
     SettingsPatch,
+    StartRunRequest,
     WorkflowIn,
     WorkflowOut,
     make_run,
@@ -23,9 +26,10 @@ from app.schemas import (
 from app.storage import JsonStore
 
 APP_NAME = "6X-Protocol API"
-APP_VERSION = "0.2.0-scaffold"
+APP_VERSION = "0.3.0-scaffold"
 
 store = JsonStore()
+run_controller = RunController(store=store)
 
 app = FastAPI(
     title=APP_NAME,
@@ -39,6 +43,11 @@ def _find_by_id(items: list[dict[str, Any]], item_id: str) -> dict[str, Any] | N
         if str(item.get("id", "")) == item_id:
             return item
     return None
+
+
+def _find_workflow(workflow_id: str) -> dict[str, Any] | None:
+    workflows = store.load_workflows()
+    return _find_by_id(workflows, workflow_id)
 
 
 @app.get("/healthz", tags=["health"])
@@ -164,14 +173,31 @@ def list_runs(
 
 @app.post("/api/v1/runs", response_model=RunOut, status_code=201, tags=["runs"])
 def create_run(payload: RunIn) -> dict[str, Any]:
-    workflows = store.load_workflows()
-    if not _find_by_id(workflows, payload.workflow_id):
+    workflow = _find_workflow(payload.workflow_id)
+    if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found for run")
     runs = store.load_runs()
     item = make_run(payload)
+    if not item.get("workflow_name"):
+        item["workflow_name"] = str(workflow.get("name", ""))
+    if not item.get("summary"):
+        item["summary"] = "Run created."
     runs.insert(0, item)
     store.save_runs(runs)
     return item
+
+
+@app.post("/api/v1/runs/start", response_model=RunOut, status_code=201, tags=["runs"])
+def start_run(payload: StartRunRequest) -> dict[str, Any]:
+    workflow = _find_workflow(payload.workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found for run")
+    return run_controller.start(
+        workflow,
+        trigger=payload.trigger,
+        start_node_id=payload.start_node_id,
+        idempotency_key=payload.idempotency_key,
+    )
 
 
 @app.get("/api/v1/runs/{run_id}", response_model=RunOut, tags=["runs"])
@@ -196,6 +222,54 @@ def patch_run(run_id: str, payload: RunPatch) -> dict[str, Any]:
         store.save_runs(runs)
         return item
     raise HTTPException(status_code=404, detail="Run not found")
+
+
+@app.post("/api/v1/runs/{run_id}/cancel", response_model=RunOut, tags=["runs"])
+def cancel_run(run_id: str) -> dict[str, Any]:
+    success, message, run = run_controller.cancel(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if not success:
+        raise HTTPException(status_code=409, detail=message)
+    return run
+
+
+@app.post("/api/v1/runs/{run_id}/retry", response_model=RunOut, status_code=201, tags=["runs"])
+def retry_run(run_id: str, payload: RetryRunRequest) -> dict[str, Any]:
+    previous = run_controller.get_run(run_id)
+    if not previous:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    previous_status = str(previous.get("status", "")).strip().lower()
+    if previous_status in ACTIVE_STATUSES:
+        raise HTTPException(status_code=409, detail="Active runs cannot be retried.")
+
+    workflow_id = str(previous.get("workflow_id", "")).strip()
+    workflow = _find_workflow(workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found for retry")
+
+    start_node_id = ""
+    if payload.from_failed_node:
+        start_node_id = str(previous.get("last_failed_node_id", "")).strip()
+
+    try:
+        previous_attempt = int(previous.get("attempt", 1))
+    except (TypeError, ValueError):
+        previous_attempt = 1
+    try:
+        previous_retry_count = int(previous.get("retry_count", 0))
+    except (TypeError, ValueError):
+        previous_retry_count = 0
+
+    return run_controller.start(
+        workflow,
+        trigger="retry",
+        start_node_id=start_node_id,
+        replay_of_run_id=run_id,
+        attempt=max(1, previous_attempt + 1),
+        retry_count=max(0, previous_retry_count + 1),
+    )
 
 
 @app.delete("/api/v1/runs/{run_id}", tags=["runs"])
