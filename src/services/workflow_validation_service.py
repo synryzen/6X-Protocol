@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 import re
 from typing import Dict, List, Optional
@@ -114,6 +115,52 @@ class WorkflowValidationService:
         "zendesk_api",
         "pipedrive_api",
         "salesforce_api",
+        "resend_email",
+        "mailgun_email",
+    }
+    HEADERS_JSON_INTEGRATIONS = {
+        "http_request",
+        "notion_api",
+        "airtable_api",
+        "hubspot_api",
+        "stripe_api",
+        "github_rest",
+        "gitlab_api",
+        "google_calendar_api",
+        "outlook_graph",
+        "jira_api",
+        "asana_api",
+        "clickup_api",
+        "trello_api",
+        "monday_api",
+        "zendesk_api",
+        "pipedrive_api",
+        "salesforce_api",
+    }
+    JSON_PAYLOAD_INTEGRATIONS = {
+        "http_request",
+        "http_post",
+        "google_apps_script",
+        "google_sheets",
+        "google_calendar_api",
+        "notion_api",
+        "airtable_api",
+        "hubspot_api",
+        "stripe_api",
+        "github_rest",
+        "gitlab_api",
+        "linear_api",
+        "outlook_graph",
+        "jira_api",
+        "asana_api",
+        "clickup_api",
+        "trello_api",
+        "monday_api",
+        "zendesk_api",
+        "pipedrive_api",
+        "salesforce_api",
+        "telegram_bot",
+        "twilio_sms",
         "resend_email",
         "mailgun_email",
     }
@@ -414,6 +461,116 @@ class WorkflowValidationService:
             if method_value and method_value not in self.VALID_HTTP_METHODS:
                 result.add_error(
                     f"Action node '{node_name}' has invalid HTTP method '{method_value}'.",
+                    node_id=node.id,
+                )
+
+        headers_raw = str(config.get("headers", "")).strip()
+        if headers_raw and integration_key in self.HEADERS_JSON_INTEGRATIONS:
+            try:
+                parsed_headers = json.loads(headers_raw)
+                if not isinstance(parsed_headers, dict):
+                    result.add_error(
+                        f"Action node '{node_name}' headers must be a JSON object.",
+                        node_id=node.id,
+                    )
+            except Exception:
+                result.add_error(
+                    f"Action node '{node_name}' headers must be valid JSON.",
+                    node_id=node.id,
+                )
+
+        payload_raw = str(config.get("payload", "")).strip()
+        if payload_raw and integration_key in self.JSON_PAYLOAD_INTEGRATIONS:
+            try:
+                json.loads(payload_raw)
+            except Exception:
+                result.add_error(
+                    f"Action node '{node_name}' payload must be valid JSON for integration '{integration_key}'.",
+                    node_id=node.id,
+                )
+
+        if integration_key in {"postgres_sql", "mysql_sql"}:
+            connection_url = self._required_field_value(
+                config,
+                "connection_url",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if connection_url:
+                lowered = connection_url.lower()
+                if integration_key == "postgres_sql" and not lowered.startswith(
+                    ("postgres://", "postgresql://")
+                ):
+                    result.add_error(
+                        f"Action node '{node_name}' connection_url must start with postgres:// or postgresql://.",
+                        node_id=node.id,
+                    )
+                if integration_key == "mysql_sql" and not lowered.startswith(("mysql://", "mysql2://")):
+                    result.add_error(
+                        f"Action node '{node_name}' connection_url must start with mysql:// or mysql2://.",
+                        node_id=node.id,
+                    )
+
+        if integration_key == "redis_command":
+            connection_url = self._required_field_value(
+                config,
+                "connection_url",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if connection_url and not connection_url.lower().startswith(("redis://", "rediss://")):
+                result.add_error(
+                    f"Action node '{node_name}' redis connection_url must start with redis:// or rediss://.",
+                    node_id=node.id,
+                )
+            command_value = self._required_field_value(
+                config,
+                "command",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if command_value.lower().startswith("redis-cli"):
+                result.add_warning(
+                    f"Action node '{node_name}' command should omit 'redis-cli' prefix.",
+                    node_id=node.id,
+                )
+
+        if integration_key == "s3_cli":
+            command_value = self._required_field_value(
+                config,
+                "command",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            lowered = command_value.lower()
+            if lowered and not (lowered.startswith("aws ") or lowered.startswith("s3 ")):
+                result.add_warning(
+                    f"Action node '{node_name}' command should start with 's3' or 'aws s3'.",
+                    node_id=node.id,
+                )
+
+        if integration_key in {"postgres_sql", "mysql_sql", "sqlite_sql"}:
+            sql_value = self._required_field_value(
+                config,
+                "sql",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if sql_value and len(sql_value.strip()) < 6:
+                result.add_warning(
+                    f"Action node '{node_name}' SQL query appears very short.",
+                    node_id=node.id,
+                )
+        if integration_key == "sqlite_sql":
+            path_value = self._required_field_value(
+                config,
+                "path",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if path_value and not path_value.lower().endswith((".db", ".sqlite", ".sqlite3")):
+                result.add_warning(
+                    f"Action node '{node_name}' SQLite path should usually end with .db/.sqlite.",
                     node_id=node.id,
                 )
 

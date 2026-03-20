@@ -311,6 +311,154 @@ class WorkflowValidationServiceTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertTrue(any("invalid recipient email" in item for item in result.errors))
 
+    def test_http_request_invalid_headers_json_reports_error(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="HTTP",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "http_request",
+                "url": "https://example.com/hook",
+                "method": "POST",
+                "headers": "{not-json}",
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "Bad Headers")
+        self.assertFalse(result.ok)
+        self.assertTrue(any("headers must be valid JSON" in item for item in result.errors))
+
+    def test_postgres_connection_url_scheme_reports_error(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="Postgres",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "postgres_sql",
+                "connection_url": "mysql://localhost/test",
+                "sql": "select now();",
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "Bad Postgres URL")
+        self.assertFalse(result.ok)
+        self.assertTrue(any("postgres://" in item.lower() for item in result.errors))
+
+    def test_redis_connection_url_scheme_reports_error(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="Redis",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "redis_command",
+                "connection_url": "http://localhost:6379",
+                "command": "PING",
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "Bad Redis URL")
+        self.assertFalse(result.ok)
+        self.assertTrue(any("redis://" in item.lower() for item in result.errors))
+
+    def test_s3_command_prefix_reports_warning(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="S3",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "s3_cli",
+                "command": "ls /tmp",
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "S3 Warning")
+        self.assertTrue(result.ok)
+        self.assertTrue(any("aws s3" in item.lower() or "start with 's3'" in item.lower() for item in result.warnings))
+
 
 if __name__ == "__main__":
     unittest.main()
