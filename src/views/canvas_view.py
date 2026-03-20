@@ -6833,7 +6833,7 @@ class CanvasView(Gtk.Box):
         input_port.add_css_class("canvas-node-port")
         input_port.add_css_class("canvas-node-port-in")
         input_port.add_css_class("canvas-node-port-dot")
-        input_port.set_size_request(24, 24)
+        input_port.set_size_request(28, 28)
         input_port.set_can_target(True)
         input_port.set_halign(Gtk.Align.START)
         input_port.set_valign(Gtk.Align.CENTER)
@@ -6842,7 +6842,7 @@ class CanvasView(Gtk.Box):
         output_port.add_css_class("canvas-node-port")
         output_port.add_css_class("canvas-node-port-out")
         output_port.add_css_class("canvas-node-port-dot")
-        output_port.set_size_request(24, 24)
+        output_port.set_size_request(28, 28)
         output_port.set_can_target(True)
         output_port.set_halign(Gtk.Align.END)
         output_port.set_valign(Gtk.Align.CENTER)
@@ -6903,6 +6903,7 @@ class CanvasView(Gtk.Box):
 
         drag = Gtk.GestureDrag()
         drag.set_button(0)
+        drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         drag.connect("drag-begin", self.on_node_drag_begin, node.id)
         drag.connect("drag-update", self.on_node_drag_update, node.id)
         drag.connect("drag-end", self.on_node_drag_end, node.id)
@@ -7296,22 +7297,6 @@ class CanvasView(Gtk.Box):
             return None
         return hovered_node
 
-    def is_output_handle_hit(self, start_x: float, start_y: float) -> bool:
-        width = float(self.card_screen_width())
-        height = float(self.card_screen_height())
-        handle_x = width - 6.0
-        # Align the quick-drag hit area to the visual output port row.
-        handle_y = height - max(12.0, min(18.0, height * 0.16))
-        radius = max(22.0, min(36.0, float(self.card_screen_height()) * 0.42))
-        hit_circle = (
-            (float(start_x) - handle_x) ** 2 + (float(start_y) - handle_y) ** 2 <= radius ** 2
-        )
-        hit_lane = (
-            float(start_x) >= max(0.0, width - 52.0)
-            and max(0.0, height * 0.4) <= float(start_y) <= (height + 2.0)
-        )
-        return hit_circle or hit_lane
-
     def gesture_stage_point(self, gesture) -> tuple[float, float] | None:
         widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
         if not widget:
@@ -7342,34 +7327,6 @@ class CanvasView(Gtk.Box):
 
         if self.port_drag_active:
             # An output-port drag is already driving link preview for this sequence.
-            return
-        if self.is_output_handle_hit(start_x, start_y):
-            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-            stage_pointer = self.gesture_stage_point(gesture)
-            if stage_pointer:
-                pointer_stage_x, pointer_stage_y = stage_pointer
-            else:
-                gesture_widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
-                if gesture_widget:
-                    success, translated_x, translated_y = gesture_widget.translate_coordinates(
-                        self.fixed,
-                        float(start_x),
-                        float(start_y),
-                    )
-                    if success:
-                        pointer_stage_x = float(translated_x)
-                        pointer_stage_y = float(translated_y)
-                    else:
-                        pointer_stage_x = None
-                        pointer_stage_y = None
-                else:
-                    pointer_stage_x = None
-                    pointer_stage_y = None
-            self.begin_output_link_drag(
-                node_id,
-                pointer_x=pointer_stage_x,
-                pointer_y=pointer_stage_y,
-            )
             return
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         node = self.find_node(node_id)
