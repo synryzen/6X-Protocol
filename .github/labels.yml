@@ -1,0 +1,54 @@
+- name: bug
+  color: "d73a4a"
+  description: "Something is not working as expected"
+- name: enhancement
+  color: "1f883d"
+  description: "New feature or improvement"
+- name: proposal
+  color: "8250df"
+  description: "Major feature or architecture proposal"
+- name: needs-triage
+  color: "fbca04"
+  description: "Needs maintainer triage and routing"
+- name: good first issue
+  color: "7057ff"
+  description: "Good starter task for new contributors"
+- name: help wanted
+  color: "008672"
+  description: "Maintainer would like community help"
+- name: priority/p0
+  color: "b60205"
+  description: "Critical priority"
+- name: priority/p1
+  color: "d93f0b"
+  description: "High priority"
+- name: priority/p2
+  color: "fbca04"
+  description: "Normal priority"
+- name: status/in-progress
+  color: "0e8a16"
+  description: "Actively being worked"
+- name: status/blocked
+  color: "e99695"
+  description: "Blocked by dependency or decision"
+- name: area/canvas
+  color: "1d76db"
+  description: "Canvas builder, nodes, edges, inspector"
+- name: area/integrations
+  color: "0e8a16"
+  description: "Connectors, integration tests, credentials"
+- name: area/settings
+  color: "0052cc"
+  description: "Settings UI, persistence, appearance"
+- name: area/runtime
+  color: "5319e7"
+  description: "Execution engine, runs, daemon behavior"
+- name: area/packaging
+  color: "c2e0c6"
+  description: "Deb/AppImage/Flatpak/release packaging"
+- name: area/docs
+  color: "bfd4f2"
+  description: "Documentation and guides"
+- name: area/github
+  color: "c5def5"
+  description: "GitHub workflows, templates, pages"

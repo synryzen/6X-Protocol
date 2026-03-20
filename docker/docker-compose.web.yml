@@ -24,40 +24,50 @@ services:
       - redis_data:/data
 
   api:
-    image: python:3.12-slim
+    build:
+      context: ./api
+      dockerfile: Dockerfile
     container_name: 6xp-api
     restart: unless-stopped
     depends_on:
       - postgres
       - redis
-    command: >
-      sh -lc "echo '6X-Protocol API scaffold placeholder'; sleep infinity"
     environment:
       APP_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
     ports:
       - "${API_PORT:-8787}:8787"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/healthz').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   worker:
-    image: python:3.12-slim
+    build:
+      context: ./api
+      dockerfile: Dockerfile
     container_name: 6xp-worker
     restart: unless-stopped
     depends_on:
-      - api
-    command: >
-      sh -lc "echo '6X-Protocol worker scaffold placeholder'; sleep infinity"
+      api:
+        condition: service_healthy
+    command: ["python", "-m", "app.worker"]
     environment:
       APP_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
 
   web:
-    image: nginx:alpine
+    build:
+      context: ./web
+      dockerfile: Dockerfile
     container_name: 6xp-web
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - "${WEB_PORT:-3000}:80"
 

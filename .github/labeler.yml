@@ -1,0 +1,38 @@
+area/canvas:
+  - src/views/canvas_view.py
+  - src/models/canvas_*.py
+  - src/services/canvas_*.py
+
+area/integrations:
+  - src/views/integrations_view.py
+  - src/services/integration_*.py
+  - src/services/integration*.py
+
+area/settings:
+  - src/views/settings_view.py
+  - src/services/settings_store.py
+  - src/assets/app_theme.css
+  - src/assets/style.css
+
+area/runtime:
+  - src/services/execution_engine.py
+  - src/services/run_execution_service.py
+  - src/services/daemon_service.py
+  - src/services/run_store.py
+  - src/views/runs_view.py
+  - src/views/daemon_view.py
+
+area/packaging:
+  - packaging/**
+  - scripts/build_*.sh
+
+area/docs:
+  - docs/**
+  - README.md
+  - CONTRIBUTING.md
+  - ROADMAP.md
+  - GOVERNANCE.md
+
+area/github:
+  - .github/**
+  - GITHUB_SETUP.md

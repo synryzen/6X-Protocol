@@ -52,5 +52,6 @@ Add a cross-platform self-hosted path (Linux/macOS/Windows) without replacing th
 - Backups, migrations, health dashboards, observability endpoints.
 
 ## Current Status
-- Planning and scaffolding stage.
+- Active scaffold stage.
+- Compose now includes a real FastAPI scaffold API, worker process scaffold, and web placeholder.
 - See `docker/README.md` and `docker/docker-compose.web.yml`.

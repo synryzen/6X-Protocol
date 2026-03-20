@@ -102,11 +102,18 @@ See:
 - [`ROADMAP.md`](ROADMAP.md)
 - [`TRADEMARKS.md`](TRADEMARKS.md)
 - [`SECURITY.md`](SECURITY.md)
+- [`GITHUB_SETUP.md`](GITHUB_SETUP.md)
+
+## GitHub Operations
+- Label taxonomy source: `.github/labels.yml`
+- PR path label rules: `.github/labeler.yml`
+- Automation workflows: `.github/workflows/labels.yml`, `.github/workflows/triage.yml`
 
 ## Docker / Web Edition (Planning)
 - Planning doc: [`docs/DOCKER_WEB_EDITION_PLAN.md`](docs/DOCKER_WEB_EDITION_PLAN.md)
 - Starter scaffold: [`docker/README.md`](docker/README.md)
 - Compose scaffold: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
+- API scaffold: `docker/api` (FastAPI health/meta endpoints)
 
 ## Package Build Commands
 Build local installer artifacts:

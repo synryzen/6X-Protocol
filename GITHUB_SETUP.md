@@ -40,12 +40,41 @@ git push origin v0.1.0
 Artifacts are written to `dist/`.
 
 ## 5) Recommended Repo Settings
-- Branch protection on `main`.
-- Require pull request for merges (optional for solo workflow).
-- Require CI pass before merge.
-- Enable Discussions (optional community channel).
+### Branch Protection (Strongly Recommended)
+Use `Settings` -> `Rules` -> `Rulesets` -> `New ruleset` (or branch protection rule on `main`):
+- Target: `main`.
+- Require a pull request before merging.
+- Require approvals: `1` (or `0` for solo mode if you prefer speed).
+- Dismiss stale approvals when new commits are pushed.
+- Require status checks to pass before merging:
+  - `compile` (from `CI` workflow).
+- Require conversation resolution before merging.
+- Block force pushes.
+- Block deletions.
 
-## 6) Public Visibility Checklist
+### Optional Strict Mode
+- Require branch to be up to date before merge.
+- Require linear history.
+- Restrict direct pushes to `main` (allow only maintainers/admin bypass).
+
+### Why `compile` Check
+The `CI` workflow currently exposes one job named `compile` that runs:
+- `python -m compileall src main.py`
+- `python -m unittest discover -s tests -p "test_*.py" -v`
+
+If you rename the job in `.github/workflows/ci.yml`, update the required check name in Rules.
+
+## 6) Labels + Triage Automation
+This repo now includes:
+- `.github/labels.yml` + `.github/workflows/labels.yml` (sync label taxonomy).
+- `.github/labeler.yml` + `.github/workflows/triage.yml` (auto area labels for PRs + `needs-triage` on new issues/PRs).
+
+After enabling Actions, run once manually:
+1. `Actions` tab -> `Sync Labels` -> `Run workflow`.
+2. Confirm labels were created in `Issues` -> `Labels`.
+3. Open a test issue/PR to confirm triage labels apply.
+
+## 7) Public Visibility Checklist
 - Remove local/private secrets from config files.
 - Confirm no credentials are committed.
 - Confirm `.gitignore` is active and caches/artifacts are not tracked.
