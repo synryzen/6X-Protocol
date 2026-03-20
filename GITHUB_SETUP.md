@@ -10,6 +10,10 @@ This project is already connected to:
 4. Push to `main` (or run workflow manually).
 5. Wait for `Deploy GitHub Pages` workflow to complete.
 
+If the repository is private:
+- GitHub Pages requires a plan that supports private Pages.
+- If deployment fails, verify plan access first, then re-run `Deploy GitHub Pages`.
+
 Expected URL:
 `https://synryzen.github.io/6X-Protocol/`
 

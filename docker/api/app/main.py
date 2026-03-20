@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import os
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.run_controller import ACTIVE_STATUSES, RunController
 from app.schemas import (
@@ -26,7 +28,7 @@ from app.schemas import (
 from app.storage import JsonStore
 
 APP_NAME = "6X-Protocol API"
-APP_VERSION = "0.3.0-scaffold"
+APP_VERSION = "0.4.0-scaffold"
 
 store = JsonStore()
 run_controller = RunController(store=store)
@@ -35,6 +37,30 @@ app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
     description="Scaffold API for the 6X-Protocol web/self-hosted edition.",
+)
+
+
+def _cors_allow_origins() -> list[str]:
+    raw = str(
+        os.getenv(
+            "CORS_ALLOW_ORIGINS",
+            "http://localhost:3000,http://127.0.0.1:3000",
+        )
+    ).strip()
+    if not raw:
+        return ["http://localhost:3000", "http://127.0.0.1:3000"]
+    if raw == "*":
+        return ["*"]
+    origins = [item.strip() for item in raw.split(",") if item.strip()]
+    return origins or ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_allow_origins(),
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

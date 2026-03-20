@@ -3,41 +3,659 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>6X-Protocol Web Edition (Scaffold)</title>
+  <title>6X-Protocol Web Edition</title>
   <style>
+    :root {
+      --bg-0: #060d1b;
+      --bg-1: #0b1830;
+      --panel: rgba(13, 27, 51, 0.84);
+      --panel-strong: rgba(16, 34, 62, 0.92);
+      --line: rgba(118, 158, 221, 0.36);
+      --line-strong: rgba(146, 186, 244, 0.56);
+      --text: #e6eefc;
+      --muted: #9fb0cd;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --accent: #60a5fa;
+      --accent-2: #34d399;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      font-family: "Segoe UI", Inter, sans-serif;
-      color: #e7edf8;
-      background: radial-gradient(circle at top, #163156 0%, #0a1323 55%, #050b16 100%);
+      font-family: "Inter", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 8%, rgba(60, 130, 246, 0.26) 0%, rgba(60, 130, 246, 0) 38%),
+        radial-gradient(circle at 88% 14%, rgba(52, 211, 153, 0.18) 0%, rgba(52, 211, 153, 0) 35%),
+        linear-gradient(165deg, var(--bg-1) 0%, var(--bg-0) 56%, #030812 100%);
       min-height: 100vh;
+      padding: 22px;
+    }
+
+    .wrap {
+      max-width: 1240px;
+      margin: 0 auto;
       display: grid;
-      place-items: center;
+      grid-template-rows: auto auto 1fr;
+      gap: 14px;
     }
-    .panel {
-      width: min(760px, 92vw);
-      border: 1px solid rgba(125, 176, 255, 0.28);
-      background: rgba(11, 22, 42, 0.76);
-      border-radius: 20px;
-      padding: 24px;
-      box-shadow: 0 20px 60px rgba(4, 9, 20, 0.45);
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow: 0 18px 46px rgba(3, 9, 20, 0.44);
     }
-    h1 { margin: 0 0 8px; }
-    p { margin: 8px 0; color: #b9c5da; }
-    code {
-      color: #9fd1ff;
-      background: rgba(62, 116, 205, 0.2);
-      padding: 2px 8px;
-      border-radius: 8px;
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      padding: 14px;
+      align-items: center;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0.2px;
+    }
+
+    .subtitle {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn,
+    .input,
+    .select {
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      color: var(--text);
+      border-radius: 9px;
+      min-height: 34px;
+      font-size: 13px;
+    }
+
+    .btn {
+      padding: 0 12px;
+      cursor: pointer;
+      transition: border-color 120ms ease, transform 120ms ease;
+      font-weight: 600;
+    }
+
+    .btn:hover {
+      border-color: var(--line-strong);
+      transform: translateY(-1px);
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, #3081ec 0%, #2b6fd6 100%);
+      border-color: rgba(148, 195, 255, 0.8);
+      color: #f4f9ff;
+    }
+
+    .btn.good {
+      background: linear-gradient(180deg, #0f8a59 0%, #0d734c 100%);
+      border-color: rgba(114, 230, 176, 0.58);
+    }
+
+    .btn.warn {
+      background: linear-gradient(180deg, #ba7e13 0%, #9a6610 100%);
+      border-color: rgba(246, 199, 108, 0.6);
+    }
+
+    .btn.danger {
+      background: linear-gradient(180deg, #b24b4b 0%, #903939 100%);
+      border-color: rgba(247, 141, 141, 0.58);
+    }
+
+    .input,
+    .select {
+      padding: 0 10px;
+      min-width: 180px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-right: 7px;
+      background: #64748b;
+      vertical-align: middle;
+    }
+
+    .status-dot.ok { background: var(--ok); }
+    .status-dot.warn { background: var(--warn); }
+    .status-dot.err { background: var(--err); }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(12, 24, 45, 0.76);
+      padding: 10px 12px;
+    }
+
+    .metric .k {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+
+    .metric .v {
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+      gap: 12px;
+      min-height: 520px;
+    }
+
+    .section {
+      padding: 12px;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 10px;
+    }
+
+    .section h2 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .list {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: auto;
+      min-height: 180px;
+      max-height: 300px;
+      background: rgba(8, 19, 36, 0.76);
+    }
+
+    .item {
+      padding: 9px 10px;
+      border-bottom: 1px solid rgba(122, 155, 207, 0.2);
+      font-size: 12.8px;
+      line-height: 1.35;
+    }
+
+    .item:last-child {
+      border-bottom: 0;
+    }
+
+    .item .small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .settings {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      background: rgba(8, 19, 36, 0.76);
+    }
+
+    .row {
+      display: grid;
+      gap: 4px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .logs {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(5, 12, 24, 0.86);
+      min-height: 140px;
+      max-height: 170px;
+      overflow: auto;
+      padding: 8px;
+      font-family: "JetBrains Mono", "Consolas", monospace;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #b6c7e8;
+    }
+
+    @media (max-width: 980px) {
+      body { padding: 12px; }
+      .topbar { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .main { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <main class="panel">
-    <h1>6X-Protocol Web Edition</h1>
-    <p>Compose scaffold is running.</p>
-    <p>API health endpoint: <code>/healthz</code> on port <code>8787</code></p>
-    <p>Next step: replace this placeholder with the real workflow dashboard frontend.</p>
-  </main>
+  <div class="wrap">
+    <section class="card topbar">
+      <div>
+        <h1 class="title">6X-Protocol Web Access</h1>
+        <p class="subtitle">Live Docker runtime panel for workflows, runs, and settings.</p>
+      </div>
+      <div class="actions">
+        <span id="apiHealth"><span class="status-dot"></span>checking</span>
+        <input id="apiBase" class="input" type="text" aria-label="API base" />
+        <button id="saveApiBase" class="btn">Save API</button>
+        <button id="refreshAll" class="btn primary">Refresh</button>
+      </div>
+    </section>
+
+    <section class="card metrics">
+      <div class="metric"><div class="k">Workflows</div><div class="v" id="metricWorkflows">0</div></div>
+      <div class="metric"><div class="k">Runs</div><div class="v" id="metricRuns">0</div></div>
+      <div class="metric"><div class="k">Active Runs</div><div class="v" id="metricActiveRuns">0</div></div>
+      <div class="metric"><div class="k">Failed Runs</div><div class="v" id="metricFailedRuns">0</div></div>
+    </section>
+
+    <section class="main">
+      <article class="card section">
+        <h2>Operations</h2>
+        <div class="actions" style="justify-content:flex-start;">
+          <button id="createSample" class="btn good">Create Sample Workflow</button>
+          <button id="startLatest" class="btn primary">Start Latest Workflow</button>
+          <button id="cancelActive" class="btn danger">Cancel Active Run</button>
+          <button id="retryLatest" class="btn warn">Retry Latest Run</button>
+        </div>
+        <div class="grid2">
+          <div>
+            <h2 style="font-size:13px;margin:0 0 6px;">Workflows</h2>
+            <div class="list" id="workflowList"></div>
+          </div>
+          <div>
+            <h2 style="font-size:13px;margin:0 0 6px;">Runs</h2>
+            <div class="list" id="runList"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card section">
+        <h2>Settings + Activity</h2>
+        <div class="settings">
+          <div class="row">
+            <label class="label" for="preferredProvider">Preferred Provider</label>
+            <select class="select" id="preferredProvider">
+              <option value="local">local</option>
+              <option value="openai">openai</option>
+              <option value="anthropic">anthropic</option>
+            </select>
+          </div>
+          <div class="row">
+            <label class="label" for="localEndpoint">Local Runtime Endpoint</label>
+            <input id="localEndpoint" class="input" type="text" placeholder="http://localhost:11434" />
+          </div>
+          <div class="row">
+            <label class="label" for="defaultModel">Default Local Model</label>
+            <input id="defaultModel" class="input" type="text" placeholder="nvidia/nemotron-3-nano" />
+          </div>
+          <div class="grid2">
+            <div class="row">
+              <label class="label" for="theme">Theme</label>
+              <select id="theme" class="select">
+                <option value="system">system</option>
+                <option value="light">light</option>
+                <option value="dark">dark</option>
+              </select>
+            </div>
+            <div class="row">
+              <label class="label" for="density">UI Density</label>
+              <select id="density" class="select">
+                <option value="comfortable">comfortable</option>
+                <option value="compact">compact</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions" style="justify-content:flex-start;">
+            <button id="loadSettings" class="btn">Load Settings</button>
+            <button id="saveSettings" class="btn primary">Save Settings</button>
+          </div>
+        </div>
+        <div class="logs" id="logs"></div>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    const activeStatuses = new Set(["queued", "running", "cancelling"]);
+    const terminalStatuses = new Set(["success", "failed", "cancelled"]);
+
+    const state = {
+      apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
+      workflows: [],
+      runs: [],
+    };
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function log(message, level = "info") {
+      const stamp = new Date().toLocaleTimeString();
+      const line = `[${stamp}] ${level.toUpperCase()} ${message}`;
+      const logs = byId("logs");
+      logs.textContent = `${line}\n${logs.textContent}`.slice(0, 12000);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    async function api(path, options = {}) {
+      const url = `${state.apiBase}${path}`;
+      const response = await fetch(url, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options,
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`${response.status} ${response.statusText} - ${body}`);
+      }
+      const text = await response.text();
+      if (!text) return {};
+      try {
+        return JSON.parse(text);
+      } catch (_error) {
+        return { raw: text };
+      }
+    }
+
+    function renderWorkflows() {
+      const list = byId("workflowList");
+      if (!state.workflows.length) {
+        list.innerHTML = `<div class="item">No workflows yet.</div>`;
+        return;
+      }
+      list.innerHTML = state.workflows
+        .slice(0, 24)
+        .map((workflow) => {
+          const id = escapeHtml(workflow.id || "");
+          const name = escapeHtml(workflow.name || "Untitled workflow");
+          const status = escapeHtml(workflow.status || "draft");
+          const updated = escapeHtml(workflow.updated_at || "");
+          return `<div class="item"><strong>${name}</strong><span class="small">${status} • ${id.slice(0, 8)} • ${updated}</span></div>`;
+        })
+        .join("");
+    }
+
+    function renderRuns() {
+      const list = byId("runList");
+      if (!state.runs.length) {
+        list.innerHTML = `<div class="item">No runs yet.</div>`;
+        return;
+      }
+      list.innerHTML = state.runs
+        .slice(0, 40)
+        .map((run) => {
+          const id = escapeHtml(run.id || "");
+          const name = escapeHtml(run.workflow_name || run.workflow_id || "Run");
+          const status = String(run.status || "unknown").toLowerCase();
+          const statusText = escapeHtml(status);
+          const summary = escapeHtml(run.summary || "");
+          return `<div class="item"><strong>${name}</strong><span class="small">${statusText} • ${id.slice(0, 8)}</span><span class="small">${summary}</span></div>`;
+        })
+        .join("");
+
+      const active = state.runs.filter((run) => activeStatuses.has(String(run.status || "").toLowerCase())).length;
+      const failed = state.runs.filter((run) => String(run.status || "").toLowerCase() === "failed").length;
+      byId("metricRuns").textContent = String(state.runs.length);
+      byId("metricActiveRuns").textContent = String(active);
+      byId("metricFailedRuns").textContent = String(failed);
+    }
+
+    async function refreshHealth() {
+      const healthEl = byId("apiHealth");
+      try {
+        await api("/healthz", { method: "GET" });
+        healthEl.innerHTML = `<span class="status-dot ok"></span>api online`;
+      } catch (error) {
+        healthEl.innerHTML = `<span class="status-dot err"></span>api offline`;
+        log(`Health check failed: ${error.message}`, "error");
+      }
+    }
+
+    async function refreshOverview() {
+      try {
+        const overview = await api("/api/v1/overview", { method: "GET" });
+        byId("metricWorkflows").textContent = String(overview.workflow_count || 0);
+      } catch (error) {
+        byId("metricWorkflows").textContent = "0";
+        log(`Overview refresh failed: ${error.message}`, "error");
+      }
+    }
+
+    async function refreshWorkflows() {
+      try {
+        const response = await api("/api/v1/workflows", { method: "GET" });
+        state.workflows = Array.isArray(response.items) ? response.items : [];
+        renderWorkflows();
+      } catch (error) {
+        log(`Workflow refresh failed: ${error.message}`, "error");
+      }
+    }
+
+    async function refreshRuns() {
+      try {
+        const response = await api("/api/v1/runs", { method: "GET" });
+        state.runs = Array.isArray(response.items) ? response.items : [];
+        renderRuns();
+      } catch (error) {
+        log(`Run refresh failed: ${error.message}`, "error");
+      }
+    }
+
+    async function refreshAll() {
+      await refreshHealth();
+      await refreshOverview();
+      await refreshWorkflows();
+      await refreshRuns();
+    }
+
+    async function createSampleWorkflow() {
+      const payload = {
+        name: `Web Starter ${new Date().toISOString().slice(0, 19)}`,
+        description: "Created from Web Access dashboard.",
+        status: "draft",
+        tags: ["web", "starter"],
+        graph: {
+          version: 1,
+          nodes: [
+            { id: "n1", name: "Start", type: "trigger", detail: "trigger:manual", config: {} },
+            { id: "n2", name: "Compose", type: "ai", detail: "prompt:Summarize input", config: {} },
+            { id: "n3", name: "Notify", type: "action", detail: "integration:slack_webhook", config: { integration: "slack_webhook" } }
+          ],
+          edges: [
+            { source: "n1", target: "n2", type: "next" },
+            { source: "n2", target: "n3", type: "next" }
+          ]
+        }
+      };
+      try {
+        const created = await api("/api/v1/workflows", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        log(`Workflow created: ${created.name} (${created.id})`, "info");
+        await refreshAll();
+      } catch (error) {
+        log(`Create sample failed: ${error.message}`, "error");
+      }
+    }
+
+    function latestWorkflowId() {
+      if (!state.workflows.length) return "";
+      return String(state.workflows[0].id || "");
+    }
+
+    async function startLatestWorkflow() {
+      const workflowId = latestWorkflowId();
+      if (!workflowId) {
+        log("No workflow available. Create one first.", "warn");
+        return;
+      }
+      try {
+        const run = await api("/api/v1/runs/start", {
+          method: "POST",
+          body: JSON.stringify({ workflow_id: workflowId, trigger: "manual" }),
+        });
+        log(`Run started: ${run.id} for workflow ${workflowId.slice(0, 8)}`, "info");
+        await refreshAll();
+      } catch (error) {
+        log(`Start run failed: ${error.message}`, "error");
+      }
+    }
+
+    function latestActiveRun() {
+      return state.runs.find((run) => activeStatuses.has(String(run.status || "").toLowerCase())) || null;
+    }
+
+    function latestTerminalRun() {
+      return state.runs.find((run) => terminalStatuses.has(String(run.status || "").toLowerCase())) || null;
+    }
+
+    async function cancelActiveRun() {
+      const run = latestActiveRun();
+      if (!run) {
+        log("No active run to cancel.", "warn");
+        return;
+      }
+      try {
+        const cancelled = await api(`/api/v1/runs/${run.id}/cancel`, { method: "POST" });
+        log(`Cancel requested for run ${cancelled.id}.`, "info");
+        await refreshAll();
+      } catch (error) {
+        log(`Cancel failed: ${error.message}`, "error");
+      }
+    }
+
+    async function retryLatestRun() {
+      const run = latestTerminalRun();
+      if (!run) {
+        log("No terminal run to retry.", "warn");
+        return;
+      }
+      try {
+        const retried = await api(`/api/v1/runs/${run.id}/retry`, {
+          method: "POST",
+          body: JSON.stringify({ from_failed_node: false }),
+        });
+        log(`Retry run started: ${retried.id} (from ${run.id}).`, "info");
+        await refreshAll();
+      } catch (error) {
+        log(`Retry failed: ${error.message}`, "error");
+      }
+    }
+
+    function applySettingsToForm(settings) {
+      byId("preferredProvider").value = settings.preferred_provider || "local";
+      byId("localEndpoint").value = settings.local_ai_endpoint || "";
+      byId("defaultModel").value = settings.default_local_model || "";
+      byId("theme").value = settings.theme || "dark";
+      byId("density").value = settings.ui_density || "comfortable";
+    }
+
+    async function loadSettings() {
+      try {
+        const settings = await api("/api/v1/settings", { method: "GET" });
+        applySettingsToForm(settings);
+        log("Settings loaded.", "info");
+      } catch (error) {
+        log(`Load settings failed: ${error.message}`, "error");
+      }
+    }
+
+    async function saveSettings() {
+      const payload = {
+        preferred_provider: byId("preferredProvider").value,
+        local_ai_endpoint: byId("localEndpoint").value.trim(),
+        default_local_model: byId("defaultModel").value.trim(),
+        theme: byId("theme").value,
+        ui_density: byId("density").value,
+      };
+      try {
+        const saved = await api("/api/v1/settings", {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        applySettingsToForm(saved);
+        log("Settings saved.", "info");
+      } catch (error) {
+        log(`Save settings failed: ${error.message}`, "error");
+      }
+    }
+
+    function bindEvents() {
+      byId("saveApiBase").addEventListener("click", () => {
+        const nextBase = byId("apiBase").value.trim().replace(/\/$/, "");
+        if (!nextBase) {
+          log("API base cannot be empty.", "warn");
+          return;
+        }
+        state.apiBase = nextBase;
+        localStorage.setItem("sixxprotocol_api_base", nextBase);
+        log(`API base saved: ${nextBase}`, "info");
+        refreshAll();
+      });
+
+      byId("refreshAll").addEventListener("click", refreshAll);
+      byId("createSample").addEventListener("click", createSampleWorkflow);
+      byId("startLatest").addEventListener("click", startLatestWorkflow);
+      byId("cancelActive").addEventListener("click", cancelActiveRun);
+      byId("retryLatest").addEventListener("click", retryLatestRun);
+      byId("loadSettings").addEventListener("click", loadSettings);
+      byId("saveSettings").addEventListener("click", saveSettings);
+    }
+
+    function init() {
+      byId("apiBase").value = state.apiBase;
+      bindEvents();
+      refreshAll();
+      loadSettings();
+      log("Web Access loaded.", "info");
+    }
+
+    init();
+  </script>
 </body>
 </html>

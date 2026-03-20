@@ -35,6 +35,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
       SCAFFOLD_DATA_DIR: ${SCAFFOLD_DATA_DIR:-/data/6x-protocol}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     ports:
       - "${API_PORT:-8787}:8787"
     volumes:

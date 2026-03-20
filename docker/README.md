@@ -10,7 +10,7 @@ This directory contains the scaffold for a future web/self-hosted deployment pat
 - `docker-compose.web.yml`: service topology for API, worker, web, Postgres, and Redis.
 - `.env.example`: environment variable template.
 - `api/`: FastAPI scaffold (`/healthz`, `/readyz`, `/api/v1/meta`).
-- `web/`: placeholder web shell served by Nginx.
+- `web/`: lightweight web access dashboard served by Nginx.
 
 ## Quick Start (Scaffold Mode)
 ```bash
@@ -22,7 +22,7 @@ docker compose -f docker-compose.web.yml up -d
 This builds and runs:
 - FastAPI scaffold API on `http://localhost:8787`
 - Worker scaffold process
-- Placeholder web shell on `http://localhost:3000`
+- Web access dashboard on `http://localhost:3000`
 - Postgres and Redis
 - Shared scaffold JSON data volume (`api_data`)
 
@@ -37,6 +37,16 @@ API checks:
 curl http://localhost:8787/healthz
 curl http://localhost:8787/api/v1/meta
 ```
+
+Web dashboard actions include:
+- API health + overview metrics
+- create sample workflow
+- start/cancel/retry run controls
+- live workflow/run list
+- settings load/save panel
+
+Cross-origin browser access is controlled by:
+`CORS_ALLOW_ORIGINS` (see `.env.example`).
 
 Automated smoke test from repo root:
 ```bash
@@ -84,5 +94,5 @@ Execution routing behavior:
 ## Next Implementation Steps
 1. Expand API routes for workflows, runs, integrations, and settings.
 2. Add DB migrations and auth model.
-3. Replace placeholder `web` with production frontend build/runtime.
+3. Replace scaffold `web` dashboard with full production frontend build/runtime.
 4. Add backup, logging, and observability baseline.

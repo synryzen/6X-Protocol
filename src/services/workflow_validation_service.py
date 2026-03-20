@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import re
 from typing import Dict, List, Optional
 
 from src.models.canvas_edge import CanvasEdge
@@ -87,6 +88,34 @@ class WorkflowValidationService:
         "message": ["payload", "text", "content", "approval_message"],
         "text": ["message", "payload", "content"],
         "content": ["message", "payload", "text"],
+    }
+    VALID_TRIGGER_MODES = {"manual", "schedule_interval", "webhook", "file_watch", "cron"}
+    VALID_HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
+    URL_REQUIRED_INTEGRATIONS = {
+        "http_post",
+        "http_request",
+        "slack_webhook",
+        "discord_webhook",
+        "teams_webhook",
+        "google_apps_script",
+        "google_calendar_api",
+        "outlook_graph",
+        "notion_api",
+        "airtable_api",
+        "hubspot_api",
+        "stripe_api",
+        "github_rest",
+        "gitlab_api",
+        "jira_api",
+        "asana_api",
+        "clickup_api",
+        "trello_api",
+        "monday_api",
+        "zendesk_api",
+        "pipedrive_api",
+        "salesforce_api",
+        "resend_email",
+        "mailgun_email",
     }
 
     def __init__(
@@ -213,7 +242,7 @@ class WorkflowValidationService:
         config.update(directives)
         node_name = node.name.strip() or node.id or "Unnamed"
 
-        if node_kind == "action":
+        if node_kind in {"action", "template"}:
             integration_key = str(config.get("integration", "standard")).strip().lower() or "standard"
             integration = self.integration_registry.get_integration(integration_key)
             if not integration:
@@ -239,6 +268,14 @@ class WorkflowValidationService:
                             f"Action node '{node_name}' is missing required field '{key}'.",
                             node_id=node.id,
                         )
+            self._validate_action_contract_fields(
+                node=node,
+                node_name=node_name,
+                integration_key=integration_key,
+                config=config,
+                app_settings=app_settings,
+                result=result,
+            )
 
         if node_kind == "ai":
             prompt = str(config.get("prompt", "")).strip() or node.summary.strip()
@@ -285,6 +322,204 @@ class WorkflowValidationService:
                     f"Condition node '{node_name}' has no expression. It will use default truthy behavior.",
                     node_id=node.id,
                 )
+
+        if node_kind == "trigger":
+            self._validate_trigger_contract_fields(
+                node=node,
+                node_name=node_name,
+                config=config,
+                result=result,
+            )
+
+    def _validate_action_contract_fields(
+        self,
+        *,
+        node: CanvasNode,
+        node_name: str,
+        integration_key: str,
+        config: Dict[str, str],
+        app_settings: Dict[str, str],
+        result: ValidationResult,
+    ):
+        timeout_raw = str(config.get("timeout_sec", "")).strip()
+        if timeout_raw:
+            try:
+                timeout_value = float(timeout_raw)
+                if timeout_value < 0.0:
+                    result.add_error(
+                        f"Action node '{node_name}' timeout_sec must be >= 0.",
+                        node_id=node.id,
+                    )
+                elif timeout_value > 600.0:
+                    result.add_warning(
+                        f"Action node '{node_name}' timeout_sec is very high ({timeout_value}).",
+                        node_id=node.id,
+                    )
+            except ValueError:
+                result.add_error(
+                    f"Action node '{node_name}' timeout_sec is not a number.",
+                    node_id=node.id,
+                )
+
+        retry_raw = str(config.get("retry_max", "")).strip()
+        if retry_raw:
+            try:
+                retry_value = int(retry_raw)
+                if retry_value < 0:
+                    result.add_error(
+                        f"Action node '{node_name}' retry_max must be >= 0.",
+                        node_id=node.id,
+                    )
+                elif retry_value > 8:
+                    result.add_warning(
+                        f"Action node '{node_name}' retry_max is very high ({retry_value}).",
+                        node_id=node.id,
+                    )
+            except ValueError:
+                result.add_error(
+                    f"Action node '{node_name}' retry_max must be a whole number.",
+                    node_id=node.id,
+                )
+
+        backoff_raw = str(config.get("retry_backoff_ms", "")).strip()
+        if backoff_raw:
+            try:
+                backoff_value = int(backoff_raw)
+                if backoff_value < 0:
+                    result.add_error(
+                        f"Action node '{node_name}' retry_backoff_ms must be >= 0.",
+                        node_id=node.id,
+                    )
+            except ValueError:
+                result.add_error(
+                    f"Action node '{node_name}' retry_backoff_ms must be a whole number.",
+                    node_id=node.id,
+                )
+
+        if integration_key in self.URL_REQUIRED_INTEGRATIONS:
+            url_value = self._required_field_value(
+                config,
+                "url",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if url_value and not self._looks_like_url(url_value):
+                result.add_error(
+                    f"Action node '{node_name}' has invalid URL '{url_value}'.",
+                    node_id=node.id,
+                )
+
+        if integration_key in {"http_request", "http_post"}:
+            method_value = str(config.get("method", "POST")).strip().upper()
+            if method_value and method_value not in self.VALID_HTTP_METHODS:
+                result.add_error(
+                    f"Action node '{node_name}' has invalid HTTP method '{method_value}'.",
+                    node_id=node.id,
+                )
+
+        if integration_key in {"gmail_send", "resend_email", "mailgun_email"}:
+            to_value = self._required_field_value(
+                config,
+                "to",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if to_value and not self._looks_like_email(to_value):
+                result.add_error(
+                    f"Action node '{node_name}' has invalid recipient email '{to_value}'.",
+                    node_id=node.id,
+                )
+            from_value = self._required_field_value(
+                config,
+                "from",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if from_value and from_value != "me" and not self._looks_like_email(from_value):
+                result.add_error(
+                    f"Action node '{node_name}' has invalid sender email '{from_value}'.",
+                    node_id=node.id,
+                )
+
+        if integration_key == "twilio_sms":
+            from_value = self._required_field_value(
+                config,
+                "from",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            to_value = self._required_field_value(
+                config,
+                "to",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if from_value and not self._looks_like_phone(from_value):
+                result.add_error(
+                    f"Action node '{node_name}' has invalid Twilio from number '{from_value}'.",
+                    node_id=node.id,
+                )
+            if to_value and not self._looks_like_phone(to_value):
+                result.add_error(
+                    f"Action node '{node_name}' has invalid Twilio to number '{to_value}'.",
+                    node_id=node.id,
+                )
+
+    def _validate_trigger_contract_fields(
+        self,
+        *,
+        node: CanvasNode,
+        node_name: str,
+        config: Dict[str, str],
+        result: ValidationResult,
+    ):
+        trigger_mode = str(config.get("trigger_mode", "")).strip().lower() or "manual"
+        trigger_value = str(config.get("trigger_value", "")).strip()
+
+        if trigger_mode not in self.VALID_TRIGGER_MODES:
+            result.add_error(
+                f"Trigger node '{node_name}' has unsupported trigger mode '{trigger_mode}'.",
+                node_id=node.id,
+            )
+            return
+
+        if trigger_mode == "schedule_interval":
+            if not trigger_value:
+                result.add_error(
+                    f"Trigger node '{node_name}' requires trigger_value seconds for schedule_interval.",
+                    node_id=node.id,
+                )
+            else:
+                try:
+                    interval_value = float(trigger_value)
+                    if interval_value <= 0:
+                        result.add_error(
+                            f"Trigger node '{node_name}' interval must be > 0 seconds.",
+                            node_id=node.id,
+                        )
+                except ValueError:
+                    result.add_error(
+                        f"Trigger node '{node_name}' interval '{trigger_value}' is not numeric.",
+                        node_id=node.id,
+                    )
+
+        if trigger_mode == "cron":
+            if not trigger_value:
+                result.add_error(
+                    f"Trigger node '{node_name}' requires trigger_value cron expression.",
+                    node_id=node.id,
+                )
+            elif not self._looks_like_cron(trigger_value):
+                result.add_error(
+                    f"Trigger node '{node_name}' has invalid cron expression '{trigger_value}'.",
+                    node_id=node.id,
+                )
+
+        if trigger_mode in {"webhook", "file_watch"} and not trigger_value:
+            result.add_warning(
+                f"Trigger node '{node_name}' has no trigger_value for mode '{trigger_mode}'. Default will be used.",
+                node_id=node.id,
+            )
 
     def _node_type_key(self, node_type: str) -> str:
         normalized = str(node_type).strip().lower()
@@ -463,3 +698,28 @@ class WorkflowValidationService:
         if field == "url":
             return integration_mapping.get("webhook_url", []) + integration_mapping.get("script_url", [])
         return []
+
+    def _looks_like_url(self, value: str) -> bool:
+        text = str(value).strip()
+        if not text:
+            return False
+        return text.startswith("http://") or text.startswith("https://")
+
+    def _looks_like_email(self, value: str) -> bool:
+        text = str(value).strip()
+        if not text:
+            return False
+        return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", text))
+
+    def _looks_like_phone(self, value: str) -> bool:
+        text = str(value).strip()
+        if not text:
+            return False
+        return bool(re.match(r"^\+?[0-9][0-9\-\s]{6,}$", text))
+
+    def _looks_like_cron(self, value: str) -> bool:
+        text = str(value).strip()
+        if not text:
+            return False
+        tokens = [item for item in text.split(" ") if item.strip()]
+        return len(tokens) in {5, 6}

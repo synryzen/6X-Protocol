@@ -165,6 +165,152 @@ class WorkflowValidationServiceTests(unittest.TestCase):
         result = service.validate_graph([trigger, action], edges, "Settings Fallback")
         self.assertTrue(result.ok, result.errors)
 
+    def test_http_request_invalid_url_reports_error(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="HTTP",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "http_request",
+                "url": "localhost:8080/hook",
+                "method": "POST",
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "Invalid URL")
+        self.assertFalse(result.ok)
+        self.assertTrue(any("invalid URL" in item for item in result.errors))
+
+    def test_http_request_invalid_method_reports_error(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="HTTP",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "http_request",
+                "url": "https://example.com/hook",
+                "method": "FETCH",
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "Invalid Method")
+        self.assertFalse(result.ok)
+        self.assertTrue(any("invalid HTTP method" in item for item in result.errors))
+
+    def test_trigger_schedule_requires_numeric_interval(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Interval Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "schedule_interval", "trigger_value": "abc"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="Action",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={"integration": "standard"},
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "Trigger Interval")
+        self.assertFalse(result.ok)
+        self.assertTrue(any("interval 'abc' is not numeric" in item for item in result.errors))
+
+    def test_email_integration_validates_address_format(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="Email",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "resend_email",
+                "api_key": "re_123",
+                "to": "bad-address",
+                "from": "sender@example.com",
+                "url": "https://api.resend.com/emails",
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "Bad Email")
+        self.assertFalse(result.ok)
+        self.assertTrue(any("invalid recipient email" in item for item in result.errors))
+
 
 if __name__ == "__main__":
     unittest.main()

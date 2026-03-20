@@ -6671,3 +6671,123 @@ window.app-window frame.canvas-node-link-source,
 window.app-window frame.canvas-node-link-source > border {
   box-shadow: 0 0 0 1px alpha(#66adff, 0.52), 0 10px 24px alpha(#061325, 0.34);
 }
+
+/* Premium studio v30: inline action field validation feedback */
+window.app-window .canvas-action-field-feedback {
+  font-size: 11px;
+  margin-top: 1px;
+}
+
+window.app-window .canvas-action-field-error-row {
+  border-color: alpha(#f87171, 0.55);
+  background-color: alpha(#7f1d1d, 0.12);
+}
+
+window.app-window .canvas-action-field-warning-row {
+  border-color: alpha(#fbbf24, 0.48);
+  background-color: alpha(#92400e, 0.12);
+}
+
+window.app-window .canvas-action-field-error-label {
+  color: #ffb4bd;
+}
+
+window.app-window .canvas-action-field-warning-label {
+  color: #ffd790;
+}
+
+window.app-window .canvas-action-field-feedback-error {
+  color: #ffb4bd;
+}
+
+window.app-window .canvas-action-field-feedback-warning {
+  color: #ffd790;
+}
+
+window.app-window .canvas-action-field-input-error {
+  border-color: alpha(#f87171, 0.72);
+  box-shadow: 0 0 0 1px alpha(#f87171, 0.3);
+}
+
+window.app-window .canvas-action-field-input-warning {
+  border-color: alpha(#fbbf24, 0.68);
+  box-shadow: 0 0 0 1px alpha(#fbbf24, 0.26);
+}
+
+window.app-window.theme-light .canvas-action-field-error-row {
+  background-color: alpha(#fee2e2, 0.75);
+}
+
+window.app-window.theme-light .canvas-action-field-warning-row {
+  background-color: alpha(#fef3c7, 0.78);
+}
+
+window.app-window.theme-light .canvas-action-field-error-label,
+window.app-window.theme-light .canvas-action-field-feedback-error {
+  color: #991b1b;
+}
+
+window.app-window.theme-light .canvas-action-field-warning-label,
+window.app-window.theme-light .canvas-action-field-feedback-warning {
+  color: #92400e;
+}
+
+/* Premium studio v31: trigger/condition inline validation feedback */
+window.app-window .canvas-node-field-feedback {
+  font-size: 11px;
+  margin-top: 1px;
+}
+
+window.app-window .canvas-node-field-error-row {
+  border-color: alpha(#f87171, 0.5);
+  background-color: alpha(#7f1d1d, 0.1);
+}
+
+window.app-window .canvas-node-field-warning-row {
+  border-color: alpha(#fbbf24, 0.44);
+  background-color: alpha(#92400e, 0.1);
+}
+
+window.app-window .canvas-node-field-error-label {
+  color: #ffb4bd;
+}
+
+window.app-window .canvas-node-field-warning-label {
+  color: #ffd790;
+}
+
+window.app-window .canvas-node-field-feedback-error {
+  color: #ffb4bd;
+}
+
+window.app-window .canvas-node-field-feedback-warning {
+  color: #ffd790;
+}
+
+window.app-window .canvas-node-field-input-error {
+  border-color: alpha(#f87171, 0.68);
+  box-shadow: 0 0 0 1px alpha(#f87171, 0.24);
+}
+
+window.app-window .canvas-node-field-input-warning {
+  border-color: alpha(#fbbf24, 0.62);
+  box-shadow: 0 0 0 1px alpha(#fbbf24, 0.2);
+}
+
+window.app-window.theme-light .canvas-node-field-error-row {
+  background-color: alpha(#fee2e2, 0.7);
+}
+
+window.app-window.theme-light .canvas-node-field-warning-row {
+  background-color: alpha(#fef3c7, 0.74);
+}
+
+window.app-window.theme-light .canvas-node-field-error-label,
+window.app-window.theme-light .canvas-node-field-feedback-error {
+  color: #991b1b;
+}
+
+window.app-window.theme-light .canvas-node-field-warning-label,
+window.app-window.theme-light .canvas-node-field-feedback-warning {
+  color: #92400e;
+}
