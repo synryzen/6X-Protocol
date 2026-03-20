@@ -117,6 +117,7 @@ See:
 - Run controls scaffolded: `start`, `cancel`, `retry` state transitions
 - Execution policies scaffolded: run/node timeout + retry + backoff
 - Graph-aware execution scaffolded: edge traversal + condition branch routing
+- Parallel DAG execution scaffolded: ready-node fan-out + join with skipped-branch pruning
 
 ## Package Build Commands
 Build local installer artifacts:

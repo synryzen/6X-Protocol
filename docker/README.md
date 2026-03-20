@@ -77,6 +77,9 @@ Execution routing behavior:
 - Graph-aware traversal executes from start nodes using `graph.edges` (and legacy `graph.links`).
 - Condition nodes route by edge condition (`true`/`false`) with `next` fallback.
 - Retry-from-failed-node (`from_failed_node: true`) starts from the previously failed node and follows downstream edges.
+- Parallel branch execution is enabled for independent ready nodes.
+- Join semantics wait for all active inbound paths; pruned branches are marked `skipped`.
+- Optional graph setting: `graph.settings.max_parallel` (1-8, default 2).
 
 ## Next Implementation Steps
 1. Expand API routes for workflows, runs, integrations, and settings.

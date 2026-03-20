@@ -123,6 +123,91 @@ class DockerRunControllerTests(unittest.TestCase):
         self.assertEqual("success", completed.get("status"))
         self.assertEqual(["n2", "n3"], self._success_node_order(completed))
 
+    def test_parallel_branches_join_before_merge_node(self):
+        workflow = {
+            "id": "wf_join",
+            "name": "Join Flow",
+            "graph": {
+                "settings": {"max_parallel": 3},
+                "nodes": [
+                    {"id": "s1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {"id": "b1", "name": "Branch A", "type": "action", "config": {"simulate_delay_ms": 80}},
+                    {"id": "b2", "name": "Branch B", "type": "action", "config": {"simulate_delay_ms": 80}},
+                    {"id": "j1", "name": "Join", "type": "action", "config": {"simulate_delay_ms": 0}},
+                ],
+                "edges": [
+                    {"source": "s1", "target": "b1", "type": "next"},
+                    {"source": "s1", "target": "b2", "type": "next"},
+                    {"source": "b1", "target": "j1", "type": "next"},
+                    {"source": "b2", "target": "j1", "type": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+
+        node_results = completed.get("node_results", [])
+        success_indices = {}
+        join_running_index = None
+        for idx, event in enumerate(node_results):
+            node_id = str(event.get("node_id", "")).strip()
+            status = str(event.get("status", "")).strip().lower()
+            if status == "success" and node_id in {"b1", "b2"}:
+                success_indices[node_id] = idx
+            if status == "running" and node_id == "j1":
+                join_running_index = idx
+
+        self.assertIn("b1", success_indices)
+        self.assertIn("b2", success_indices)
+        self.assertIsNotNone(join_running_index)
+        self.assertGreater(join_running_index, success_indices["b1"])
+        self.assertGreater(join_running_index, success_indices["b2"])
+
+    def test_condition_pruned_branch_does_not_block_join(self):
+        workflow = {
+            "id": "wf_pruned_join",
+            "name": "Pruned Join Flow",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Trigger", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "c1",
+                        "name": "Condition",
+                        "type": "condition",
+                        "config": {"expression": "always_false", "simulate_delay_ms": 0},
+                    },
+                    {"id": "a1", "name": "True Path", "type": "action", "config": {"simulate_delay_ms": 0}},
+                    {"id": "a2", "name": "False Path", "type": "action", "config": {"simulate_delay_ms": 0}},
+                    {"id": "j1", "name": "Merge", "type": "action", "config": {"simulate_delay_ms": 0}},
+                ],
+                "edges": [
+                    {"source": "t1", "target": "c1", "type": "next"},
+                    {"source": "c1", "target": "a1", "type": "true"},
+                    {"source": "c1", "target": "a2", "type": "false"},
+                    {"source": "a1", "target": "j1", "type": "next"},
+                    {"source": "a2", "target": "j1", "type": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+
+        successful = self._success_node_order(completed)
+        self.assertIn("a2", successful)
+        self.assertIn("j1", successful)
+        self.assertNotIn("a1", successful)
+
+        skipped_nodes = {
+            str(event.get("node_id", "")).strip()
+            for event in completed.get("node_results", [])
+            if str(event.get("status", "")).strip().lower() == "skipped"
+        }
+        self.assertIn("a1", skipped_nodes)
+
 
 if __name__ == "__main__":
     unittest.main()

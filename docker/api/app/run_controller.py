@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import threading
 import time
 import uuid
@@ -159,12 +160,6 @@ class RunController:
         start_node_id: str,
         run_defaults: dict[str, float | int],
     ) -> None:
-        context: dict[str, Any] = {
-            "last_output": "",
-            "last_condition": None,
-            "node_attempts": {},
-        }
-
         try:
             plan = self._resolve_execution_plan(workflow, start_node_id)
             if isinstance(plan, str):
@@ -175,68 +170,190 @@ class RunController:
                     last_failed_node_name="Replay",
                 )
                 return
-            nodes, node_map, outgoing_map, queued_node_ids = plan
+            nodes, node_map, outgoing_map, start_node_ids, edges, node_order = plan
 
             if not nodes:
                 self._mark_success(run_id, "Run completed with no nodes.")
                 return
 
-            queued = set(queued_node_ids)
-            executed: set[str] = set()
+            graph = workflow.get("graph", {}) if isinstance(workflow.get("graph"), dict) else {}
+            graph_settings = graph.get("settings", {}) if isinstance(graph.get("settings"), dict) else {}
+            max_parallel = self._safe_int(
+                graph_settings.get("max_parallel", graph_settings.get("concurrency", 2)),
+                2,
+            )
+            max_parallel = max(1, min(8, max_parallel))
 
-            while queued_node_ids:
-                if cancel_event.is_set():
-                    self._mark_cancelled(run_id, "Run cancelled by user.")
+            node_index = {node_id: idx for idx, node_id in enumerate(node_order)}
+            incoming_total = self._build_incoming_count(node_map, edges)
+            remaining_dependencies = dict(incoming_total)
+            activated_inputs = {node_id: 0 for node_id in node_map}
+            incoming_payloads = {node_id: [] for node_id in node_map}
+            node_state = {node_id: "pending" for node_id in node_map}
+            ready_queue: list[str] = []
+
+            def queue_node(node_id: str) -> None:
+                if node_state.get(node_id) != "pending":
                     return
+                node_state[node_id] = "queued"
+                ready_queue.append(node_id)
+                ready_queue.sort(key=lambda item: node_index.get(item, 10_000))
 
-                node_id = queued_node_ids.pop(0)
-                queued.discard(node_id)
-                if node_id in executed:
-                    continue
+            def prune_node(node_id: str) -> None:
+                state = node_state.get(node_id)
+                if state not in {"pending", "queued"}:
+                    return
+                node_state[node_id] = "pruned"
                 node = node_map.get(node_id)
-                if not node:
-                    continue
-
-                node_id = str(node.get("id", "")).strip()
-                node_name = str(node.get("name", "Node")).strip() or "Node"
-                policy = self._resolve_node_policy(node, run_defaults)
-
-                success, failed_message = self._execute_node_with_retries(
+                node_name = str(node.get("name", "Node")).strip() if node else "Node"
+                self._append_node_event(
                     run_id,
-                    node,
-                    policy,
-                    context,
-                    cancel_event,
+                    {
+                        "timestamp": utc_now_iso(),
+                        "node_id": node_id,
+                        "node_name": node_name,
+                        "status": "skipped",
+                        "message": "Node skipped because branch was not selected.",
+                        "attempt": "0",
+                        "duration_ms": "0",
+                    },
+                    log_line=f"Node skipped: {node_name}",
                 )
-                if not success:
-                    self._mark_failed(
-                        run_id,
-                        failed_message,
-                        last_failed_node_id=node_id,
-                        last_failed_node_name=node_name,
-                    )
-                    return
-
-                executed.add(node_id)
-                next_node_ids, branch_log = self._determine_next_node_ids(node, outgoing_map, context)
-                if branch_log:
-                    self._append_log_line(run_id, branch_log)
-
-                for next_node_id in next_node_ids:
-                    if next_node_id in executed or next_node_id in queued:
+                for edge in outgoing_map.get(node_id, []):
+                    target_id = str(edge.get("target_node_id", "")).strip()
+                    if target_id not in remaining_dependencies:
                         continue
-                    if next_node_id not in node_map:
-                        self._mark_failed(
-                            run_id,
-                            f"Graph contains unknown edge target '{next_node_id}'.",
-                            last_failed_node_id=node_id,
-                            last_failed_node_name=node_name,
-                        )
-                        return
-                    queued_node_ids.append(next_node_id)
-                    queued.add(next_node_id)
+                    if remaining_dependencies[target_id] > 0:
+                        remaining_dependencies[target_id] -= 1
+                    schedule_or_prune(target_id)
 
-            self._mark_success(run_id, "Run completed successfully.")
+            def schedule_or_prune(node_id: str) -> None:
+                if node_state.get(node_id) != "pending":
+                    return
+                if remaining_dependencies.get(node_id, 0) > 0:
+                    return
+                has_input = activated_inputs.get(node_id, 0) > 0
+                is_root = incoming_total.get(node_id, 0) == 0
+                if node_id in start_node_ids or is_root or has_input:
+                    queue_node(node_id)
+                else:
+                    prune_node(node_id)
+
+            for node_id in node_order:
+                schedule_or_prune(node_id)
+
+            active_futures: dict[concurrent.futures.Future[tuple[bool, str]], tuple[str, dict[str, Any]]] = {}
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_parallel) as pool:
+                while ready_queue or active_futures:
+                    if cancel_event.is_set():
+                        self._mark_cancelled(run_id, "Run cancelled by user.")
+                        return
+
+                    while ready_queue and len(active_futures) < max_parallel:
+                        node_id = ready_queue.pop(0)
+                        if node_state.get(node_id) != "queued":
+                            continue
+                        node = node_map.get(node_id)
+                        if not node:
+                            node_state[node_id] = "pruned"
+                            continue
+                        node_state[node_id] = "running"
+                        payloads = [
+                            str(item).strip()
+                            for item in incoming_payloads.get(node_id, [])
+                            if str(item).strip()
+                        ]
+                        last_output = "\n".join(payloads).strip()
+                        node_context: dict[str, Any] = {
+                            "last_output": last_output,
+                            "last_condition": None,
+                            "node_attempts": {},
+                        }
+                        policy = self._resolve_node_policy(node, run_defaults)
+                        future = pool.submit(
+                            self._execute_node_with_retries,
+                            run_id,
+                            node,
+                            policy,
+                            node_context,
+                            cancel_event,
+                        )
+                        active_futures[future] = (node_id, node_context)
+
+                    if not active_futures:
+                        continue
+
+                    completed, _ = concurrent.futures.wait(
+                        list(active_futures.keys()),
+                        timeout=0.1,
+                        return_when=concurrent.futures.FIRST_COMPLETED,
+                    )
+                    if not completed:
+                        continue
+
+                    for future in completed:
+                        node_id, node_context = active_futures.pop(future)
+                        node = node_map.get(node_id)
+                        node_name = str(node.get("name", "Node")).strip() if node else "Node"
+                        try:
+                            success, failed_message = future.result()
+                        except RunCancelledError:
+                            self._mark_cancelled(run_id, "Run cancelled by user.")
+                            return
+                        except Exception as error:  # pragma: no cover - defensive safety
+                            success = False
+                            failed_message = str(error)
+
+                        if not success:
+                            node_state[node_id] = "failed"
+                            cancel_event.set()
+                            self._mark_failed(
+                                run_id,
+                                failed_message,
+                                last_failed_node_id=node_id,
+                                last_failed_node_name=node_name,
+                            )
+                            return
+
+                        node_state[node_id] = "completed"
+                        output = str(node_context.get("last_output", "")).strip()
+                        next_node_ids, branch_log = self._determine_next_node_ids(
+                            node or {},
+                            outgoing_map,
+                            node_context,
+                        )
+                        if branch_log:
+                            self._append_log_line(run_id, branch_log)
+                        selected_targets = set(next_node_ids)
+
+                        for edge in outgoing_map.get(node_id, []):
+                            target_id = str(edge.get("target_node_id", "")).strip()
+                            if target_id not in remaining_dependencies:
+                                continue
+                            if remaining_dependencies[target_id] > 0:
+                                remaining_dependencies[target_id] -= 1
+                            if target_id in selected_targets:
+                                activated_inputs[target_id] = activated_inputs.get(target_id, 0) + 1
+                                if output:
+                                    incoming_payloads.setdefault(target_id, []).append(output)
+                            schedule_or_prune(target_id)
+
+            pending = [node_id for node_id, state in node_state.items() if state in {"pending", "queued", "running"}]
+            if pending:
+                blocked = ", ".join(pending[:5])
+                suffix = "..." if len(pending) > 5 else ""
+                self._mark_failed(
+                    run_id,
+                    f"Run blocked by unresolved dependencies: {blocked}{suffix}",
+                )
+                return
+
+            skipped_count = len([1 for state in node_state.values() if state == "pruned"])
+            if skipped_count > 0:
+                self._mark_success(run_id, f"Run completed successfully ({skipped_count} node(s) skipped).")
+            else:
+                self._mark_success(run_id, "Run completed successfully.")
         except RunCancelledError:
             self._mark_cancelled(run_id, "Run cancelled by user.")
         finally:
@@ -480,7 +597,7 @@ class RunController:
         plan = self._resolve_execution_plan(workflow, start_node_id)
         if isinstance(plan, str):
             return plan
-        nodes, _node_map, _outgoing_map, queue = plan
+        nodes, _node_map, _outgoing_map, queue, _edges, _node_order = plan
         if not start_node_id:
             return nodes
         node_lookup = {
@@ -499,17 +616,25 @@ class RunController:
         self,
         workflow: dict[str, Any],
         start_node_id: str,
-    ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], dict[str, list[dict[str, str]]], list[str]] | str:
+    ) -> tuple[
+        list[dict[str, Any]],
+        dict[str, dict[str, Any]],
+        dict[str, list[dict[str, str]]],
+        list[str],
+        list[dict[str, str]],
+        list[str],
+    ] | str:
         graph = workflow.get("graph", {}) if isinstance(workflow.get("graph"), dict) else {}
         raw_nodes = graph.get("nodes", []) if isinstance(graph.get("nodes"), list) else []
         nodes: list[dict[str, Any]] = [item for item in raw_nodes if isinstance(item, dict)]
-        node_map = {
+        full_node_map = {
             str(node.get("id", "")).strip(): node
             for node in nodes
             if str(node.get("id", "")).strip()
         }
-        if not node_map:
-            return nodes, {}, {}, []
+        node_order_full = [str(node.get("id", "")).strip() for node in nodes if str(node.get("id", "")).strip()]
+        if not full_node_map:
+            return nodes, {}, {}, [], [], []
 
         raw_edges = graph.get("edges", [])
         if not isinstance(raw_edges, list):
@@ -554,22 +679,88 @@ class RunController:
                 }
             )
 
-        node_order = list(node_map)
-        outgoing_map = self._build_outgoing_map(edges)
+        outgoing_map_full = self._build_outgoing_map(edges)
+        synthetic_chain_edges: list[dict[str, str]] = []
 
+        planned_node_ids: set[str]
         if start_node_id:
-            if start_node_id not in node_map:
+            if start_node_id not in full_node_map:
                 return f"Replay start node '{start_node_id}' was not found."
-            return nodes, node_map, outgoing_map, [start_node_id]
+            if edges:
+                planned_node_ids = set()
+                stack = [start_node_id]
+                while stack:
+                    current = stack.pop()
+                    if current in planned_node_ids:
+                        continue
+                    if current not in full_node_map:
+                        continue
+                    planned_node_ids.add(current)
+                    for edge in outgoing_map_full.get(current, []):
+                        target = str(edge.get("target_node_id", "")).strip()
+                        if target and target not in planned_node_ids:
+                            stack.append(target)
+            else:
+                start_index = node_order_full.index(start_node_id)
+                planned_tail = node_order_full[start_index:]
+                planned_node_ids = set(planned_tail)
+                synthetic_chain_edges = [
+                    {
+                        "source_node_id": planned_tail[index],
+                        "target_node_id": planned_tail[index + 1],
+                        "condition": "next",
+                    }
+                    for index in range(len(planned_tail) - 1)
+                ]
+        else:
+            planned_node_ids = set(node_order_full)
+            if not edges:
+                synthetic_chain_edges = [
+                    {
+                        "source_node_id": node_order_full[index],
+                        "target_node_id": node_order_full[index + 1],
+                        "condition": "next",
+                    }
+                    for index in range(len(node_order_full) - 1)
+                ]
 
-        if not edges:
-            return nodes, node_map, outgoing_map, node_order
+        filtered_nodes = [
+            node
+            for node in nodes
+            if str(node.get("id", "")).strip() in planned_node_ids
+        ]
+        node_map = {
+            str(node.get("id", "")).strip(): node
+            for node in filtered_nodes
+            if str(node.get("id", "")).strip()
+        }
+        node_order = [
+            node_id
+            for node_id in node_order_full
+            if node_id in node_map
+        ]
+        candidate_edges = edges if edges else synthetic_chain_edges
+        filtered_edges = [
+            edge
+            for edge in candidate_edges
+            if edge.get("source_node_id", "") in node_map and edge.get("target_node_id", "") in node_map
+        ]
+        outgoing_map = self._build_outgoing_map(filtered_edges)
 
-        incoming_count = self._build_incoming_count(node_map, edges)
+        if not filtered_edges:
+            if start_node_id:
+                start_nodes = [start_node_id] if start_node_id in node_map else []
+            else:
+                start_nodes = list(node_order)
+            return filtered_nodes, node_map, outgoing_map, start_nodes, filtered_edges, node_order
+
+        incoming_count = self._build_incoming_count(node_map, filtered_edges)
         start_nodes = [node_id for node_id in node_order if incoming_count.get(node_id, 0) == 0]
+        if start_node_id and start_node_id in node_map:
+            start_nodes = [start_node_id]
         if not start_nodes and node_order:
             start_nodes = [node_order[0]]
-        return nodes, node_map, outgoing_map, start_nodes
+        return filtered_nodes, node_map, outgoing_map, start_nodes, filtered_edges, node_order
 
     def _determine_next_node_ids(
         self,
