@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 import concurrent.futures
+import base64
+import json
+import os
+import shlex
+import sqlite3
+import subprocess
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 import uuid
 from typing import Any
 
@@ -28,6 +37,50 @@ class RunCancelledError(RuntimeError):
 
 
 class RunController:
+    ACTION_FAST_INTEGRATIONS = {
+        "slack_webhook",
+        "discord_webhook",
+        "teams_webhook",
+        "telegram_bot",
+        "twilio_sms",
+        "openweather_current",
+    }
+    ACTION_STANDARD_INTEGRATIONS = {
+        "http_post",
+        "http_request",
+        "google_apps_script",
+        "google_sheets",
+        "google_calendar_api",
+        "outlook_graph",
+        "notion_api",
+        "airtable_api",
+        "hubspot_api",
+        "stripe_api",
+        "github_rest",
+        "gitlab_api",
+        "linear_api",
+        "jira_api",
+        "asana_api",
+        "clickup_api",
+        "trello_api",
+        "monday_api",
+        "zendesk_api",
+        "pipedrive_api",
+        "salesforce_api",
+        "gmail_send",
+        "resend_email",
+        "mailgun_email",
+    }
+    ACTION_HEAVY_INTEGRATIONS = {
+        "shell_command",
+        "file_append",
+        "postgres_sql",
+        "mysql_sql",
+        "sqlite_sql",
+        "redis_command",
+        "s3_cli",
+    }
+
     def __init__(self, store: JsonStore) -> None:
         self.store = store
         self._lock = threading.RLock()
@@ -524,36 +577,794 @@ class RunController:
         # action + template + fallback path
         integration = str(
             config.get("integration", config.get("action_type", metadata.get("integration", "standard")))
-        ).strip() or "standard"
-        action_text = str(config.get("message", config.get("detail", ""))).strip()
-        output = f"integration:{integration}"
-        if action_text:
-            output = f"{output} | {action_text[:80]}"
+        ).strip().lower() or "standard"
+        detail_message, output = self._execute_action_integration(
+            integration=integration,
+            config=config,
+            context=context,
+            timeout_sec=timeout_sec,
+        )
         context["last_output"] = output
-        return f"Action executed via '{integration}'.", output
+        return detail_message, output
+
+    def _execute_action_integration(
+        self,
+        *,
+        integration: str,
+        config: dict[str, Any],
+        context: dict[str, Any],
+        timeout_sec: float,
+    ) -> tuple[str, str]:
+        normalized = integration.strip().lower() or "standard"
+        output_text = str(
+            config.get("message", config.get("detail", context.get("last_output", "")))
+        ).strip()
+        timeout_value = self._http_timeout(timeout_sec, config)
+
+        if normalized in {"http_request", "http_post"}:
+            method = str(config.get("method", "POST" if normalized == "http_post" else "GET")).strip().upper()
+            url = self._pick_url(config)
+            if not url:
+                raise NodeExecutionError(f"Integration '{normalized}' requires a URL.")
+            headers = self._headers_from_config(config)
+            api_key = str(config.get("api_key", config.get("token", ""))).strip()
+            if api_key and "authorization" not in {key.lower() for key in headers}:
+                headers["Authorization"] = f"Bearer {api_key}"
+            payload = str(config.get("payload", output_text)).strip()
+            body = None
+            if method in {"POST", "PUT", "PATCH", "DELETE"}:
+                body, content_type = self._payload_bytes(payload)
+                headers.setdefault("Content-Type", content_type)
+            status, response_text = self._http_request(
+                url=url,
+                method=method,
+                headers=headers,
+                body=body,
+                timeout_sec=timeout_value,
+            )
+            preview = self._truncate_text(response_text, 120)
+            return (
+                f"Action executed via '{normalized}' ({method} {status}).",
+                f"integration:{normalized} | status:{status} | {preview}",
+            )
+
+        if normalized in {"slack_webhook", "teams_webhook", "discord_webhook"}:
+            url = self._pick_url(config)
+            if not url:
+                raise NodeExecutionError(f"Integration '{normalized}' requires a webhook URL.")
+            text = output_text or "Workflow action executed."
+            payload_obj: dict[str, Any]
+            if normalized == "discord_webhook":
+                payload_obj = {"content": text}
+            else:
+                payload_obj = {"text": text}
+            body = json.dumps(payload_obj).encode("utf-8")
+            status, response_text = self._http_request(
+                url=url,
+                method="POST",
+                headers={"Content-Type": "application/json"},
+                body=body,
+                timeout_sec=timeout_value,
+            )
+            preview = self._truncate_text(response_text, 100)
+            return (
+                f"Webhook '{normalized}' delivered ({status}).",
+                f"integration:{normalized} | status:{status} | {preview}",
+            )
+
+        if normalized == "telegram_bot":
+            url = self._pick_url(config)
+            text = output_text or "Workflow action executed."
+            if not url:
+                bot_token = str(config.get("bot_token", "")).strip()
+                chat_id = str(config.get("chat_id", "")).strip()
+                if not bot_token or not chat_id:
+                    raise NodeExecutionError(
+                        "Integration 'telegram_bot' requires url or both bot_token and chat_id."
+                    )
+                url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                payload_obj = {"chat_id": chat_id, "text": text}
+            else:
+                payload_obj = {"text": text}
+            body = json.dumps(payload_obj).encode("utf-8")
+            status, response_text = self._http_request(
+                url=url,
+                method="POST",
+                headers={"Content-Type": "application/json"},
+                body=body,
+                timeout_sec=timeout_value,
+            )
+            preview = self._truncate_text(response_text, 100)
+            return (
+                f"Telegram message sent ({status}).",
+                f"integration:{normalized} | status:{status} | {preview}",
+            )
+
+        if normalized == "openweather_current":
+            api_key = str(config.get("api_key", "")).strip()
+            location = str(config.get("location", config.get("city", ""))).strip()
+            units = str(config.get("units", "metric")).strip() or "metric"
+            if not api_key or not location:
+                raise NodeExecutionError(
+                    "Integration 'openweather_current' requires api_key and location."
+                )
+            query = urllib.parse.urlencode(
+                {
+                    "q": location,
+                    "appid": api_key,
+                    "units": units,
+                }
+            )
+            url = f"https://api.openweathermap.org/data/2.5/weather?{query}"
+            status, response_text = self._http_request(
+                url=url,
+                method="GET",
+                headers={},
+                body=None,
+                timeout_sec=timeout_value,
+            )
+            description = ""
+            temperature = ""
+            try:
+                payload_obj = json.loads(response_text)
+                weather = payload_obj.get("weather", [])
+                if isinstance(weather, list) and weather and isinstance(weather[0], dict):
+                    description = str(weather[0].get("description", "")).strip()
+                main = payload_obj.get("main", {})
+                if isinstance(main, dict):
+                    temp = main.get("temp")
+                    if temp is not None:
+                        temperature = str(temp).strip()
+            except Exception:
+                pass
+            weather_summary = ", ".join(
+                [item for item in [temperature and f"{temperature}°", description] if item]
+            ).strip(", ")
+            preview = weather_summary or self._truncate_text(response_text, 96)
+            return (
+                f"OpenWeather query completed ({status}).",
+                f"integration:{normalized} | location:{location} | {preview}",
+            )
+
+        if normalized in {
+            "google_apps_script",
+            "google_sheets",
+            "google_calendar_api",
+            "outlook_graph",
+            "notion_api",
+            "airtable_api",
+            "hubspot_api",
+            "stripe_api",
+            "github_rest",
+            "gitlab_api",
+            "linear_api",
+            "jira_api",
+            "asana_api",
+            "clickup_api",
+            "trello_api",
+            "monday_api",
+            "zendesk_api",
+            "pipedrive_api",
+            "salesforce_api",
+        }:
+            url = self._pick_url(config) or self._default_api_endpoint(normalized)
+            if not url:
+                raise NodeExecutionError(f"Integration '{normalized}' requires a URL.")
+            method = str(
+                config.get("method", self._default_api_method(normalized))
+            ).strip().upper() or "POST"
+            headers = self._headers_from_config(config)
+            api_key = str(config.get("api_key", config.get("token", ""))).strip()
+            if api_key and "authorization" not in {key.lower() for key in headers}:
+                headers["Authorization"] = f"Bearer {api_key}"
+            if normalized == "notion_api":
+                headers.setdefault("Notion-Version", "2022-06-28")
+
+            body = None
+            payload = str(config.get("payload", output_text)).strip()
+            if method in {"POST", "PUT", "PATCH", "DELETE"} or payload:
+                body, content_type = self._payload_bytes(payload)
+                headers.setdefault("Content-Type", content_type)
+            status, response_text = self._http_request(
+                url=url,
+                method=method,
+                headers=headers,
+                body=body,
+                timeout_sec=timeout_value,
+            )
+            preview = self._truncate_text(response_text, 120)
+            return (
+                f"Integration '{normalized}' request completed ({status}).",
+                f"integration:{normalized} | status:{status} | {preview}",
+            )
+
+        if normalized == "twilio_sms":
+            account_sid = str(config.get("account_sid", "")).strip()
+            auth_token = str(config.get("auth_token", "")).strip()
+            from_number = str(config.get("from", "")).strip()
+            to_number = str(config.get("to", "")).strip()
+            message = str(config.get("message", output_text or "Workflow action executed.")).strip()
+            if not account_sid or not auth_token or not from_number or not to_number:
+                raise NodeExecutionError(
+                    "Integration 'twilio_sms' requires account_sid, auth_token, from, and to."
+                )
+            url = self._pick_url(config) or (
+                f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
+            )
+            token_bytes = f"{account_sid}:{auth_token}".encode("utf-8")
+            basic_auth = base64.b64encode(token_bytes).decode("ascii")
+            payload_obj = urllib.parse.urlencode(
+                {"From": from_number, "To": to_number, "Body": message}
+            ).encode("utf-8")
+            status, response_text = self._http_request(
+                url=url,
+                method="POST",
+                headers={
+                    "Authorization": f"Basic {basic_auth}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body=payload_obj,
+                timeout_sec=timeout_value,
+            )
+            preview = self._truncate_text(response_text, 100)
+            return (
+                f"Twilio SMS request completed ({status}).",
+                f"integration:{normalized} | status:{status} | {preview}",
+            )
+
+        if normalized == "gmail_send":
+            api_key = str(config.get("api_key", "")).strip()
+            to_value = str(config.get("to", "")).strip()
+            from_value = str(config.get("from", config.get("sender", ""))).strip()
+            subject_value = str(config.get("subject", "6X-Protocol Notification")).strip()
+            message = str(config.get("message", output_text or "Workflow action executed.")).strip()
+            if not api_key or not to_value:
+                raise NodeExecutionError("Integration 'gmail_send' requires api_key and to.")
+            if not from_value:
+                from_value = "me"
+            raw_message = (
+                f"From: {from_value}\r\n"
+                f"To: {to_value}\r\n"
+                f"Subject: {subject_value}\r\n\r\n"
+                f"{message}"
+            )
+            encoded_raw = base64.urlsafe_b64encode(raw_message.encode("utf-8")).decode("ascii")
+            url = self._pick_url(config) or "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+            body = json.dumps({"raw": encoded_raw}).encode("utf-8")
+            status, response_text = self._http_request(
+                url=url,
+                method="POST",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                body=body,
+                timeout_sec=timeout_value,
+            )
+            preview = self._truncate_text(response_text, 100)
+            return (
+                f"Gmail send completed ({status}).",
+                f"integration:{normalized} | status:{status} | {preview}",
+            )
+
+        if normalized == "resend_email":
+            api_key = str(config.get("api_key", "")).strip()
+            to_value = str(config.get("to", "")).strip()
+            from_value = str(config.get("from", "")).strip()
+            subject_value = str(config.get("subject", "6X-Protocol Notification")).strip()
+            message = str(config.get("message", output_text or "Workflow action executed.")).strip()
+            if not api_key or not to_value or not from_value:
+                raise NodeExecutionError("Integration 'resend_email' requires api_key, to, and from.")
+            url = self._pick_url(config) or "https://api.resend.com/emails"
+            body = json.dumps(
+                {"from": from_value, "to": [to_value], "subject": subject_value, "text": message}
+            ).encode("utf-8")
+            status, response_text = self._http_request(
+                url=url,
+                method="POST",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                body=body,
+                timeout_sec=timeout_value,
+            )
+            preview = self._truncate_text(response_text, 100)
+            return (
+                f"Resend email request completed ({status}).",
+                f"integration:{normalized} | status:{status} | {preview}",
+            )
+
+        if normalized == "mailgun_email":
+            api_key = str(config.get("api_key", "")).strip()
+            domain = str(config.get("domain", "")).strip()
+            to_value = str(config.get("to", "")).strip()
+            from_value = str(config.get("from", "")).strip()
+            subject_value = str(config.get("subject", "6X-Protocol Notification")).strip()
+            message = str(config.get("message", output_text or "Workflow action executed.")).strip()
+            if not api_key or not domain or not to_value or not from_value:
+                raise NodeExecutionError(
+                    "Integration 'mailgun_email' requires api_key, domain, to, and from."
+                )
+            url = self._pick_url(config) or f"https://api.mailgun.net/v3/{domain}/messages"
+            token_bytes = f"api:{api_key}".encode("utf-8")
+            basic_auth = base64.b64encode(token_bytes).decode("ascii")
+            body = urllib.parse.urlencode(
+                {
+                    "from": from_value,
+                    "to": to_value,
+                    "subject": subject_value,
+                    "text": message,
+                }
+            ).encode("utf-8")
+            status, response_text = self._http_request(
+                url=url,
+                method="POST",
+                headers={
+                    "Authorization": f"Basic {basic_auth}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body=body,
+                timeout_sec=timeout_value,
+            )
+            preview = self._truncate_text(response_text, 100)
+            return (
+                f"Mailgun email request completed ({status}).",
+                f"integration:{normalized} | status:{status} | {preview}",
+            )
+
+        if normalized == "shell_command":
+            command = str(config.get("command", "")).strip()
+            if not command:
+                raise NodeExecutionError("Integration 'shell_command' requires command.")
+            command_timeout = self._command_timeout(timeout_value, config)
+            try:
+                completed = subprocess.run(
+                    command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=command_timeout,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired as error:
+                raise NodeTimeoutError(f"Shell command timed out after {command_timeout:.2f}s") from error
+            except Exception as error:
+                raise NodeExecutionError(f"Shell command failed to start: {error}") from error
+
+            stdout = str(completed.stdout or "").strip()
+            stderr = str(completed.stderr or "").strip()
+            if completed.returncode != 0:
+                detail = self._truncate_text(stderr or stdout or "command failed", 180)
+                raise NodeExecutionError(
+                    f"Shell command exited with code {completed.returncode}: {detail}"
+                )
+            preview = self._truncate_text(stdout or stderr or "(no output)", 140)
+            return (
+                "Shell command completed.",
+                f"integration:{normalized} | exit:0 | {preview}",
+            )
+
+        if normalized == "file_append":
+            path = str(config.get("path", "")).strip() or "/tmp/6x-workflow.log"
+            message = str(
+                config.get(
+                    "message",
+                    config.get("payload", output_text or context.get("last_output", "")),
+                )
+            ).strip()
+            if not message:
+                message = "Workflow action executed."
+            try:
+                directory = os.path.dirname(path)
+                if directory:
+                    os.makedirs(directory, exist_ok=True)
+                with open(path, "a", encoding="utf-8") as handle:
+                    handle.write(f"{message}\n")
+            except Exception as error:
+                raise NodeExecutionError(f"File append failed for {path}: {error}") from error
+            return (
+                f"File append completed ({path}).",
+                f"integration:{normalized} | path:{path} | {self._truncate_text(message, 96)}",
+            )
+
+        if normalized == "sqlite_sql":
+            payload_data = self._as_mapping(config.get("payload", ""))
+            db_path = str(
+                config.get("path", payload_data.get("path", payload_data.get("db_path", "")))
+            ).strip()
+            sql = str(
+                config.get("sql", payload_data.get("sql", payload_data.get("query", "")))
+            ).strip()
+            if not db_path or not sql:
+                raise NodeExecutionError(
+                    "Integration 'sqlite_sql' requires path and sql (or payload JSON with both)."
+                )
+            command_timeout = self._command_timeout(timeout_value, config)
+            started = time.monotonic()
+            try:
+                directory = os.path.dirname(db_path)
+                if directory:
+                    os.makedirs(directory, exist_ok=True)
+                with sqlite3.connect(db_path) as connection:
+                    cursor = connection.cursor()
+                    cursor.execute(sql)
+                    lowered = sql.lstrip().lower()
+                    if lowered.startswith("select") or lowered.startswith("pragma"):
+                        rows = cursor.fetchall()
+                        serialized_rows = json.dumps(rows[:25], ensure_ascii=False)
+                        preview = self._truncate_text(serialized_rows, 160)
+                        return (
+                            f"SQLite query completed ({len(rows)} row(s)).",
+                            (
+                                f"integration:{normalized} | path:{db_path} | rows:{len(rows)} "
+                                f"| {preview}"
+                            ),
+                        )
+                    connection.commit()
+                    affected = int(cursor.rowcount if cursor.rowcount is not None else 0)
+                    return (
+                        f"SQLite statement completed ({affected} row(s) affected).",
+                        f"integration:{normalized} | path:{db_path} | affected:{affected}",
+                    )
+            except sqlite3.Error as error:
+                raise NodeExecutionError(f"SQLite execution failed: {error}") from error
+            finally:
+                elapsed = time.monotonic() - started
+                if command_timeout > 0 and elapsed > command_timeout:
+                    raise NodeTimeoutError(f"SQLite query timed out after {command_timeout:.2f}s")
+
+        if normalized == "postgres_sql":
+            payload_data = self._as_mapping(config.get("payload", ""))
+            connection_url = str(
+                config.get(
+                    "connection_url",
+                    config.get("url", payload_data.get("connection_url", payload_data.get("url", ""))),
+                )
+            ).strip()
+            sql = str(config.get("sql", payload_data.get("sql", payload_data.get("query", "")))).strip()
+            if not connection_url or not sql:
+                raise NodeExecutionError(
+                    "Integration 'postgres_sql' requires connection_url and sql "
+                    "(or payload JSON with both)."
+                )
+            command_timeout = self._command_timeout(timeout_value, config)
+            args = ["psql", connection_url, "-t", "-A", "-c", sql]
+            stdout = self._run_command(args, timeout_sec=command_timeout, integration=normalized)
+            preview = self._truncate_text(stdout or "(no output)", 160)
+            return (
+                "Postgres query completed.",
+                f"integration:{normalized} | {preview}",
+            )
+
+        if normalized == "mysql_sql":
+            payload_data = self._as_mapping(config.get("payload", ""))
+            connection_url = str(
+                config.get(
+                    "connection_url",
+                    config.get("url", payload_data.get("connection_url", payload_data.get("url", ""))),
+                )
+            ).strip()
+            sql = str(config.get("sql", payload_data.get("sql", payload_data.get("query", "")))).strip()
+            if not connection_url or not sql:
+                raise NodeExecutionError(
+                    "Integration 'mysql_sql' requires connection_url and sql "
+                    "(or payload JSON with both)."
+                )
+            parsed = urllib.parse.urlparse(connection_url)
+            if parsed.scheme.lower() not in {"mysql", "mysql2"}:
+                raise NodeExecutionError("mysql_sql connection_url must use mysql:// scheme.")
+            host = parsed.hostname or "localhost"
+            port = parsed.port or 3306
+            user = urllib.parse.unquote(parsed.username or "")
+            password = urllib.parse.unquote(parsed.password or "")
+            database = (parsed.path or "").lstrip("/")
+            if not user or not database:
+                raise NodeExecutionError("mysql_sql connection_url must include username and database.")
+
+            command_timeout = self._command_timeout(timeout_value, config)
+            args = [
+                "mysql",
+                "--protocol=TCP",
+                "-h",
+                host,
+                "-P",
+                str(port),
+                "-u",
+                user,
+                "-D",
+                database,
+                "-N",
+                "-B",
+                "-e",
+                sql,
+            ]
+            env = dict(os.environ)
+            if password:
+                env["MYSQL_PWD"] = password
+            stdout = self._run_command(
+                args,
+                timeout_sec=command_timeout,
+                integration=normalized,
+                env=env,
+            )
+            preview = self._truncate_text(stdout or "(no output)", 160)
+            return (
+                "MySQL query completed.",
+                f"integration:{normalized} | {preview}",
+            )
+
+        if normalized == "redis_command":
+            payload_data = self._as_mapping(config.get("payload", ""))
+            connection_url = str(
+                config.get(
+                    "connection_url",
+                    config.get("url", payload_data.get("connection_url", payload_data.get("url", ""))),
+                )
+            ).strip()
+            command_text = str(
+                config.get("command", payload_data.get("command", payload_data.get("query", "")))
+            ).strip()
+            if not command_text:
+                raise NodeExecutionError("Integration 'redis_command' requires command.")
+            command_timeout = self._command_timeout(timeout_value, config)
+            args = ["redis-cli"]
+            if connection_url:
+                args.extend(["-u", connection_url])
+            args.extend(shlex.split(command_text))
+            stdout = self._run_command(args, timeout_sec=command_timeout, integration=normalized)
+            preview = self._truncate_text(stdout or "(no output)", 140)
+            return (
+                "Redis command completed.",
+                f"integration:{normalized} | {preview}",
+            )
+
+        if normalized == "s3_cli":
+            command_text = str(config.get("command", "")).strip() or "s3 ls"
+            command_timeout = self._command_timeout(timeout_value, config)
+            command_parts = shlex.split(command_text)
+            if not command_parts:
+                command_parts = ["s3", "ls"]
+            if command_parts[0] == "aws":
+                args = command_parts
+            else:
+                args = ["aws", *command_parts]
+            stdout = self._run_command(args, timeout_sec=command_timeout, integration=normalized)
+            preview = self._truncate_text(stdout or "(no output)", 140)
+            return (
+                "S3 CLI command completed.",
+                f"integration:{normalized} | {preview}",
+            )
+
+        if normalized == "approval_gate":
+            message = str(
+                config.get("message", config.get("approval_message", "Approval gate passed."))
+            ).strip() or "Approval gate passed."
+            return (
+                "Approval gate acknowledged.",
+                f"integration:{normalized} | {self._truncate_text(message, 140)}",
+            )
+
+        output = f"integration:{normalized}"
+        if output_text:
+            output = f"{output} | {self._truncate_text(output_text, 96)}"
+        return f"Action executed via '{normalized}'.", output
+
+    def _http_request(
+        self,
+        *,
+        url: str,
+        method: str,
+        headers: dict[str, str],
+        body: bytes | None,
+        timeout_sec: float,
+    ) -> tuple[int, str]:
+        request = urllib.request.Request(
+            url=url,
+            method=method,
+            data=body,
+            headers=headers,
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_sec) as response:
+                raw = response.read()
+                text = raw.decode("utf-8", errors="replace")
+                return int(getattr(response, "status", 200)), text
+        except urllib.error.HTTPError as error:
+            body_text = ""
+            try:
+                body_text = error.read().decode("utf-8", errors="replace")
+            except Exception:
+                body_text = ""
+            raise NodeExecutionError(
+                f"HTTP {error.code} for {url}: {self._truncate_text(body_text, 160) or error.reason}"
+            ) from error
+        except urllib.error.URLError as error:
+            raise NodeExecutionError(f"Request failed for {url}: {error.reason}") from error
+        except TimeoutError as error:
+            raise NodeTimeoutError(f"Request timed out for {url}") from error
+
+    def _http_timeout(self, policy_timeout_sec: float, config: dict[str, Any]) -> float:
+        config_timeout = self._safe_float(config.get("timeout_sec", 0.0), 0.0)
+        values = [value for value in [policy_timeout_sec, config_timeout] if float(value) > 0]
+        if values:
+            return max(0.2, min(60.0, min(values)))
+        return 12.0
+
+    def _command_timeout(self, timeout_sec: float, config: dict[str, Any]) -> float:
+        command_timeout = self._safe_float(config.get("timeout_sec", timeout_sec), timeout_sec)
+        if command_timeout <= 0:
+            return 30.0
+        return max(0.2, min(180.0, float(command_timeout)))
+
+    def _pick_url(self, config: dict[str, Any]) -> str:
+        for key in ["url", "webhook_url", "endpoint", "request_url"]:
+            value = str(config.get(key, "")).strip()
+            if value:
+                return value
+        return ""
+
+    def _headers_from_config(self, config: dict[str, Any]) -> dict[str, str]:
+        raw_headers = config.get("headers", "")
+        if isinstance(raw_headers, dict):
+            parsed = {
+                str(key).strip(): str(value).strip()
+                for key, value in raw_headers.items()
+                if str(key).strip() and str(value).strip()
+            }
+            return parsed
+
+        headers: dict[str, str] = {}
+        text = str(raw_headers).strip()
+        if not text:
+            return headers
+        for line in text.splitlines():
+            item = line.strip()
+            if not item or ":" not in item:
+                continue
+            key, value = item.split(":", 1)
+            key = key.strip()
+            value = value.strip()
+            if key and value:
+                headers[key] = value
+        return headers
+
+    def _payload_bytes(self, payload_text: str) -> tuple[bytes, str]:
+        text = str(payload_text).strip()
+        if not text:
+            return b"{}", "application/json"
+        if (text.startswith("{") and text.endswith("}")) or (text.startswith("[") and text.endswith("]")):
+            return text.encode("utf-8"), "application/json"
+        return text.encode("utf-8"), "text/plain; charset=utf-8"
+
+    def _default_api_endpoint(self, integration: str) -> str:
+        key = str(integration).strip().lower()
+        defaults = {
+            "linear_api": "https://api.linear.app/graphql",
+            "monday_api": "https://api.monday.com/v2",
+        }
+        return defaults.get(key, "")
+
+    def _default_api_method(self, integration: str) -> str:
+        key = str(integration).strip().lower()
+        post_defaults = {
+            "google_apps_script",
+            "google_sheets",
+            "linear_api",
+            "monday_api",
+        }
+        return "POST" if key in post_defaults else "GET"
+
+    def _as_mapping(self, value: Any) -> dict[str, Any]:
+        if isinstance(value, dict):
+            return value
+        text = str(value or "").strip()
+        if not text:
+            return {}
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            return {}
+        return {}
+
+    def _run_command(
+        self,
+        args: list[str],
+        *,
+        timeout_sec: float,
+        integration: str,
+        env: dict[str, str] | None = None,
+    ) -> str:
+        if not args:
+            raise NodeExecutionError(f"Integration '{integration}' command is empty.")
+        try:
+            completed = subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                timeout=timeout_sec,
+                check=False,
+                env=env,
+            )
+        except FileNotFoundError as error:
+            tool_name = args[0]
+            raise NodeExecutionError(
+                f"Integration '{integration}' requires '{tool_name}' to be installed."
+            ) from error
+        except subprocess.TimeoutExpired as error:
+            raise NodeTimeoutError(
+                f"Integration '{integration}' command timed out after {timeout_sec:.2f}s."
+            ) from error
+        except Exception as error:
+            raise NodeExecutionError(
+                f"Integration '{integration}' command failed to start: {error}"
+            ) from error
+
+        stdout = str(completed.stdout or "").strip()
+        stderr = str(completed.stderr or "").strip()
+        if completed.returncode != 0:
+            detail = self._truncate_text(stderr or stdout or "command failed", 180)
+            raise NodeExecutionError(
+                f"Integration '{integration}' command failed ({completed.returncode}): {detail}"
+            )
+        return stdout or stderr
+
+    @staticmethod
+    def _truncate_text(text: str, limit: int) -> str:
+        value = str(text or "").strip().replace("\n", " ")
+        if len(value) <= limit:
+            return value
+        return f"{value[: max(0, limit - 1)]}…"
 
     def _resolve_node_policy(
         self,
         node: dict[str, Any],
-        run_defaults: dict[str, float | int],
+        run_defaults: dict[str, float | int | bool],
     ) -> dict[str, float | int]:
         config = node.get("config", {}) if isinstance(node.get("config"), dict) else {}
         metadata = node.get("metadata", {}) if isinstance(node.get("metadata"), dict) else {}
+        defaults = self._node_execution_defaults(node)
+
+        default_retry_max = int(defaults["retry_max"])
+        default_backoff_ms = int(defaults["retry_backoff_ms"])
+        default_timeout_sec = float(defaults["timeout_sec"])
+
+        use_run_retry = bool(run_defaults.get("override_retry_max", False))
+        use_run_backoff = bool(run_defaults.get("override_retry_backoff_ms", False))
+        use_run_timeout = bool(run_defaults.get("override_timeout_sec", False))
+
+        fallback_retry = (
+            int(run_defaults.get("retry_max", default_retry_max))
+            if use_run_retry
+            else default_retry_max
+        )
+        fallback_backoff = (
+            int(run_defaults.get("retry_backoff_ms", default_backoff_ms))
+            if use_run_backoff
+            else default_backoff_ms
+        )
+        fallback_timeout = (
+            float(run_defaults.get("timeout_sec", default_timeout_sec))
+            if use_run_timeout
+            else default_timeout_sec
+        )
 
         retry_max = self._safe_int(
-            config.get("retry_max", metadata.get("retry_max", run_defaults["retry_max"])),
-            int(run_defaults["retry_max"]),
+            config.get("retry_max", metadata.get("retry_max", fallback_retry)),
+            fallback_retry,
         )
         backoff_ms = self._safe_int(
             config.get(
                 "retry_backoff_ms",
-                metadata.get("retry_backoff_ms", run_defaults["retry_backoff_ms"]),
+                metadata.get("retry_backoff_ms", fallback_backoff),
             ),
-            int(run_defaults["retry_backoff_ms"]),
+            fallback_backoff,
         )
         timeout_sec = self._safe_float(
-            config.get("timeout_sec", metadata.get("timeout_sec", run_defaults["timeout_sec"])),
-            float(run_defaults["timeout_sec"]),
+            config.get("timeout_sec", metadata.get("timeout_sec", fallback_timeout)),
+            fallback_timeout,
         )
 
         return {
@@ -562,6 +1373,44 @@ class RunController:
             "timeout_sec": max(0.0, min(120.0, timeout_sec)),
         }
 
+    def _node_kind(self, node_type: str) -> str:
+        normalized = str(node_type).strip().lower()
+        if normalized.startswith("trigger"):
+            return "trigger"
+        if normalized.startswith("action") or normalized.startswith("template"):
+            return "action"
+        if normalized.startswith("ai"):
+            return "ai"
+        if normalized.startswith("condition"):
+            return "condition"
+        return normalized
+
+    def _node_execution_defaults(self, node: dict[str, Any]) -> dict[str, float]:
+        node_kind = self._node_kind(self._node_type(node))
+        config = node.get("config", {}) if isinstance(node.get("config"), dict) else {}
+        metadata = node.get("metadata", {}) if isinstance(node.get("metadata"), dict) else {}
+        integration = str(
+            config.get("integration", config.get("action_type", metadata.get("integration", "")))
+        ).strip().lower()
+
+        if node_kind == "trigger":
+            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0}
+        if node_kind == "condition":
+            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 8.0}
+        if node_kind == "ai":
+            return {"retry_max": 1.0, "retry_backoff_ms": 300.0, "timeout_sec": 120.0}
+        if node_kind == "action":
+            if integration == "approval_gate":
+                return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 0.0}
+            if integration in self.ACTION_FAST_INTEGRATIONS:
+                return {"retry_max": 1.0, "retry_backoff_ms": 200.0, "timeout_sec": 25.0}
+            if integration in self.ACTION_HEAVY_INTEGRATIONS:
+                return {"retry_max": 1.0, "retry_backoff_ms": 400.0, "timeout_sec": 90.0}
+            if integration in self.ACTION_STANDARD_INTEGRATIONS:
+                return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 45.0}
+            return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 45.0}
+        return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 60.0}
+
     def _resolve_run_defaults(
         self,
         workflow: dict[str, Any],
@@ -569,9 +1418,14 @@ class RunController:
         retry_max: int | None,
         retry_backoff_ms: int | None,
         timeout_sec: float | None,
-    ) -> dict[str, float | int]:
+    ) -> dict[str, float | int | bool]:
         graph = workflow.get("graph", {}) if isinstance(workflow.get("graph"), dict) else {}
         settings = graph.get("settings", {}) if isinstance(graph.get("settings"), dict) else {}
+        override_retry_max = bool(retry_max is not None or "retry_max" in settings)
+        override_retry_backoff_ms = bool(
+            retry_backoff_ms is not None or "retry_backoff_ms" in settings
+        )
+        override_timeout_sec = bool(timeout_sec is not None or "timeout_sec" in settings)
 
         resolved_retry_max = self._safe_int(
             retry_max if retry_max is not None else settings.get("retry_max", 0),
@@ -590,6 +1444,9 @@ class RunController:
             "retry_max": max(0, min(8, resolved_retry_max)),
             "retry_backoff_ms": max(0, min(30000, resolved_backoff_ms)),
             "timeout_sec": max(0.0, min(120.0, resolved_timeout_sec)),
+            "override_retry_max": override_retry_max,
+            "override_retry_backoff_ms": override_retry_backoff_ms,
+            "override_timeout_sec": override_timeout_sec,
         }
 
     def _resolve_nodes(self, workflow: dict[str, Any], start_node_id: str) -> list[dict[str, Any]] | str:

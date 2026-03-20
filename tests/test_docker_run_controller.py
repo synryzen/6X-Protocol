@@ -1,9 +1,12 @@
+import http.server
+import json
 import tempfile
 import time
 import unittest
 from pathlib import Path
 import sys
 import types
+import threading
 from datetime import UTC, datetime
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "docker" / "api"))
@@ -207,6 +210,514 @@ class DockerRunControllerTests(unittest.TestCase):
             if str(event.get("status", "")).strip().lower() == "skipped"
         }
         self.assertIn("a1", skipped_nodes)
+
+    def test_http_request_action_executes_against_local_server(self):
+        class SuccessHandler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802 - stdlib handler name
+                raw = self.rfile.read(int(self.headers.get("Content-Length", "0") or "0"))
+                body = raw.decode("utf-8", errors="replace")
+                payload = json.dumps({"ok": True, "received": body}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, _format, *_args):  # noqa: A003 - stdlib signature
+                return
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SuccessHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = int(server.server_port)
+            workflow = {
+                "id": "wf_http_ok",
+                "name": "HTTP Action",
+                "graph": {
+                    "nodes": [
+                        {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                        {
+                            "id": "a1",
+                            "name": "Send HTTP",
+                            "type": "action",
+                            "config": {
+                                "integration": "http_request",
+                                "method": "POST",
+                                "url": f"http://127.0.0.1:{port}/hook",
+                                "payload": '{"message":"hello"}',
+                                "simulate_delay_ms": 0,
+                            },
+                        },
+                    ],
+                    "edges": [
+                        {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                    ],
+                },
+            }
+
+            run = self.controller.start(workflow)
+            completed = self._wait_for_terminal(run["id"])
+            self.assertEqual("success", completed.get("status"))
+            self.assertEqual(["t1", "a1"], self._success_node_order(completed))
+
+            action_success = [
+                item
+                for item in completed.get("node_results", [])
+                if str(item.get("node_id", "")).strip() == "a1"
+                and str(item.get("status", "")).strip().lower() == "success"
+            ]
+            self.assertTrue(action_success, "Expected action node success event.")
+            preview = str(action_success[-1].get("output_preview", ""))
+            self.assertIn("integration:http_request", preview)
+            self.assertIn("status:200", preview)
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_http_request_action_retries_after_http_error(self):
+        attempts = {"count": 0}
+
+        class RetryThenSuccessHandler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802 - stdlib handler name
+                attempts["count"] += 1
+                if attempts["count"] == 1:
+                    self.send_response(500)
+                    payload = b'{"error":"temporary"}'
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(payload)))
+                    self.end_headers()
+                    self.wfile.write(payload)
+                    return
+
+                payload = b'{"ok":true}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, _format, *_args):  # noqa: A003 - stdlib signature
+                return
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RetryThenSuccessHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = int(server.server_port)
+            workflow = {
+                "id": "wf_http_retry",
+                "name": "HTTP Retry Action",
+                "graph": {
+                    "settings": {"retry_max": 0, "retry_backoff_ms": 0, "timeout_sec": 0},
+                    "nodes": [
+                        {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                        {
+                            "id": "a1",
+                            "name": "Send HTTP",
+                            "type": "action",
+                            "config": {
+                                "integration": "http_request",
+                                "method": "POST",
+                                "url": f"http://127.0.0.1:{port}/retry",
+                                "payload": '{"message":"retry"}',
+                                "retry_max": 1,
+                                "retry_backoff_ms": 0,
+                                "timeout_sec": 5,
+                                "simulate_delay_ms": 0,
+                            },
+                        },
+                    ],
+                    "edges": [
+                        {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                    ],
+                },
+            }
+
+            run = self.controller.start(workflow)
+            completed = self._wait_for_terminal(run["id"])
+
+            self.assertEqual("success", completed.get("status"))
+            self.assertEqual(2, attempts["count"])
+
+            statuses = [
+                str(item.get("status", "")).strip().lower()
+                for item in completed.get("node_results", [])
+                if str(item.get("node_id", "")).strip() == "a1"
+            ]
+            self.assertIn("failed", statuses)
+            self.assertIn("retrying", statuses)
+            self.assertIn("success", statuses)
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_node_type_defaults_retry_action_when_graph_defaults_unset(self):
+        workflow = {
+            "id": "wf_default_action_retry",
+            "name": "Default Action Retry",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Transient Action",
+                        "type": "action",
+                        "config": {
+                            "integration": "standard",
+                            "simulate_delay_ms": 0,
+                            "simulate_failure_attempts": 1,
+                        },
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+
+        self.assertEqual("success", completed.get("status"))
+        statuses = [
+            str(item.get("status", "")).strip().lower()
+            for item in completed.get("node_results", [])
+            if str(item.get("node_id", "")).strip() == "a1"
+        ]
+        self.assertIn("failed", statuses)
+        self.assertIn("retrying", statuses)
+        self.assertIn("success", statuses)
+
+    def test_explicit_run_retry_override_disables_node_default_retry(self):
+        workflow = {
+            "id": "wf_no_retry_override",
+            "name": "Explicit No Retry",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Transient Action",
+                        "type": "action",
+                        "config": {
+                            "integration": "standard",
+                            "simulate_delay_ms": 0,
+                            "simulate_failure_attempts": 1,
+                        },
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow, retry_max=0, retry_backoff_ms=0, timeout_sec=30.0)
+        completed = self._wait_for_terminal(run["id"])
+
+        self.assertEqual("failed", completed.get("status"))
+        statuses = [
+            str(item.get("status", "")).strip().lower()
+            for item in completed.get("node_results", [])
+            if str(item.get("node_id", "")).strip() == "a1"
+        ]
+        self.assertIn("failed", statuses)
+        self.assertNotIn("retrying", statuses)
+
+    def test_shell_command_action_executes(self):
+        workflow = {
+            "id": "wf_shell_ok",
+            "name": "Shell Action",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Run Shell",
+                        "type": "action",
+                        "config": {
+                            "integration": "shell_command",
+                            "command": "printf 'hello-from-shell'",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+
+        action_success = [
+            item
+            for item in completed.get("node_results", [])
+            if str(item.get("node_id", "")).strip() == "a1"
+            and str(item.get("status", "")).strip().lower() == "success"
+        ]
+        self.assertTrue(action_success, "Expected action node success event.")
+        preview = str(action_success[-1].get("output_preview", ""))
+        self.assertIn("integration:shell_command", preview)
+        self.assertIn("hello-from-shell", preview)
+
+    def test_file_append_action_writes_to_disk(self):
+        target_path = Path(self.tmp.name) / "output" / "run.log"
+        workflow = {
+            "id": "wf_file_append",
+            "name": "File Append Action",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Append File",
+                        "type": "action",
+                        "config": {
+                            "integration": "file_append",
+                            "path": str(target_path),
+                            "message": "file-append-ok",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+        self.assertTrue(target_path.exists())
+        content = target_path.read_text(encoding="utf-8")
+        self.assertIn("file-append-ok", content)
+
+    def test_sqlite_action_executes_query(self):
+        db_path = Path(self.tmp.name) / "sqlite" / "runtime.db"
+        workflow = {
+            "id": "wf_sqlite_query",
+            "name": "SQLite Action",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "SQLite Query",
+                        "type": "action",
+                        "config": {
+                            "integration": "sqlite_sql",
+                            "path": str(db_path),
+                            "sql": "select 42 as value;",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+
+        action_success = [
+            item
+            for item in completed.get("node_results", [])
+            if str(item.get("node_id", "")).strip() == "a1"
+            and str(item.get("status", "")).strip().lower() == "success"
+        ]
+        self.assertTrue(action_success, "Expected action node success event.")
+        preview = str(action_success[-1].get("output_preview", ""))
+        self.assertIn("integration:sqlite_sql", preview)
+        self.assertIn("rows:1", preview)
+
+    def test_generic_api_integration_sends_bearer_request(self):
+        captured = {"auth": "", "method": "", "body": ""}
+
+        class GenericApiHandler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802 - stdlib handler name
+                captured["auth"] = str(self.headers.get("Authorization", ""))
+                captured["method"] = "POST"
+                raw = self.rfile.read(int(self.headers.get("Content-Length", "0") or "0"))
+                captured["body"] = raw.decode("utf-8", errors="replace")
+                payload = b'{"ok":true}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, _format, *_args):  # noqa: A003 - stdlib signature
+                return
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), GenericApiHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = int(server.server_port)
+            workflow = {
+                "id": "wf_generic_api",
+                "name": "Generic API Action",
+                "graph": {
+                    "nodes": [
+                        {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                        {
+                            "id": "a1",
+                            "name": "GitHub API",
+                            "type": "action",
+                            "config": {
+                                "integration": "github_rest",
+                                "url": f"http://127.0.0.1:{port}/repos",
+                                "method": "POST",
+                                "api_key": "token-123",
+                                "payload": '{"test":true}',
+                                "simulate_delay_ms": 0,
+                            },
+                        },
+                    ],
+                    "edges": [
+                        {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                    ],
+                },
+            }
+
+            run = self.controller.start(workflow)
+            completed = self._wait_for_terminal(run["id"])
+            self.assertEqual("success", completed.get("status"))
+            self.assertEqual("POST", captured["method"])
+            self.assertEqual("Bearer token-123", captured["auth"])
+            self.assertIn('"test":true', captured["body"])
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_twilio_sms_integration_sends_basic_auth_form_request(self):
+        captured = {"auth": "", "body": ""}
+
+        class TwilioHandler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802 - stdlib handler name
+                captured["auth"] = str(self.headers.get("Authorization", ""))
+                raw = self.rfile.read(int(self.headers.get("Content-Length", "0") or "0"))
+                captured["body"] = raw.decode("utf-8", errors="replace")
+                payload = b'{"sid":"SM123"}'
+                self.send_response(201)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, _format, *_args):  # noqa: A003 - stdlib signature
+                return
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), TwilioHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = int(server.server_port)
+            workflow = {
+                "id": "wf_twilio_api",
+                "name": "Twilio SMS Action",
+                "graph": {
+                    "nodes": [
+                        {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                        {
+                            "id": "a1",
+                            "name": "Twilio SMS",
+                            "type": "action",
+                            "config": {
+                                "integration": "twilio_sms",
+                                "url": f"http://127.0.0.1:{port}/messages",
+                                "account_sid": "AC123",
+                                "auth_token": "secret",
+                                "from": "+15550001111",
+                                "to": "+15550002222",
+                                "message": "hello",
+                                "simulate_delay_ms": 0,
+                            },
+                        },
+                    ],
+                    "edges": [
+                        {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                    ],
+                },
+            }
+
+            run = self.controller.start(workflow)
+            completed = self._wait_for_terminal(run["id"])
+            self.assertEqual("success", completed.get("status"))
+            self.assertTrue(captured["auth"].startswith("Basic "))
+            self.assertIn("From=%2B15550001111", captured["body"])
+            self.assertIn("To=%2B15550002222", captured["body"])
+            self.assertIn("Body=hello", captured["body"])
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_postgres_sql_missing_fields_fails_cleanly(self):
+        workflow = {
+            "id": "wf_postgres_missing",
+            "name": "Postgres Missing Fields",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Postgres",
+                        "type": "action",
+                        "config": {
+                            "integration": "postgres_sql",
+                            "sql": "select 1;",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("failed", completed.get("status"))
+        self.assertIn("postgres_sql", str(completed.get("summary", "")))
+        self.assertIn("connection_url", str(completed.get("summary", "")))
+
+    def test_redis_command_missing_command_fails_cleanly(self):
+        workflow = {
+            "id": "wf_redis_missing",
+            "name": "Redis Missing Command",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Redis",
+                        "type": "action",
+                        "config": {
+                            "integration": "redis_command",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("failed", completed.get("status"))
+        self.assertIn("redis_command", str(completed.get("summary", "")))
+        self.assertIn("requires command", str(completed.get("summary", "")))
 
 
 if __name__ == "__main__":

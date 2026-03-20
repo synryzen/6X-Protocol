@@ -1,6 +1,7 @@
 import gi
 import json
 import math
+import re
 import threading
 import uuid
 
@@ -31,7 +32,7 @@ class CanvasView(Gtk.Box):
     ZOOM_STEP = 0.1
     SNAP_GRID = 20
     ALIGN_SNAP_DISTANCE = 14
-    LINK_TARGET_SNAP_DISTANCE = 108
+    LINK_TARGET_SNAP_DISTANCE = 190
     LINK_TYPES = ["next", "true", "false"]
     PROVIDER_OPTIONS = ["inherit", "local", "openai", "anthropic"]
     TRIGGER_MODE_OPTIONS = ["manual", "schedule_interval", "webhook", "file_watch", "cron"]
@@ -150,6 +151,14 @@ class CanvasView(Gtk.Box):
         self.syncing_action_category = False
         self.loading_action_controls = False
         self.last_action_group_integration = ""
+        self.action_field_rows: dict[str, Gtk.Widget] = {}
+        self.action_field_labels: dict[str, Gtk.Label] = {}
+        self.action_field_widgets: dict[str, list[Gtk.Widget]] = {}
+        self.action_field_feedback_labels: dict[str, Gtk.Label] = {}
+        self.node_field_rows: dict[str, Gtk.Widget] = {}
+        self.node_field_labels: dict[str, Gtk.Label] = {}
+        self.node_field_widgets: dict[str, list[Gtk.Widget]] = {}
+        self.node_field_feedback_labels: dict[str, Gtk.Label] = {}
         self.preflight_error_node_ids: set[str] = set()
         self.preflight_warning_node_ids: set[str] = set()
         self.preflight_error_edge_ids: set[str] = set()
@@ -740,9 +749,15 @@ class CanvasView(Gtk.Box):
         self.trigger_mode_dropdown = Gtk.DropDown.new_from_strings(self.TRIGGER_MODE_OPTIONS)
         self.trigger_mode_dropdown.set_selected(0)
         self.trigger_mode_dropdown.connect("notify::selected", self.on_trigger_mode_changed)
-        self.trigger_mode_row, _ = self.build_inspector_field_row(
+        self.trigger_mode_row, self.trigger_mode_label = self.build_inspector_field_row(
             "Trigger Mode",
             self.trigger_mode_dropdown,
+        )
+        self.register_node_field(
+            "trigger_mode",
+            self.trigger_mode_row,
+            self.trigger_mode_dropdown,
+            label=self.trigger_mode_label,
         )
 
         self.trigger_mode_quick_buttons: dict[str, Gtk.ToggleButton] = {}
@@ -817,37 +832,68 @@ class CanvasView(Gtk.Box):
         self.trigger_interval_row.add_css_class("inspector-adjust-row")
         self.trigger_interval_row.append(self.trigger_interval_scale)
         self.trigger_interval_row.append(self.trigger_interval_spin)
-        self.trigger_interval_field_row, _ = self.build_inspector_field_row(
+        self.trigger_interval_field_row, self.trigger_interval_label = self.build_inspector_field_row(
             "Interval Seconds",
             self.trigger_interval_row,
+        )
+        self.register_node_field(
+            "trigger_interval",
+            self.trigger_interval_field_row,
+            self.trigger_interval_scale,
+            self.trigger_interval_spin,
+            label=self.trigger_interval_label,
         )
 
         self.trigger_webhook_entry = Gtk.Entry()
         self.trigger_webhook_entry.set_placeholder_text("/incoming/order")
-        self.trigger_webhook_row, _ = self.build_inspector_field_row(
+        self.trigger_webhook_row, self.trigger_webhook_label = self.build_inspector_field_row(
             "Webhook Path",
             self.trigger_webhook_entry,
+        )
+        self.register_node_field(
+            "trigger_webhook",
+            self.trigger_webhook_row,
+            self.trigger_webhook_entry,
+            label=self.trigger_webhook_label,
         )
 
         self.trigger_watch_path_entry = Gtk.Entry()
         self.trigger_watch_path_entry.set_placeholder_text("/tmp/watch-folder")
-        self.trigger_watch_path_row, _ = self.build_inspector_field_row(
+        self.trigger_watch_path_row, self.trigger_watch_path_label = self.build_inspector_field_row(
             "Watch Path",
             self.trigger_watch_path_entry,
+        )
+        self.register_node_field(
+            "trigger_watch_path",
+            self.trigger_watch_path_row,
+            self.trigger_watch_path_entry,
+            label=self.trigger_watch_path_label,
         )
 
         self.trigger_cron_entry = Gtk.Entry()
         self.trigger_cron_entry.set_placeholder_text("*/15 * * * *")
-        self.trigger_cron_row, _ = self.build_inspector_field_row(
+        self.trigger_cron_row, self.trigger_cron_label = self.build_inspector_field_row(
             "Cron Expression",
             self.trigger_cron_entry,
+        )
+        self.register_node_field(
+            "trigger_cron",
+            self.trigger_cron_row,
+            self.trigger_cron_entry,
+            label=self.trigger_cron_label,
         )
 
         self.trigger_value_entry = Gtk.Entry()
         self.trigger_value_entry.set_placeholder_text("Trigger value")
-        self.trigger_value_row, _ = self.build_inspector_field_row(
+        self.trigger_value_row, self.trigger_value_label = self.build_inspector_field_row(
             "Trigger Value",
             self.trigger_value_entry,
+        )
+        self.register_node_field(
+            "trigger_value",
+            self.trigger_value_row,
+            self.trigger_value_entry,
+            label=self.trigger_value_label,
         )
 
         self.trigger_hint_label = Gtk.Label(
@@ -1134,14 +1180,14 @@ class CanvasView(Gtk.Box):
 
         self.action_path_entry = Gtk.Entry()
         self.action_path_entry.set_placeholder_text("/home/user/output.log")
-        self.action_path_row, _ = self.build_inspector_field_row(
+        self.action_path_row, self.action_path_label = self.build_inspector_field_row(
             "File Path",
             self.action_path_entry,
         )
 
         self.action_command_entry = Gtk.Entry()
         self.action_command_entry.set_placeholder_text("Command to execute")
-        self.action_command_row, _ = self.build_inspector_field_row(
+        self.action_command_row, self.action_command_label = self.build_inspector_field_row(
             "Shell Command",
             self.action_command_entry,
         )
@@ -1152,6 +1198,84 @@ class CanvasView(Gtk.Box):
         self.action_timeout_row, self.action_timeout_label = self.build_inspector_field_row(
             "Timeout Seconds",
             self.action_timeout_spin,
+        )
+
+        self.register_action_field(
+            "integration",
+            self.action_integration_row,
+            self.action_integration_dropdown,
+        )
+        self.register_action_field(
+            "preset",
+            self.action_preset_row,
+            self.action_preset_dropdown,
+        )
+        self.register_action_field(
+            "endpoint",
+            self.action_endpoint_row,
+            self.action_endpoint_entry,
+            label=self.action_endpoint_label,
+        )
+        self.register_action_field(
+            "method",
+            self.action_method_row,
+            self.action_method_dropdown,
+            label=self.action_method_label,
+        )
+        self.register_action_field(
+            "message",
+            self.action_message_row,
+            self.action_message_entry,
+            label=self.action_message_label,
+        )
+        self.register_action_field("to", self.action_to_row, self.action_to_entry)
+        self.register_action_field("from", self.action_from_row, self.action_from_entry)
+        self.register_action_field("subject", self.action_subject_row, self.action_subject_entry)
+        self.register_action_field("chat_id", self.action_chat_id_row, self.action_chat_id_entry)
+        self.register_action_field(
+            "account_sid",
+            self.action_account_sid_row,
+            self.action_account_sid_entry,
+        )
+        self.register_action_field(
+            "auth_token",
+            self.action_auth_token_row,
+            self.action_auth_token_entry,
+        )
+        self.register_action_field("domain", self.action_domain_row, self.action_domain_entry)
+        self.register_action_field(
+            "username",
+            self.action_username_row,
+            self.action_username_entry,
+        )
+        self.register_action_field(
+            "payload",
+            self.action_payload_row,
+            action_payload_frame,
+            self.action_payload_view,
+            label=self.action_payload_label,
+        )
+        self.register_action_field(
+            "headers",
+            self.action_headers_row,
+            self.action_headers_entry,
+            label=self.action_headers_label,
+        )
+        self.register_action_field(
+            "api_key",
+            self.action_api_key_row,
+            self.action_api_key_entry,
+            label=self.action_api_key_label,
+        )
+        self.register_action_field("location", self.action_location_row, self.action_location_entry)
+        self.register_action_field("units", self.action_units_row, self.action_units_dropdown)
+        self.register_action_field("path", self.action_path_row, self.action_path_entry)
+        self.register_action_field("command", self.action_command_row, self.action_command_entry)
+        self.register_action_field(
+            "timeout_sec",
+            self.action_timeout_row,
+            self.action_timeout_spin,
+            label=self.action_timeout_label,
         )
 
         self.action_requirements_label = Gtk.Label(label="")
@@ -1373,9 +1497,29 @@ class CanvasView(Gtk.Box):
             "notify::selected",
             self.on_condition_mode_changed,
         )
+        self.condition_mode_row, self.condition_mode_label = self.build_inspector_field_row(
+            "Condition Mode",
+            self.edit_condition_mode_dropdown,
+        )
+        self.register_node_field(
+            "condition_mode",
+            self.condition_mode_row,
+            self.edit_condition_mode_dropdown,
+            label=self.condition_mode_label,
+        )
 
         self.edit_condition_value_entry = Gtk.Entry()
         self.edit_condition_value_entry.set_placeholder_text("Condition value or pattern")
+        self.condition_value_row, self.condition_value_label = self.build_inspector_field_row(
+            "Condition Value",
+            self.edit_condition_value_entry,
+        )
+        self.register_node_field(
+            "condition_value",
+            self.condition_value_row,
+            self.edit_condition_value_entry,
+            label=self.condition_value_label,
+        )
 
         self.edit_condition_min_len_scale = Gtk.Scale.new_with_range(
             Gtk.Orientation.HORIZONTAL,
@@ -1406,6 +1550,17 @@ class CanvasView(Gtk.Box):
         condition_min_len_row.append(self.edit_condition_min_len_scale)
         condition_min_len_row.append(self.edit_condition_min_len_spin)
         self.condition_min_len_row = condition_min_len_row
+        self.condition_min_len_field_row, self.condition_min_len_label = self.build_inspector_field_row(
+            "Minimum Length",
+            self.condition_min_len_row,
+        )
+        self.register_node_field(
+            "condition_min_len",
+            self.condition_min_len_field_row,
+            self.edit_condition_min_len_scale,
+            self.edit_condition_min_len_spin,
+            label=self.condition_min_len_label,
+        )
 
         self.node_execution_title = Gtk.Label(label="Node Execution")
         self.node_execution_title.add_css_class("heading")
@@ -1560,9 +1715,9 @@ class CanvasView(Gtk.Box):
         self.inspector_box.append(self.edit_tokens_override_switch)
         self.inspector_box.append(self.max_tokens_adjust_row)
         self.inspector_box.append(self.condition_title)
-        self.inspector_box.append(self.edit_condition_mode_dropdown)
-        self.inspector_box.append(self.edit_condition_value_entry)
-        self.inspector_box.append(self.condition_min_len_row)
+        self.inspector_box.append(self.condition_mode_row)
+        self.inspector_box.append(self.condition_value_row)
+        self.inspector_box.append(self.condition_min_len_field_row)
         self.inspector_box.append(self.node_execution_title)
         self.inspector_box.append(node_exec_grid)
         self.inspector_box.append(self.node_execution_preset_row)
@@ -1606,6 +1761,7 @@ class CanvasView(Gtk.Box):
         self.update_action_integration_section_visibility(None)
         self.update_action_integration_field_visibility()
         self.bind_action_field_change_events()
+        self.bind_trigger_condition_change_events()
         self.render_preflight_issue_list()
         self.clear_inspector()
 
@@ -1754,6 +1910,160 @@ class CanvasView(Gtk.Box):
         row.append(label)
         row.append(widget)
         return row, label
+
+    def register_action_field(
+        self,
+        field_key: str,
+        row: Gtk.Widget,
+        *widgets: Gtk.Widget,
+        label: Gtk.Label | None = None,
+    ):
+        key = str(field_key).strip().lower()
+        if not key:
+            return
+        row.add_css_class("canvas-action-field-row")
+        feedback = Gtk.Label(label="")
+        feedback.set_wrap(True)
+        feedback.set_halign(Gtk.Align.START)
+        feedback.add_css_class("dim-label")
+        feedback.add_css_class("canvas-action-field-feedback")
+        feedback.set_visible(False)
+        if isinstance(row, Gtk.Box):
+            row.append(feedback)
+
+        self.action_field_rows[key] = row
+        self.action_field_feedback_labels[key] = feedback
+        self.action_field_widgets[key] = [item for item in widgets if item is not None]
+        if label:
+            self.action_field_labels[key] = label
+
+    def clear_action_field_feedback(self):
+        for key, row in self.action_field_rows.items():
+            row.remove_css_class("canvas-action-field-error-row")
+            row.remove_css_class("canvas-action-field-warning-row")
+            row.set_tooltip_text(None)
+            label = self.action_field_labels.get(key)
+            if label:
+                label.remove_css_class("canvas-action-field-error-label")
+                label.remove_css_class("canvas-action-field-warning-label")
+            feedback = self.action_field_feedback_labels.get(key)
+            if feedback:
+                feedback.set_text("")
+                feedback.remove_css_class("canvas-action-field-feedback-error")
+                feedback.remove_css_class("canvas-action-field-feedback-warning")
+                feedback.set_visible(False)
+            for widget in self.action_field_widgets.get(key, []):
+                widget.remove_css_class("canvas-action-field-input-error")
+                widget.remove_css_class("canvas-action-field-input-warning")
+
+    def set_action_field_feedback(self, field_key: str, message: str, severity: str = "error"):
+        key = str(field_key).strip().lower()
+        row = self.action_field_rows.get(key)
+        if not row:
+            return
+        if not row.get_visible():
+            return
+
+        normalized = "warning" if str(severity).strip().lower() == "warning" else "error"
+        feedback = self.action_field_feedback_labels.get(key)
+        label = self.action_field_labels.get(key)
+        css_suffix = "warning" if normalized == "warning" else "error"
+        row_css = f"canvas-action-field-{css_suffix}-row"
+        label_css = f"canvas-action-field-{css_suffix}-label"
+        feedback_css = f"canvas-action-field-feedback-{css_suffix}"
+        input_css = f"canvas-action-field-input-{css_suffix}"
+
+        row.add_css_class(row_css)
+        row.set_tooltip_text(message)
+        if label:
+            label.add_css_class(label_css)
+        if feedback:
+            feedback.set_text(str(message).strip())
+            feedback.add_css_class(feedback_css)
+            feedback.set_visible(True)
+        for widget in self.action_field_widgets.get(key, []):
+            widget.add_css_class(input_css)
+
+    def register_node_field(
+        self,
+        field_key: str,
+        row: Gtk.Widget,
+        *widgets: Gtk.Widget,
+        label: Gtk.Label | None = None,
+    ):
+        key = str(field_key).strip().lower()
+        if not key:
+            return
+        row.add_css_class("canvas-node-field-row")
+        feedback = Gtk.Label(label="")
+        feedback.set_wrap(True)
+        feedback.set_halign(Gtk.Align.START)
+        feedback.add_css_class("dim-label")
+        feedback.add_css_class("canvas-node-field-feedback")
+        feedback.set_visible(False)
+        if isinstance(row, Gtk.Box):
+            row.append(feedback)
+
+        self.node_field_rows[key] = row
+        self.node_field_feedback_labels[key] = feedback
+        self.node_field_widgets[key] = [item for item in widgets if item is not None]
+        if label:
+            self.node_field_labels[key] = label
+
+    def clear_node_field_feedback(self, field_keys: set[str] | None = None):
+        keys = (
+            {str(item).strip().lower() for item in field_keys}
+            if field_keys
+            else set(self.node_field_rows.keys())
+        )
+        for key in keys:
+            row = self.node_field_rows.get(key)
+            if not row:
+                continue
+            row.remove_css_class("canvas-node-field-error-row")
+            row.remove_css_class("canvas-node-field-warning-row")
+            row.set_tooltip_text(None)
+            label = self.node_field_labels.get(key)
+            if label:
+                label.remove_css_class("canvas-node-field-error-label")
+                label.remove_css_class("canvas-node-field-warning-label")
+            feedback = self.node_field_feedback_labels.get(key)
+            if feedback:
+                feedback.set_text("")
+                feedback.remove_css_class("canvas-node-field-feedback-error")
+                feedback.remove_css_class("canvas-node-field-feedback-warning")
+                feedback.set_visible(False)
+            for widget in self.node_field_widgets.get(key, []):
+                widget.remove_css_class("canvas-node-field-input-error")
+                widget.remove_css_class("canvas-node-field-input-warning")
+
+    def set_node_field_feedback(self, field_key: str, message: str, severity: str = "error"):
+        key = str(field_key).strip().lower()
+        row = self.node_field_rows.get(key)
+        if not row:
+            return
+        if not row.get_visible():
+            return
+
+        normalized = "warning" if str(severity).strip().lower() == "warning" else "error"
+        feedback = self.node_field_feedback_labels.get(key)
+        label = self.node_field_labels.get(key)
+        css_suffix = "warning" if normalized == "warning" else "error"
+        row_css = f"canvas-node-field-{css_suffix}-row"
+        label_css = f"canvas-node-field-{css_suffix}-label"
+        feedback_css = f"canvas-node-field-feedback-{css_suffix}"
+        input_css = f"canvas-node-field-input-{css_suffix}"
+
+        row.add_css_class(row_css)
+        row.set_tooltip_text(message)
+        if label:
+            label.add_css_class(label_css)
+        if feedback:
+            feedback.set_text(str(message).strip())
+            feedback.add_css_class(feedback_css)
+            feedback.set_visible(True)
+        for widget in self.node_field_widgets.get(key, []):
+            widget.add_css_class(input_css)
 
     def build_inspector_group(
         self,
@@ -2784,6 +3094,7 @@ class CanvasView(Gtk.Box):
     def on_action_integration_changed(self, *_args):
         if self.loading_action_controls:
             return
+        previous_integration = str(self.last_action_group_integration or "").strip().lower()
         integration = self.selected_action_integration()
         self.update_action_integration_field_visibility()
         template_key = self.infer_action_template_key({"integration": integration})
@@ -2792,7 +3103,10 @@ class CanvasView(Gtk.Box):
         self.apply_action_smart_defaults(integration, force=False)
         selected_node = self.get_selected_node()
         if selected_node and self.node_type_key(selected_node.node_type) in {"action", "template"}:
-            if not self.node_has_explicit_execution_overrides(selected_node.config):
+            if self.should_auto_apply_execution_defaults_on_integration_change(
+                selected_node,
+                previous_integration,
+            ):
                 self.apply_node_execution_defaults_for_context(
                     selected_node.node_type,
                     integration,
@@ -3020,6 +3334,15 @@ class CanvasView(Gtk.Box):
                 "domain": "mailgun_domain",
                 "from": "mailgun_from_address",
             },
+            "postgres_sql": {
+                "endpoint": "postgres_connection_url",
+            },
+            "mysql_sql": {
+                "endpoint": "mysql_connection_url",
+            },
+            "sqlite_sql": {
+                "location": "sqlite_default_path",
+            },
         }
         defaults = mapping.get(key, {})
         if not defaults:
@@ -3047,7 +3370,10 @@ class CanvasView(Gtk.Box):
             self.set_entry_if_missing(self.action_auth_token_entry, auth_token_value, force=force)
         location_value = str(settings.get(defaults.get("location", ""), "")).strip()
         if location_value:
-            self.set_entry_if_missing(self.action_location_entry, location_value, force=force)
+            if key == "sqlite_sql":
+                self.set_entry_if_missing(self.action_path_entry, location_value, force=force)
+            else:
+                self.set_entry_if_missing(self.action_location_entry, location_value, force=force)
 
     def apply_action_smart_defaults(self, integration: str, force: bool = False):
         key = str(integration).strip().lower()
@@ -3282,6 +3608,48 @@ class CanvasView(Gtk.Box):
                 "echo \"${last_output}\"",
                 force=force,
             )
+        elif key == "postgres_sql":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "postgresql://user:password@localhost:5432/postgres",
+                force=force,
+            )
+            self.set_payload_if_missing(
+                "select now() as current_time;",
+                force=force,
+            )
+        elif key == "mysql_sql":
+            self.set_entry_if_missing(
+                self.action_endpoint_entry,
+                "mysql://user:password@localhost:3306/mysql",
+                force=force,
+            )
+            self.set_payload_if_missing(
+                "select now() as current_time;",
+                force=force,
+            )
+        elif key == "sqlite_sql":
+            self.set_entry_if_missing(
+                self.action_path_entry,
+                "/tmp/6x_protocol.db",
+                force=force,
+            )
+            self.set_payload_if_missing(
+                "select datetime('now') as current_time;",
+                force=force,
+            )
+        elif key == "redis_command":
+            self.set_entry_if_missing(
+                self.action_command_entry,
+                "ping",
+                force=force,
+            )
+        elif key == "s3_cli":
+            self.set_entry_if_missing(
+                self.action_command_entry,
+                "s3 ls",
+                force=force,
+            )
         elif key == "file_append":
             self.set_entry_if_missing(self.action_path_entry, "/tmp/workflow.log", force=force)
             self.set_entry_if_missing(
@@ -3314,7 +3682,11 @@ class CanvasView(Gtk.Box):
             return "Required: API key/token plus JSON payload for request body/query."
         if key in {"http_request", "http_post"}:
             return "Required: endpoint URL. Optional: headers JSON, payload JSON, timeout."
-        if key in {"shell_command", "redis_command", "s3_cli"}:
+        if key in {"postgres_sql", "mysql_sql"}:
+            return "Required: connection URL and SQL payload."
+        if key == "redis_command":
+            return "Required: command. Optional: redis:// connection URL and timeout."
+        if key in {"shell_command", "s3_cli"}:
             return "Required: command. Optional: timeout."
         if key in {"file_append", "sqlite_sql"}:
             return "Required: path and content/sql payload."
@@ -3352,6 +3724,27 @@ class CanvasView(Gtk.Box):
             if str(config.get(key, "")).strip():
                 return True
         return False
+
+    def execution_controls_match_profile(self, profile: dict[str, float]) -> bool:
+        retry_value = self.node_retry_spin.get_value_as_int()
+        backoff_value = self.node_backoff_spin.get_value_as_int()
+        timeout_value = round(self.node_timeout_spin.get_value(), 1)
+        return bool(
+            retry_value == int(profile.get("retry_max", 0))
+            and backoff_value == int(profile.get("retry_backoff_ms", 0))
+            and abs(timeout_value - float(profile.get("timeout_sec", 0.0))) < 0.05
+        )
+
+    def should_auto_apply_execution_defaults_on_integration_change(
+        self,
+        node: CanvasNode,
+        previous_integration: str,
+    ) -> bool:
+        if self.node_has_explicit_execution_overrides(node.config):
+            return False
+        # Keep user-tuned live controls when they no longer match the previous context.
+        prev_profile = self.node_execution_profile(node.node_type, previous_integration)
+        return self.execution_controls_match_profile(prev_profile)
 
     def suggested_node_execution_preset(self, node_type: str, integration: str = "") -> str:
         node_key = self.node_type_key(node_type)
@@ -3717,6 +4110,9 @@ class CanvasView(Gtk.Box):
             "salesforce_api",
             "resend_email",
             "mailgun_email",
+            "postgres_sql",
+            "mysql_sql",
+            "redis_command",
         }
         show_method = integration in {
             "http_request",
@@ -3908,6 +4304,8 @@ class CanvasView(Gtk.Box):
         self.action_headers_label.set_text("Headers")
         self.action_timeout_label.set_text("Timeout Seconds")
         self.action_method_label.set_text("HTTP Method")
+        self.action_path_label.set_text("File Path")
+        self.action_command_label.set_text("Shell Command")
 
         if integration == "http_post":
             self.action_endpoint_label.set_text("HTTP URL")
@@ -3997,6 +4395,36 @@ class CanvasView(Gtk.Box):
         elif integration == "file_append":
             self.action_message_label.set_text("File Content")
             self.action_payload_label.set_text("File Payload")
+            self.action_path_label.set_text("File Path")
+        elif integration in {"postgres_sql", "mysql_sql"}:
+            self.action_endpoint_label.set_text("Connection URL")
+            if integration == "postgres_sql":
+                self.action_endpoint_entry.set_placeholder_text(
+                    "postgresql://user:password@localhost:5432/postgres"
+                )
+            else:
+                self.action_endpoint_entry.set_placeholder_text(
+                    "mysql://user:password@localhost:3306/mysql"
+                )
+            self.action_payload_label.set_text("SQL Query")
+            self.action_payload_view.set_tooltip_text("SQL statement to execute.")
+            self.action_timeout_label.set_text("Execution Timeout Seconds")
+        elif integration == "sqlite_sql":
+            self.action_path_label.set_text("SQLite DB Path")
+            self.action_path_entry.set_placeholder_text("/tmp/6x_protocol.db")
+            self.action_payload_label.set_text("SQL Query")
+            self.action_payload_view.set_tooltip_text("SQL statement to execute.")
+            self.action_timeout_label.set_text("Execution Timeout Seconds")
+        elif integration == "redis_command":
+            self.action_endpoint_label.set_text("Redis Connection URL")
+            self.action_endpoint_entry.set_placeholder_text("redis://localhost:6379/0")
+            self.action_command_label.set_text("Redis Command")
+            self.action_command_entry.set_placeholder_text("ping")
+            self.action_timeout_label.set_text("Execution Timeout Seconds")
+        elif integration == "s3_cli":
+            self.action_command_label.set_text("AWS S3 Command")
+            self.action_command_entry.set_placeholder_text("s3 ls")
+            self.action_timeout_label.set_text("Execution Timeout Seconds")
         elif integration in {"monday_api", "linear_api"}:
             self.action_payload_label.set_text("GraphQL Payload")
             self.action_api_key_label.set_text("API Token")
@@ -4062,9 +4490,35 @@ class CanvasView(Gtk.Box):
             return
         self.update_action_requirements_status()
 
+    def bind_trigger_condition_change_events(self):
+        for entry in [
+            self.trigger_webhook_entry,
+            self.trigger_watch_path_entry,
+            self.trigger_cron_entry,
+            self.trigger_value_entry,
+            self.edit_condition_value_entry,
+        ]:
+            entry.connect("changed", self.on_trigger_condition_fields_changed)
+
+        self.trigger_interval_scale.connect("value-changed", self.on_trigger_condition_fields_changed)
+        self.trigger_interval_spin.connect("value-changed", self.on_trigger_condition_fields_changed)
+        self.edit_condition_min_len_scale.connect(
+            "value-changed",
+            self.on_trigger_condition_fields_changed,
+        )
+        self.edit_condition_min_len_spin.connect(
+            "value-changed",
+            self.on_trigger_condition_fields_changed,
+        )
+
+    def on_trigger_condition_fields_changed(self, *_args):
+        self.apply_trigger_validation_feedback()
+        self.apply_condition_validation_feedback()
+
     def update_action_requirements_status(self):
         integration = self.selected_action_integration()
         summary = self.integration_requirement_summary(integration)
+        self.clear_action_field_feedback()
         selected_node = self.get_selected_node()
         if not selected_node or self.node_type_key(selected_node.node_type) not in {"action", "template"}:
             self.action_requirements_label.set_text(summary)
@@ -4120,16 +4574,41 @@ class CanvasView(Gtk.Box):
         if location_value:
             merged["location"] = location_value
 
-        missing_fields = self.missing_required_action_fields(merged)
-        if not missing_fields:
+        app_settings = self.settings_store.load_settings()
+        missing_fields = self.missing_required_action_fields(
+            merged,
+            app_settings=app_settings,
+        )
+        field_issues = self.build_action_inline_validation_issues(
+            integration,
+            merged,
+            missing_fields,
+            app_settings,
+        )
+
+        prioritized: dict[str, tuple[str, str]] = {}
+        for field_key, severity, message in field_issues:
+            existing = prioritized.get(field_key)
+            if existing and existing[0] == "error" and severity != "error":
+                continue
+            prioritized[field_key] = (severity, message)
+
+        for field_key, (severity, message) in prioritized.items():
+            self.set_action_field_feedback(field_key, message, severity)
+
+        errors = [item for item in field_issues if item[1] == "error"]
+        warnings = [item for item in field_issues if item[1] == "warning"]
+        if not errors and not warnings:
             self.action_requirements_label.set_text(f"{summary} Ready: required fields are filled.")
             return
 
-        missing_preview = ", ".join(missing_fields[:4])
-        if len(missing_fields) > 4:
-            missing_preview = f"{missing_preview}, +{len(missing_fields) - 4} more"
+        preview_items = [item[2] for item in [*errors, *warnings][:3]]
+        preview = " • ".join(preview_items)
+        remaining = len(field_issues) - len(preview_items)
+        if remaining > 0:
+            preview = f"{preview} • +{remaining} more"
         self.action_requirements_label.set_text(
-            f"{summary} Missing now: {missing_preview}."
+            f"{summary} Fix {len(errors)} error(s), {len(warnings)} warning(s): {preview}"
         )
 
     def parse_detail_directives(self, text: str) -> dict[str, str]:
@@ -4232,6 +4711,13 @@ class CanvasView(Gtk.Box):
                 "mailgun_email",
             }:
                 endpoint = str(merged_config.get("url", "")).strip()
+            elif integration in {"postgres_sql", "mysql_sql", "redis_command"}:
+                endpoint = (
+                    str(merged_config.get("connection_url", "")).strip()
+                    or str(payload_obj.get("connection_url", "")).strip()
+                    or str(payload_obj.get("url", "")).strip()
+                    or str(merged_config.get("url", "")).strip()
+                )
             self.action_endpoint_entry.set_text(endpoint)
             self.action_method_dropdown.set_selected(
                 self.action_method_index(str(merged_config.get("method", "")).strip() or "POST")
@@ -4382,6 +4868,8 @@ class CanvasView(Gtk.Box):
             elif integration == "google_apps_script":
                 updated_config["script_url"] = endpoint
                 updated_config["url"] = endpoint
+            elif integration in {"postgres_sql", "mysql_sql", "redis_command"}:
+                updated_config["connection_url"] = endpoint
             else:
                 updated_config["url"] = endpoint
         if method and integration in {
@@ -5783,15 +6271,9 @@ class CanvasView(Gtk.Box):
             if self.node_type_key(node.node_type) == "trigger":
                 continue
 
-            node_x = self.to_screen(node.x)
-            node_y = self.to_screen(node.y)
-            node_w = self.card_screen_width()
-            node_h = self.card_screen_height()
-
-            nearest_x = max(node_x, min(int(x), node_x + node_w))
-            nearest_y = max(node_y, min(int(y), node_y + node_h))
-            delta_x = float(int(x) - nearest_x)
-            delta_y = float(int(y) - nearest_y)
+            input_x, input_y = self.node_input_anchor(node)
+            delta_x = float(int(x) - int(input_x))
+            delta_y = float(int(y) - int(input_y))
             distance = math.sqrt((delta_x * delta_x) + (delta_y * delta_y))
 
             if distance < best_distance:
@@ -6334,7 +6816,7 @@ class CanvasView(Gtk.Box):
         input_port.add_css_class("canvas-node-port")
         input_port.add_css_class("canvas-node-port-in")
         input_port.add_css_class("canvas-node-port-dot")
-        input_port.set_size_request(20, 20)
+        input_port.set_size_request(24, 24)
         input_port.set_can_target(True)
         input_port.set_halign(Gtk.Align.START)
         input_port.set_valign(Gtk.Align.CENTER)
@@ -6343,7 +6825,7 @@ class CanvasView(Gtk.Box):
         output_port.add_css_class("canvas-node-port")
         output_port.add_css_class("canvas-node-port-out")
         output_port.add_css_class("canvas-node-port-dot")
-        output_port.set_size_request(20, 20)
+        output_port.set_size_request(24, 24)
         output_port.set_can_target(True)
         output_port.set_halign(Gtk.Align.END)
         output_port.set_valign(Gtk.Align.CENTER)
@@ -6379,6 +6861,7 @@ class CanvasView(Gtk.Box):
         output_drag = Gtk.GestureDrag()
         output_drag.set_button(0)
         output_drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        output_drag.set_exclusive(True)
         output_drag.connect("drag-begin", self.on_output_port_drag_begin, node.id, output_port)
         output_drag.connect("drag-update", self.on_output_port_drag_update, node.id, output_port)
         output_drag.connect("drag-end", self.on_output_port_drag_end, node.id, output_port)
@@ -6386,11 +6869,13 @@ class CanvasView(Gtk.Box):
 
         output_click = Gtk.GestureClick()
         output_click.set_button(0)
+        output_click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         output_click.connect("released", self.on_output_port_released, node.id)
         output_port.add_controller(output_click)
 
         input_click = Gtk.GestureClick()
         input_click.set_button(0)
+        input_click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         input_click.connect("released", self.on_input_port_released, node.id)
         input_port.add_controller(input_click)
 
@@ -6401,8 +6886,6 @@ class CanvasView(Gtk.Box):
 
         drag = Gtk.GestureDrag()
         drag.set_button(0)
-        drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
-        drag.set_exclusive(True)
         drag.connect("drag-begin", self.on_node_drag_begin, node.id)
         drag.connect("drag-update", self.on_node_drag_update, node.id)
         drag.connect("drag-end", self.on_node_drag_end, node.id)
@@ -6547,12 +7030,16 @@ class CanvasView(Gtk.Box):
         _node_id: str,
         _output_port: Gtk.Widget,
     ):
-        anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
-        anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
-        bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
-        bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
-        end_x = int(anchor_x + bias_x + float(offset_x))
-        end_y = int(anchor_y + bias_y + float(offset_y))
+        # Prefer the live preview endpoint so drag-release keeps the exact cursor target.
+        end_x = int(self.link_preview_end_x)
+        end_y = int(self.link_preview_end_y)
+        if end_x <= 0 and end_y <= 0:
+            anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
+            anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
+            bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
+            bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
+            end_x = int(anchor_x + bias_x + float(offset_x))
+            end_y = int(anchor_y + bias_y + float(offset_y))
         source_id = self.link_preview_source_id or self.pending_link_source_id
 
         if self.port_drag_active:
@@ -6593,6 +7080,7 @@ class CanvasView(Gtk.Box):
         return False
 
     def on_input_port_released(self, _gesture, _n_press, _x, _y, node_id: str):
+        _gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         source_id = self.link_preview_source_id or self.pending_link_source_id
         if not source_id or source_id == node_id:
             return
@@ -6614,6 +7102,7 @@ class CanvasView(Gtk.Box):
         self.set_link_hover_target(None)
 
     def on_output_port_released(self, _gesture, _n_press, _x, _y, node_id: str):
+        _gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         if self.node_drag_active or self.port_drag_active or self.port_drag_just_finished:
             return
         selected = self.find_node(node_id)
@@ -6648,6 +7137,9 @@ class CanvasView(Gtk.Box):
         if self.suppress_next_node_click:
             self.suppress_next_node_click = False
             return
+        if self.node_drag_active and not self.drag_origin:
+            # Recover from interrupted gesture state so clicks are not blocked.
+            self.node_drag_active = False
         if self.node_drag_active:
             return
 
@@ -6671,8 +7163,12 @@ class CanvasView(Gtk.Box):
             self.set_single_selection(node_id)
             self.apply_selection_visual_state(previous_selected, node_id)
         elif self.pending_link_source_id == node_id:
-            self.set_status("Select a different node as the link target.")
-            return
+            # Clicking the active link source should exit link mode and keep node selected.
+            self.pending_link_source_id = None
+            self.cancel_link_preview()
+            self.set_single_selection(node_id)
+            self.apply_selection_visual_state(previous_selected, node_id)
+            self.set_status("Link mode canceled.")
         else:
             state = gesture.get_current_event_state()
             additive = bool(
@@ -6789,12 +7285,12 @@ class CanvasView(Gtk.Box):
         handle_x = width - 6.0
         # Align the quick-drag hit area to the visual output port row.
         handle_y = height - max(12.0, min(18.0, height * 0.16))
-        radius = max(16.0, min(30.0, float(self.card_screen_height()) * 0.34))
+        radius = max(22.0, min(36.0, float(self.card_screen_height()) * 0.42))
         hit_circle = (
             (float(start_x) - handle_x) ** 2 + (float(start_y) - handle_y) ** 2 <= radius ** 2
         )
         hit_lane = (
-            float(start_x) >= max(0.0, width - 40.0)
+            float(start_x) >= max(0.0, width - 52.0)
             and max(0.0, height * 0.4) <= float(start_y) <= (height + 2.0)
         )
         return hit_circle or hit_lane
@@ -6818,36 +7314,45 @@ class CanvasView(Gtk.Box):
         return float(translated[1]), float(translated[2])
 
     def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
-        # When explicit link mode is active, prioritize creating the link over dragging.
-        source_id = self.pending_link_source_id
-        if source_id and source_id != node_id:
-            source = self.find_node(source_id)
-            target = self.find_node(node_id)
-            previous_selected = self.selected_node_id
+        # Dragging should always move nodes. If link mode is active, cancel it first.
+        if self.pending_link_source_id and self.pending_link_source_id != node_id:
             previous_source = self.pending_link_source_id
-            linked = target is not None and self.add_edge(source_id, node_id)
-            if linked and target:
-                self.set_single_selection(node_id)
-                self.pending_link_source_id = None
-                self.cancel_link_preview()
-                self.apply_selection_visual_state(previous_selected, node_id)
-                self.apply_link_source_visual_state(previous_source, None)
-                self.update_inspector(target)
-                self.update_control_state()
-                if source:
-                    self.set_status(f"Linked '{source.name}' -> '{target.name}'.")
-            # Consume the gesture so this interaction does not fall through to drag/click races.
-            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-            self.suppress_next_node_click = True
-            GLib.timeout_add(80, self.release_suppressed_click)
-            return
+            self.pending_link_source_id = None
+            self.cancel_link_preview()
+            self.apply_link_source_visual_state(previous_source, None)
+            self.update_control_state()
+            self.set_status("Link mode canceled. Dragging node.")
 
         if self.port_drag_active:
             # An output-port drag is already driving link preview for this sequence.
             return
         if self.is_output_handle_hit(start_x, start_y):
             gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-            self.begin_output_link_drag(node_id)
+            stage_pointer = self.gesture_stage_point(gesture)
+            if stage_pointer:
+                pointer_stage_x, pointer_stage_y = stage_pointer
+            else:
+                gesture_widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
+                if gesture_widget:
+                    success, translated_x, translated_y = gesture_widget.translate_coordinates(
+                        self.fixed,
+                        float(start_x),
+                        float(start_y),
+                    )
+                    if success:
+                        pointer_stage_x = float(translated_x)
+                        pointer_stage_y = float(translated_y)
+                    else:
+                        pointer_stage_x = None
+                        pointer_stage_y = None
+                else:
+                    pointer_stage_x = None
+                    pointer_stage_y = None
+            self.begin_output_link_drag(
+                node_id,
+                pointer_x=pointer_stage_x,
+                pointer_y=pointer_stage_y,
+            )
             return
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         node = self.find_node(node_id)
@@ -6994,18 +7499,29 @@ class CanvasView(Gtk.Box):
 
     def on_node_drag_end(self, _gesture, _offset_x, _offset_y, node_id: str):
         if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:
-            anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
-            anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
-            bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
-            bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
-            end_x = int(anchor_x + bias_x + float(_offset_x))
-            end_y = int(anchor_y + bias_y + float(_offset_y))
+            end_x = int(self.link_preview_end_x)
+            end_y = int(self.link_preview_end_y)
+            if end_x <= 0 and end_y <= 0:
+                anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
+                anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
+                bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
+                bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
+                end_x = int(anchor_x + bias_x + float(_offset_x))
+                end_y = int(anchor_y + bias_y + float(_offset_y))
             self.finalize_link_preview_at(end_x, end_y)
             self.port_drag_active = False
             self.port_drag_origin = {}
             return
 
         if self.drag_origin.get("node_id") != node_id:
+            # Defensive reset when GTK reports a drag-end without a matching origin.
+            self.drag_origin = {}
+            self.drag_group_origins = {}
+            self.node_drag_active = False
+            self.drag_history_captured = False
+            self.drag_guide_x = None
+            self.drag_guide_y = None
+            self.set_node_drag_cursor("grab")
             return
 
         self.drag_origin = {}
@@ -7315,6 +7831,13 @@ class CanvasView(Gtk.Box):
                     cr.set_source_rgba(0.86, 0.93, 1.0, 0.28 if dark_mode else 0.22)
                     cr.set_line_width(7.4)
                     cr.stroke()
+                    self.draw_hover_drop_indicator(
+                        cr,
+                        hover_x,
+                        hover_y,
+                        dark_mode=dark_mode,
+                        active=True,
+                    )
 
             preview_condition = self.get_selected_link_condition()
             red, green, blue, _alpha = self.edge_color(preview_condition, dark_mode)
@@ -7342,6 +7865,14 @@ class CanvasView(Gtk.Box):
                 (red, green, blue, 0.82),
                 False,
             )
+            if not self.link_hover_target_id:
+                self.draw_hover_drop_indicator(
+                    cr,
+                    end_x,
+                    end_y,
+                    dark_mode=dark_mode,
+                    active=False,
+                )
 
         self.draw_selection_rect(cr, dark_mode)
         self.draw_alignment_guides(cr, _width, _height, dark_mode)
@@ -7840,6 +8371,39 @@ class CanvasView(Gtk.Box):
         cr.set_line_width(1.8)
         cr.stroke()
 
+    def draw_hover_drop_indicator(
+        self,
+        cr,
+        x: int,
+        y: int,
+        *,
+        dark_mode: bool,
+        active: bool,
+    ):
+        cx = float(x)
+        cy = float(y)
+        if dark_mode:
+            outer = (0.74, 0.89, 1.0, 0.32 if active else 0.2)
+            ring = (0.62, 0.84, 1.0, 0.96 if active else 0.72)
+            inner = (0.08, 0.19, 0.34, 0.86 if active else 0.72)
+        else:
+            outer = (0.32, 0.58, 0.98, 0.26 if active else 0.16)
+            ring = (0.2, 0.48, 0.94, 0.84 if active else 0.62)
+            inner = (0.92, 0.96, 1.0, 0.9 if active else 0.78)
+
+        cr.new_path()
+        cr.arc(cx, cy, 13.0 if active else 11.0, 0, math.tau)
+        cr.set_source_rgba(*outer)
+        cr.fill()
+
+        cr.new_path()
+        cr.arc(cx, cy, 8.6 if active else 7.4, 0, math.tau)
+        cr.set_source_rgba(*inner)
+        cr.fill_preserve()
+        cr.set_source_rgba(*ring)
+        cr.set_line_width(2.0 if active else 1.6)
+        cr.stroke()
+
     def draw_single_handle(
         self,
         cr,
@@ -8072,8 +8636,23 @@ class CanvasView(Gtk.Box):
         updated_detail = self.get_detail_text().strip()
         updated_config = self.build_updated_node_config(node)
         node_kind = self.node_type_key(node.node_type)
+        if node_kind == "trigger":
+            trigger_issues = self.apply_trigger_validation_feedback()
+            trigger_errors = [item for item in trigger_issues if item[1] == "error"]
+            if trigger_errors:
+                self.set_status(f"Apply blocked: {trigger_errors[0][2]}")
+                return
+        if node_kind == "condition":
+            condition_issues = self.apply_condition_validation_feedback()
+            condition_errors = [item for item in condition_issues if item[1] == "error"]
+            if condition_errors:
+                self.set_status(f"Apply blocked: {condition_errors[0][2]}")
+                return
         if node_kind in {"action", "template"}:
-            missing_fields = self.missing_required_action_fields(updated_config)
+            missing_fields = self.missing_required_action_fields(
+                updated_config,
+                app_settings=self.settings_store.load_settings(),
+            )
             if missing_fields:
                 missing_label = ", ".join(missing_fields[:3])
                 if len(missing_fields) > 3:
@@ -8125,16 +8704,39 @@ class CanvasView(Gtk.Box):
             if value and (key != "provider" or value != "inherit")
         }
 
-    def required_field_value(self, config: dict[str, str], field_name: str) -> str:
+    def required_field_value(
+        self,
+        config: dict[str, str],
+        field_name: str,
+        *,
+        integration_key: str = "",
+        app_settings: dict[str, str] | None = None,
+    ) -> str:
         key = str(field_name).strip().lower()
         candidates = [key, *self.REQUIRED_FIELD_ALIASES.get(key, [])]
         for candidate in candidates:
             value = str(config.get(candidate, "")).strip()
             if value:
                 return value
+        if integration_key and isinstance(app_settings, dict) and app_settings:
+            try:
+                fallback = self.validation_service._required_field_value(
+                    config,
+                    key,
+                    integration_key=integration_key,
+                    app_settings=app_settings,
+                )
+                if str(fallback).strip():
+                    return str(fallback).strip()
+            except Exception:
+                pass
         return ""
 
-    def missing_required_action_fields(self, config: dict[str, str]) -> list[str]:
+    def missing_required_action_fields(
+        self,
+        config: dict[str, str],
+        app_settings: dict[str, str] | None = None,
+    ) -> list[str]:
         integration_key = str(config.get("integration", "standard")).strip().lower() or "standard"
         integration = self.integration_registry.get_integration(integration_key)
         if not integration:
@@ -8148,9 +8750,310 @@ class CanvasView(Gtk.Box):
             field = str(raw_field).strip().lower()
             if not field:
                 continue
-            if not self.required_field_value(config, field):
+            if not self.required_field_value(
+                config,
+                field,
+                integration_key=integration_key,
+                app_settings=app_settings,
+            ):
                 missing.append(field)
         return missing
+
+    def action_field_key_for_requirement(self, required_field: str) -> str:
+        field = str(required_field).strip().lower()
+        mapping = {
+            "url": "endpoint",
+            "webhook_url": "endpoint",
+            "script_url": "endpoint",
+            "connection_url": "endpoint",
+            "method": "method",
+            "headers": "headers",
+            "payload": "payload",
+            "text": "message",
+            "message": "message",
+            "content": "message",
+            "approval_message": "message",
+            "api_key": "api_key",
+            "auth_token": "auth_token",
+            "location": "location",
+            "units": "units",
+            "path": "path",
+            "command": "command",
+            "to": "to",
+            "from": "from",
+            "subject": "subject",
+            "chat_id": "chat_id",
+            "account_sid": "account_sid",
+            "domain": "domain",
+            "spreadsheet_id": "payload",
+            "range": "payload",
+            "sql": "payload",
+            "query": "payload",
+            "integration": "integration",
+        }
+        return mapping.get(field, "payload")
+
+    def build_action_inline_validation_issues(
+        self,
+        integration_key: str,
+        merged: dict[str, str],
+        missing_fields: list[str],
+        app_settings: dict[str, str],
+    ) -> list[tuple[str, str, str]]:
+        issues: list[tuple[str, str, str]] = []
+
+        for field in missing_fields:
+            target_field = self.action_field_key_for_requirement(field)
+            issues.append(
+                (
+                    target_field,
+                    "error",
+                    f"Missing required field: {field}",
+                )
+            )
+
+        endpoint_value = self.required_field_value(
+            merged,
+            "url",
+            integration_key=integration_key,
+            app_settings=app_settings,
+        )
+        connection_value = self.required_field_value(
+            merged,
+            "connection_url",
+            integration_key=integration_key,
+            app_settings=app_settings,
+        )
+        http_endpoint_integrations = {
+            "http_request",
+            "http_post",
+            "slack_webhook",
+            "discord_webhook",
+            "teams_webhook",
+            "google_apps_script",
+            "google_calendar_api",
+            "outlook_graph",
+            "notion_api",
+            "airtable_api",
+            "hubspot_api",
+            "stripe_api",
+            "github_rest",
+            "gitlab_api",
+            "jira_api",
+            "asana_api",
+            "clickup_api",
+            "trello_api",
+            "monday_api",
+            "zendesk_api",
+            "pipedrive_api",
+            "salesforce_api",
+            "resend_email",
+            "mailgun_email",
+        }
+        if (
+            endpoint_value
+            and integration_key in http_endpoint_integrations
+            and not endpoint_value.startswith(("http://", "https://"))
+        ):
+            issues.append(("endpoint", "error", "Endpoint must begin with http:// or https://"))
+
+        if integration_key == "postgres_sql" and connection_value:
+            lowered = connection_value.lower()
+            if not lowered.startswith(("postgres://", "postgresql://")):
+                issues.append(
+                    ("endpoint", "error", "Postgres connection URL must begin with postgres:// or postgresql://")
+                )
+        if integration_key == "mysql_sql" and connection_value:
+            lowered = connection_value.lower()
+            if not lowered.startswith(("mysql://", "mysql2://")):
+                issues.append(
+                    ("endpoint", "error", "MySQL connection URL must begin with mysql:// or mysql2://")
+                )
+        if integration_key == "redis_command" and connection_value:
+            lowered = connection_value.lower()
+            if not lowered.startswith(("redis://", "rediss://")):
+                issues.append(
+                    ("endpoint", "error", "Redis connection URL must begin with redis:// or rediss://")
+                )
+
+        if integration_key in {"http_request", "http_post"}:
+            method_value = str(merged.get("method", "POST")).strip().upper()
+            valid_methods = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
+            if method_value and method_value not in valid_methods:
+                issues.append(("method", "error", f"Unsupported HTTP method: {method_value}"))
+
+        headers_raw = str(merged.get("headers", "")).strip()
+        if headers_raw and integration_key in {
+            "http_request",
+            "notion_api",
+            "airtable_api",
+            "hubspot_api",
+            "stripe_api",
+            "github_rest",
+            "gitlab_api",
+            "google_calendar_api",
+            "outlook_graph",
+            "jira_api",
+            "asana_api",
+            "clickup_api",
+            "trello_api",
+            "monday_api",
+            "zendesk_api",
+            "pipedrive_api",
+            "salesforce_api",
+        }:
+            try:
+                parsed_headers = json.loads(headers_raw)
+                if not isinstance(parsed_headers, dict):
+                    issues.append(("headers", "error", "Headers must be a JSON object."))
+            except Exception:
+                issues.append(("headers", "error", "Headers must be valid JSON."))
+
+        payload_raw = str(merged.get("payload", "")).strip()
+        if payload_raw and integration_key in {
+            "http_request",
+            "http_post",
+            "google_apps_script",
+            "google_sheets",
+            "google_calendar_api",
+            "notion_api",
+            "airtable_api",
+            "hubspot_api",
+            "stripe_api",
+            "github_rest",
+            "gitlab_api",
+            "linear_api",
+            "outlook_graph",
+            "jira_api",
+            "asana_api",
+            "clickup_api",
+            "trello_api",
+            "monday_api",
+            "zendesk_api",
+            "pipedrive_api",
+            "salesforce_api",
+            "telegram_bot",
+            "twilio_sms",
+            "resend_email",
+            "mailgun_email",
+        }:
+            try:
+                json.loads(payload_raw)
+            except Exception:
+                issues.append(("payload", "error", "Payload must be valid JSON for this integration."))
+
+        if integration_key in {"postgres_sql", "mysql_sql", "sqlite_sql"}:
+            sql_value = payload_raw or self.required_field_value(
+                merged,
+                "sql",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if sql_value:
+                lowered_sql = sql_value.strip().lower()
+                if len(sql_value.strip()) < 6:
+                    issues.append(("payload", "warning", "SQL query appears very short."))
+                elif not lowered_sql.startswith(
+                    ("select", "insert", "update", "delete", "create", "alter", "drop", "with", "pragma")
+                ):
+                    issues.append(("payload", "warning", "SQL does not start with a common statement keyword."))
+            if integration_key == "sqlite_sql":
+                path_value = self.required_field_value(
+                    merged,
+                    "path",
+                    integration_key=integration_key,
+                    app_settings=app_settings,
+                )
+                if path_value and not path_value.lower().endswith((".db", ".sqlite", ".sqlite3")):
+                    issues.append(("path", "warning", "SQLite DB path usually ends with .db or .sqlite"))
+
+        if integration_key == "redis_command":
+            redis_cmd = self.required_field_value(
+                merged,
+                "command",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if redis_cmd.lower().startswith("redis-cli"):
+                issues.append(
+                    (
+                        "command",
+                        "warning",
+                        "Use raw Redis command (for example 'ping'); redis-cli is added automatically.",
+                    )
+                )
+
+        if integration_key == "s3_cli":
+            s3_cmd = self.required_field_value(
+                merged,
+                "command",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            lowered = s3_cmd.strip().lower()
+            if lowered and not (lowered.startswith("s3 ") or lowered.startswith("aws ")):
+                issues.append(
+                    (
+                        "command",
+                        "warning",
+                        "S3 command usually starts with 's3 ...' or 'aws s3 ...'.",
+                    )
+                )
+
+        if integration_key in {"gmail_send", "resend_email", "mailgun_email"}:
+            to_value = self.required_field_value(
+                merged,
+                "to",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if to_value and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", to_value):
+                issues.append(("to", "error", "Recipient email format looks invalid"))
+            from_value = self.required_field_value(
+                merged,
+                "from",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            if from_value and from_value != "me" and not re.match(
+                r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+                from_value,
+            ):
+                issues.append(("from", "error", "Sender email format looks invalid"))
+
+        if integration_key == "twilio_sms":
+            from_value = self.required_field_value(
+                merged,
+                "from",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            to_value = self.required_field_value(
+                merged,
+                "to",
+                integration_key=integration_key,
+                app_settings=app_settings,
+            )
+            phone_pattern = re.compile(r"^\+?[0-9][0-9\-\s]{6,}$")
+            if from_value and not phone_pattern.match(from_value):
+                issues.append(("from", "error", "Twilio from number format looks invalid"))
+            if to_value and not phone_pattern.match(to_value):
+                issues.append(("to", "error", "Twilio to number format looks invalid"))
+
+        timeout_raw = str(merged.get("timeout_sec", "")).strip()
+        if timeout_raw:
+            try:
+                timeout_value = float(timeout_raw)
+                if timeout_value < 0:
+                    issues.append(("timeout_sec", "error", "Timeout must be >= 0"))
+                elif timeout_value > 180:
+                    issues.append(
+                        ("timeout_sec", "warning", "Timeout is high and may slow workflow responsiveness")
+                    )
+            except ValueError:
+                issues.append(("timeout_sec", "error", "Timeout must be numeric"))
+
+        return issues
 
     def clear_node_test_result(self):
         self.node_test_status_label.set_text("")
@@ -8293,6 +9196,7 @@ class CanvasView(Gtk.Box):
     def update_inspector(self, node: CanvasNode):
         incoming = len([edge for edge in self.edges if edge.target_node_id == node.id])
         outgoing = len([edge for edge in self.edges if edge.source_node_id == node.id])
+        self.clear_node_field_feedback()
 
         self.node_name_label.set_text(node.name)
         self.node_type_label.set_text(f"Type: {node.node_type}")
@@ -8404,6 +9308,8 @@ class CanvasView(Gtk.Box):
         self.update_inspector_adjustment_states()
         self.update_action_integration_section_visibility(None)
         self.update_action_integration_field_visibility()
+        self.clear_action_field_feedback()
+        self.clear_node_field_feedback()
         self.update_sidebar_mode()
 
     def update_sidebar_mode(self):
@@ -8443,9 +9349,13 @@ class CanvasView(Gtk.Box):
         self.max_tokens_adjust_row.set_visible(show_ai_fields)
 
         self.condition_title.set_visible(is_condition)
-        self.edit_condition_mode_dropdown.set_visible(is_condition)
-        self.edit_condition_value_entry.set_visible(is_condition)
-        self.condition_min_len_row.set_visible(is_condition and self.selected_condition_mode() == "min_len")
+        self.condition_mode_row.set_visible(is_condition)
+        self.condition_value_row.set_visible(
+            is_condition and self.selected_condition_mode() in {"contains", "equals", "not_contains", "regex", "raw"}
+        )
+        self.condition_min_len_field_row.set_visible(
+            is_condition and self.selected_condition_mode() == "min_len"
+        )
         self.update_trigger_controls_state()
         self.update_condition_controls_state()
 
@@ -8576,9 +9486,7 @@ class CanvasView(Gtk.Box):
             self.trigger_hint_label.set_text(
                 "Manual trigger starts the workflow when launched by a user action."
             )
-            return
-
-        if mode == "schedule_interval":
+        elif mode == "schedule_interval":
             self.trigger_hint_label.set_text("Runs workflow on a fixed interval.")
         elif mode == "webhook":
             self.trigger_hint_label.set_text("Starts when matching webhook payload arrives.")
@@ -8589,6 +9497,78 @@ class CanvasView(Gtk.Box):
         else:
             self.trigger_value_entry.set_placeholder_text("Trigger value")
             self.trigger_hint_label.set_text("Set trigger value for this mode.")
+        self.apply_trigger_validation_feedback()
+
+    def build_trigger_inline_validation_issues(
+        self,
+        mode: str,
+    ) -> list[tuple[str, str, str]]:
+        issues: list[tuple[str, str, str]] = []
+        normalized = str(mode).strip().lower()
+        trigger_value = self.current_trigger_value()
+
+        if normalized not in self.TRIGGER_MODE_OPTIONS:
+            issues.append(
+                (
+                    "trigger_mode",
+                    "error",
+                    f"Unsupported trigger mode '{normalized or 'unknown'}'.",
+                )
+            )
+            return issues
+
+        if normalized == "schedule_interval":
+            try:
+                interval = float(trigger_value or "0")
+                if interval <= 0:
+                    issues.append(("trigger_interval", "error", "Interval must be greater than zero."))
+            except ValueError:
+                issues.append(("trigger_interval", "error", "Interval must be numeric."))
+        elif normalized == "cron":
+            cron_value = self.trigger_cron_entry.get_text().strip()
+            if not cron_value:
+                issues.append(("trigger_cron", "error", "Cron expression is required."))
+            elif not self.looks_like_cron(cron_value):
+                issues.append(
+                    (
+                        "trigger_cron",
+                        "error",
+                        "Cron expression should contain 5 or 6 fields.",
+                    )
+                )
+        elif normalized == "webhook":
+            webhook_path = self.trigger_webhook_entry.get_text().strip()
+            if not webhook_path:
+                issues.append(("trigger_webhook", "warning", "Webhook path is empty; default will be used."))
+            elif not webhook_path.startswith("/"):
+                issues.append(("trigger_webhook", "warning", "Webhook path should start with '/'."))
+        elif normalized == "file_watch":
+            watch_path = self.trigger_watch_path_entry.get_text().strip()
+            if not watch_path:
+                issues.append(("trigger_watch_path", "warning", "Watch path is empty; default will be used."))
+        elif normalized not in {"manual"} and not trigger_value:
+            issues.append(("trigger_value", "error", "Trigger value is required for this mode."))
+
+        return issues
+
+    def apply_trigger_validation_feedback(self) -> list[tuple[str, str, str]]:
+        trigger_keys = {
+            "trigger_mode",
+            "trigger_interval",
+            "trigger_webhook",
+            "trigger_watch_path",
+            "trigger_cron",
+            "trigger_value",
+        }
+        self.clear_node_field_feedback(trigger_keys)
+
+        if not self.trigger_section.get_visible():
+            return []
+
+        issues = self.build_trigger_inline_validation_issues(self.selected_trigger_mode())
+        for field_key, severity, message in issues:
+            self.set_node_field_feedback(field_key, message, severity)
+        return issues
 
     def load_trigger_controls(self, merged_config: dict[str, str], detail_text: str):
         mode = str(merged_config.get("trigger_mode", "")).strip().lower()
@@ -8652,16 +9632,67 @@ class CanvasView(Gtk.Box):
 
     def update_condition_controls_state(self):
         mode = self.selected_condition_mode()
-        condition_visible = bool(self.condition_title.get_visible())
+        condition_visible = bool(self.condition_mode_row.get_visible())
         needs_value = mode in {"contains", "equals", "not_contains", "regex", "raw"}
         needs_min_len = mode == "min_len"
         self.edit_condition_value_entry.set_sensitive(condition_visible and needs_value)
-        self.condition_min_len_row.set_visible(condition_visible and needs_min_len)
+        self.condition_value_row.set_visible(condition_visible and needs_value)
+        self.condition_min_len_field_row.set_visible(condition_visible and needs_min_len)
         self.edit_condition_min_len_scale.set_sensitive(condition_visible and needs_min_len)
         self.edit_condition_min_len_spin.set_sensitive(condition_visible and needs_min_len)
 
         if not needs_value:
             self.edit_condition_value_entry.set_text("")
+        self.apply_condition_validation_feedback()
+
+    def build_condition_inline_validation_issues(
+        self,
+        mode: str,
+        expression: str,
+    ) -> list[tuple[str, str, str]]:
+        issues: list[tuple[str, str, str]] = []
+        normalized = str(mode).strip().lower()
+        if normalized not in self.CONDITION_MODE_OPTIONS:
+            issues.append(
+                (
+                    "condition_mode",
+                    "error",
+                    f"Unsupported condition mode '{normalized or 'unknown'}'.",
+                )
+            )
+            return issues
+
+        if normalized in {"contains", "equals", "not_contains", "regex", "raw"}:
+            if not expression:
+                issues.append(("condition_value", "error", "Condition value is required."))
+            elif normalized == "regex":
+                try:
+                    re.compile(expression)
+                except re.error:
+                    issues.append(("condition_value", "error", "Regex pattern is invalid."))
+        elif normalized == "min_len":
+            min_len_value = self.edit_condition_min_len_spin.get_value_as_int()
+            if min_len_value <= 0:
+                issues.append(("condition_min_len", "error", "Minimum length must be greater than zero."))
+        return issues
+
+    def apply_condition_validation_feedback(self) -> list[tuple[str, str, str]]:
+        condition_keys = {
+            "condition_mode",
+            "condition_value",
+            "condition_min_len",
+        }
+        self.clear_node_field_feedback(condition_keys)
+
+        if not self.condition_mode_row.get_visible():
+            return []
+
+        mode = self.selected_condition_mode()
+        expression = self.edit_condition_value_entry.get_text().strip()
+        issues = self.build_condition_inline_validation_issues(mode, expression)
+        for field_key, severity, message in issues:
+            self.set_node_field_feedback(field_key, message, severity)
+        return issues
 
     def on_condition_min_len_scale_changed(self, scale: Gtk.Scale):
         value = int(scale.get_value())
@@ -8757,3 +9788,15 @@ class CanvasView(Gtk.Box):
             return int(value)
         except (TypeError, ValueError):
             return fallback
+
+    def looks_like_cron(self, value: str) -> bool:
+        text = str(value).strip()
+        if not text:
+            return False
+        parts = [item for item in text.split() if item]
+        if len(parts) not in {5, 6}:
+            return False
+        for part in parts:
+            if not re.match(r"^[\d\*/,\-\?LW#A-Za-z]+$", part):
+                return False
+        return True
