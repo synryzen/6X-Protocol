@@ -82,11 +82,8 @@ Planned Pages URL:
 - GitHub: `https://github.com/synryzen/6X-Protocol`
 - Support Email: `6X-Protocol@gmail.com`
 
-## Marketing Funnel (Free -> Paid Apps)
-- Use this repo and GitHub Releases as the free Linux download entry point.
-- Keep a dedicated "Explore Matthew's Apps" section on the Pages site.
-- Add one page per iOS/macOS app (best for search visibility and clearer call-to-action).
-- Cross-link every app page back to this repo for trust and audience growth.
+## Related Apps
+Discover more apps by Matthew C Elliott:
 
 ### App Store Links
 - NodeSpark: `https://apps.apple.com/us/app/nodespark/id6756223114?itscg=30200&itsct=apps_box_link&mttnsubad=6756223114`
