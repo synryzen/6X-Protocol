@@ -2935,7 +2935,8 @@ class CanvasView(Gtk.Box):
             return [
                 {
                     "label": "Postgres Query",
-                    "payload": "{\"connection_url\":\"postgres://user:pass@localhost:5432/db\",\"sql\":\"select now();\"}",
+                    "endpoint": "postgresql://user:password@localhost:5432/postgres",
+                    "payload": "select now();",
                     "timeout_sec": "60.0",
                 }
             ]
@@ -2943,7 +2944,8 @@ class CanvasView(Gtk.Box):
             return [
                 {
                     "label": "SQLite Query",
-                    "payload": "{\"path\":\"/tmp/6x.db\",\"sql\":\"create table if not exists logs(message text);\"}",
+                    "path": "/tmp/6x.db",
+                    "payload": "create table if not exists logs(message text);",
                     "timeout_sec": "30.0",
                 }
             ]
@@ -2951,7 +2953,8 @@ class CanvasView(Gtk.Box):
             return [
                 {
                     "label": "MySQL Query",
-                    "payload": "{\"connection_url\":\"mysql://user:pass@localhost:3306/db\",\"sql\":\"select now();\"}",
+                    "endpoint": "mysql://user:password@localhost:3306/mysql",
+                    "payload": "select now();",
                     "timeout_sec": "60.0",
                 }
             ]
@@ -2959,6 +2962,7 @@ class CanvasView(Gtk.Box):
             return [
                 {
                     "label": "Redis Ping",
+                    "endpoint": "redis://localhost:6379/0",
                     "command": "PING",
                     "timeout_sec": "20.0",
                 }
@@ -4676,6 +4680,14 @@ class CanvasView(Gtk.Box):
                 except Exception:
                     payload_obj = {}
 
+            if integration in {"postgres_sql", "mysql_sql", "sqlite_sql"}:
+                sql_payload = str(payload_obj.get("sql", "")).strip()
+                direct_sql = str(merged_config.get("sql", "")).strip()
+                if sql_payload:
+                    payload_text = sql_payload
+                elif direct_sql and not payload_text:
+                    payload_text = direct_sql
+
             endpoint = ""
             if integration in {"http_post", "http_request"}:
                 endpoint = str(merged_config.get("url", "")).strip()
@@ -4779,7 +4791,10 @@ class CanvasView(Gtk.Box):
             self.action_units_dropdown.set_selected(
                 self.action_units_index(merged_config.get("units", "metric"))
             )
-            self.action_path_entry.set_text(str(merged_config.get("path", "")).strip())
+            self.action_path_entry.set_text(
+                str(merged_config.get("path", "")).strip()
+                or str(payload_obj.get("path", "")).strip()
+            )
             self.action_command_entry.set_text(str(merged_config.get("command", "")).strip())
             timeout_value = self.parse_float(merged_config.get("timeout_sec", ""), 0.0)
             self.action_timeout_spin.set_value(max(0.0, timeout_value))
@@ -4945,6 +4960,8 @@ class CanvasView(Gtk.Box):
             "sqlite_sql",
         }:
             updated_config["payload"] = payload
+        if payload and integration in {"postgres_sql", "mysql_sql", "sqlite_sql"}:
+            updated_config["sql"] = payload
         if username and integration in {"slack_webhook", "discord_webhook", "teams_webhook"}:
             updated_config["username"] = username
 
