@@ -102,6 +102,21 @@ p {
     var(--surface);
 }
 
+.brand-hero-figure {
+  margin: 14px 0 4px 0;
+  border: 1px solid rgba(141, 189, 255, 0.32);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(8, 16, 30, 0.78);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+}
+
+.brand-hero-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .hero-grid {
   margin-top: 14px;
   display: grid;
