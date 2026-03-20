@@ -53,6 +53,12 @@ class ExecutionEngine:
         "stripe_api",
         "github_rest",
         "gitlab_api",
+        "google_drive_api",
+        "dropbox_api",
+        "shopify_api",
+        "webflow_api",
+        "supabase_api",
+        "openrouter_api",
         "linear_api",
         "jira_api",
         "asana_api",
@@ -1068,6 +1074,12 @@ class ExecutionEngine:
             "pipedrive_api",
             "salesforce_api",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
         }:
             url = str(config.get("url", "")).strip()
             method = str(config.get("method", "")).strip().upper() or "POST"
@@ -1091,6 +1103,12 @@ class ExecutionEngine:
                     "pipedrive_api": "pipedrive_api_url",
                     "salesforce_api": "salesforce_api_url",
                     "gitlab_api": "gitlab_api_url",
+                    "google_drive_api": "google_drive_api_url",
+                    "dropbox_api": "dropbox_api_url",
+                    "shopify_api": "shopify_api_url",
+                    "webflow_api": "webflow_api_url",
+                    "supabase_api": "supabase_api_url",
+                    "openrouter_api": "openrouter_api_url",
                 }
                 url = app_value(url_map.get(integration_handler, ""))
             if not api_key:
@@ -1111,6 +1129,12 @@ class ExecutionEngine:
                     "pipedrive_api": "pipedrive_api_key",
                     "salesforce_api": "salesforce_api_key",
                     "gitlab_api": "gitlab_api_key",
+                    "google_drive_api": "google_drive_api_key",
+                    "dropbox_api": "dropbox_api_key",
+                    "shopify_api": "shopify_api_key",
+                    "webflow_api": "webflow_api_key",
+                    "supabase_api": "supabase_api_key",
+                    "openrouter_api": "openrouter_api_key",
                 }
                 api_key = app_value(key_map.get(integration_handler, ""))
             if not url:

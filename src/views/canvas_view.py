@@ -64,6 +64,12 @@ class CanvasView(Gtk.Box):
         "stripe_api",
         "github_rest",
         "gitlab_api",
+        "google_drive_api",
+        "dropbox_api",
+        "shopify_api",
+        "webflow_api",
+        "supabase_api",
+        "openrouter_api",
         "linear_api",
         "jira_api",
         "asana_api",
@@ -972,6 +978,12 @@ class CanvasView(Gtk.Box):
             ("GitHub", "github_rest", "github_user"),
             ("HubSpot", "hubspot_api", "hubspot_contacts"),
             ("Stripe", "stripe_api", "stripe_balance"),
+            ("Drive", "google_drive_api", "google_drive_files"),
+            ("Dropbox", "dropbox_api", "dropbox_files"),
+            ("Shopify", "shopify_api", "shopify_products"),
+            ("Webflow", "webflow_api", "webflow_sites"),
+            ("Supabase", "supabase_api", "supabase_rows"),
+            ("OpenRouter", "openrouter_api", "openrouter_chat"),
             ("Jira", "jira_api", "jira_issue_lookup"),
             ("Asana", "asana_api", "asana_task"),
             ("ClickUp", "clickup_api", "clickup_task"),
@@ -2348,6 +2360,68 @@ class CanvasView(Gtk.Box):
                 },
             },
             {
+                "key": "google_drive_files",
+                "label": "Google • Drive Files",
+                "description": "List files from Google Drive API.",
+                "integration": "google_drive_api",
+                "defaults": {
+                    "endpoint": "https://www.googleapis.com/drive/v3/files?pageSize=10",
+                    "method": "GET",
+                },
+            },
+            {
+                "key": "dropbox_files",
+                "label": "Storage • Dropbox Files",
+                "description": "List files from Dropbox API.",
+                "integration": "dropbox_api",
+                "defaults": {
+                    "endpoint": "https://api.dropboxapi.com/2/files/list_folder",
+                    "method": "POST",
+                    "payload": "{\"path\":\"\",\"recursive\":false,\"limit\":20}",
+                },
+            },
+            {
+                "key": "shopify_products",
+                "label": "Commerce • Shopify Products",
+                "description": "Read Shopify product list using Admin API.",
+                "integration": "shopify_api",
+                "defaults": {
+                    "endpoint": "https://your-store.myshopify.com/admin/api/2024-10/products.json?limit=10",
+                    "method": "GET",
+                },
+            },
+            {
+                "key": "webflow_sites",
+                "label": "Web • Webflow Sites",
+                "description": "List available Webflow sites.",
+                "integration": "webflow_api",
+                "defaults": {
+                    "endpoint": "https://api.webflow.com/v2/sites",
+                    "method": "GET",
+                },
+            },
+            {
+                "key": "supabase_rows",
+                "label": "Data • Supabase Rows",
+                "description": "Query rows from Supabase REST endpoint.",
+                "integration": "supabase_api",
+                "defaults": {
+                    "endpoint": "https://YOUR_PROJECT.supabase.co/rest/v1/your_table?select=*",
+                    "method": "GET",
+                },
+            },
+            {
+                "key": "openrouter_chat",
+                "label": "AI • OpenRouter Chat",
+                "description": "Call OpenRouter chat/completions endpoint.",
+                "integration": "openrouter_api",
+                "defaults": {
+                    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+                    "method": "POST",
+                    "payload": "{\"model\":\"openai/gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hi from 6X Protocol\"}]}",
+                },
+            },
+            {
                 "key": "linear_query",
                 "label": "Project • Linear",
                 "description": "Run a Linear GraphQL query for issues and teams.",
@@ -2532,6 +2606,12 @@ class CanvasView(Gtk.Box):
                 "pipedrive_api": ("pipedrive_api_key", "pipedrive_api_url"),
                 "salesforce_api": ("salesforce_api_key", "salesforce_api_url"),
                 "gitlab_api": ("gitlab_api_key", "gitlab_api_url"),
+                "google_drive_api": ("google_drive_api_key", "google_drive_api_url"),
+                "dropbox_api": ("dropbox_api_key", "dropbox_api_url"),
+                "shopify_api": ("shopify_api_key", "shopify_api_url"),
+                "webflow_api": ("webflow_api_key", "webflow_api_url"),
+                "supabase_api": ("supabase_api_key", "supabase_api_url"),
+                "openrouter_api": ("openrouter_api_key", "openrouter_api_url"),
                 "linear_api": ("linear_api_key", ""),
             }
             api_key_key, url_key = integration_key_map.get(key, ("", ""))
@@ -2612,6 +2692,12 @@ class CanvasView(Gtk.Box):
             "github_rest": "github_user",
             "hubspot_api": "hubspot_contacts",
             "stripe_api": "stripe_balance",
+            "google_drive_api": "google_drive_files",
+            "dropbox_api": "dropbox_files",
+            "shopify_api": "shopify_products",
+            "webflow_api": "webflow_sites",
+            "supabase_api": "supabase_rows",
+            "openrouter_api": "openrouter_chat",
             "jira_api": "jira_issue_lookup",
             "asana_api": "asana_task",
             "clickup_api": "clickup_task",
@@ -2817,6 +2903,62 @@ class CanvasView(Gtk.Box):
                     "endpoint": "https://api.stripe.com/v1/charges?limit=5",
                     "method": "GET",
                     "timeout_sec": "30.0",
+                }
+            ]
+        if key == "google_drive_api":
+            return [
+                {
+                    "label": "Drive File List",
+                    "endpoint": "https://www.googleapis.com/drive/v3/files?pageSize=10",
+                    "method": "GET",
+                    "timeout_sec": "30.0",
+                }
+            ]
+        if key == "dropbox_api":
+            return [
+                {
+                    "label": "Dropbox List Folder",
+                    "endpoint": "https://api.dropboxapi.com/2/files/list_folder",
+                    "method": "POST",
+                    "payload": "{\"path\":\"\",\"recursive\":false,\"limit\":20}",
+                    "timeout_sec": "30.0",
+                }
+            ]
+        if key == "shopify_api":
+            return [
+                {
+                    "label": "Shopify Products",
+                    "endpoint": "https://your-store.myshopify.com/admin/api/2024-10/products.json?limit=10",
+                    "method": "GET",
+                    "timeout_sec": "30.0",
+                }
+            ]
+        if key == "webflow_api":
+            return [
+                {
+                    "label": "Webflow Sites",
+                    "endpoint": "https://api.webflow.com/v2/sites",
+                    "method": "GET",
+                    "timeout_sec": "30.0",
+                }
+            ]
+        if key == "supabase_api":
+            return [
+                {
+                    "label": "Supabase Query",
+                    "endpoint": "https://YOUR_PROJECT.supabase.co/rest/v1/your_table?select=*",
+                    "method": "GET",
+                    "timeout_sec": "30.0",
+                }
+            ]
+        if key == "openrouter_api":
+            return [
+                {
+                    "label": "OpenRouter Chat",
+                    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+                    "method": "POST",
+                    "payload": "{\"model\":\"openai/gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hi from 6X Protocol\"}]}",
+                    "timeout_sec": "45.0",
                 }
             ]
         if key == "github_rest":
@@ -3171,6 +3313,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "linear_api",
             "jira_api",
             "asana_api",
@@ -3180,6 +3328,12 @@ class CanvasView(Gtk.Box):
             "zendesk_api",
             "pipedrive_api",
             "salesforce_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "postgres_sql",
             "mysql_sql",
             "sqlite_sql",
@@ -3323,6 +3477,30 @@ class CanvasView(Gtk.Box):
             "gitlab_api": {
                 "api_key": "gitlab_api_key",
                 "endpoint": "gitlab_api_url",
+            },
+            "google_drive_api": {
+                "api_key": "google_drive_api_key",
+                "endpoint": "google_drive_api_url",
+            },
+            "dropbox_api": {
+                "api_key": "dropbox_api_key",
+                "endpoint": "dropbox_api_url",
+            },
+            "shopify_api": {
+                "api_key": "shopify_api_key",
+                "endpoint": "shopify_api_url",
+            },
+            "webflow_api": {
+                "api_key": "webflow_api_key",
+                "endpoint": "webflow_api_url",
+            },
+            "supabase_api": {
+                "api_key": "supabase_api_key",
+                "endpoint": "supabase_api_url",
+            },
+            "openrouter_api": {
+                "api_key": "openrouter_api_key",
+                "endpoint": "openrouter_api_url",
             },
             "twilio_sms": {
                 "account_sid": "twilio_account_sid",
@@ -3680,7 +3858,19 @@ class CanvasView(Gtk.Box):
             return "Required: account SID, auth token, from, to, message."
         if key == "google_sheets":
             return "Required: OAuth token, spreadsheet id, range, payload values."
-        if key in {"google_calendar_api", "outlook_graph", "github_rest", "hubspot_api", "stripe_api"}:
+        if key in {
+            "google_calendar_api",
+            "outlook_graph",
+            "github_rest",
+            "hubspot_api",
+            "stripe_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
+        }:
             return "Required: API key/token and endpoint URL. Optional: method, headers, payload."
         if key in {"notion_api", "airtable_api", "linear_api", "monday_api"}:
             return "Required: API key/token plus JSON payload for request body/query."
@@ -3993,6 +4183,12 @@ class CanvasView(Gtk.Box):
                     "stripe_api",
                     "github_rest",
                     "gitlab_api",
+                    "google_drive_api",
+                    "dropbox_api",
+                    "shopify_api",
+                    "webflow_api",
+                    "supabase_api",
+                    "openrouter_api",
                     "linear_api",
                     "jira_api",
                     "asana_api",
@@ -4024,6 +4220,12 @@ class CanvasView(Gtk.Box):
                     "stripe_api",
                     "github_rest",
                     "gitlab_api",
+                    "google_drive_api",
+                    "dropbox_api",
+                    "shopify_api",
+                    "webflow_api",
+                    "supabase_api",
+                    "openrouter_api",
                     "linear_api",
                     "jira_api",
                     "asana_api",
@@ -4101,6 +4303,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "linear_api",
             "google_calendar_api",
             "outlook_graph",
@@ -4126,6 +4334,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "google_calendar_api",
             "outlook_graph",
             "jira_api",
@@ -4171,6 +4385,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "linear_api",
             "outlook_graph",
             "jira_api",
@@ -4193,6 +4413,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -4217,6 +4443,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "linear_api",
             "outlook_graph",
             "jira_api",
@@ -4253,6 +4485,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "linear_api",
             "outlook_graph",
             "jira_api",
@@ -4433,6 +4671,9 @@ class CanvasView(Gtk.Box):
             self.action_payload_label.set_text("GraphQL Payload")
             self.action_api_key_label.set_text("API Token")
             self.action_api_key_entry.set_placeholder_text("Service API token")
+        elif integration == "openrouter_api":
+            self.action_api_key_label.set_text("OpenRouter API Key")
+            self.action_api_key_entry.set_placeholder_text("sk-or-v1-...")
         elif integration in {
             "notion_api",
             "airtable_api",
@@ -4440,6 +4681,11 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
             "jira_api",
             "asana_api",
             "clickup_api",
@@ -4708,6 +4954,12 @@ class CanvasView(Gtk.Box):
                 "stripe_api",
                 "github_rest",
                 "gitlab_api",
+                "google_drive_api",
+                "dropbox_api",
+                "shopify_api",
+                "webflow_api",
+                "supabase_api",
+                "openrouter_api",
                 "linear_api",
                 "google_calendar_api",
                 "outlook_graph",
@@ -4895,6 +5147,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "google_calendar_api",
             "outlook_graph",
             "jira_api",
@@ -4915,6 +5173,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "google_calendar_api",
             "outlook_graph",
             "jira_api",
@@ -4942,6 +5206,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "linear_api",
             "outlook_graph",
             "jira_api",
@@ -4992,6 +5262,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "linear_api",
             "outlook_graph",
             "jira_api",
@@ -5047,6 +5323,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "linear_api",
             "outlook_graph",
             "jira_api",
@@ -8896,6 +9178,12 @@ class CanvasView(Gtk.Box):
             "stripe_api",
             "github_rest",
             "gitlab_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
             "linear_api",
             "outlook_graph",
             "jira_api",

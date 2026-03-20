@@ -58,6 +58,12 @@ class RunController:
         "stripe_api",
         "github_rest",
         "gitlab_api",
+        "google_drive_api",
+        "dropbox_api",
+        "shopify_api",
+        "webflow_api",
+        "supabase_api",
+        "openrouter_api",
         "linear_api",
         "jira_api",
         "asana_api",
@@ -763,6 +769,12 @@ class RunController:
             "zendesk_api",
             "pipedrive_api",
             "salesforce_api",
+            "google_drive_api",
+            "dropbox_api",
+            "shopify_api",
+            "webflow_api",
+            "supabase_api",
+            "openrouter_api",
         }:
             url = self._pick_url(config) or self._default_api_endpoint(normalized)
             if not url:
