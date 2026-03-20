@@ -503,6 +503,8 @@ class CanvasView(Gtk.Box):
         self.link_layer.set_content_height(self.STAGE_HEIGHT)
         self.link_layer.set_draw_func(self.on_draw_links)
         self.link_layer.add_css_class("canvas-link-layer")
+        # Keep link layer strictly visual so pointer gestures always reach node widgets.
+        self.link_layer.set_can_target(False)
 
         stage_overlay = Gtk.Overlay()
         stage_overlay.set_child(self.link_layer)
@@ -526,6 +528,10 @@ class CanvasView(Gtk.Box):
         stage_click.set_button(0)
         stage_click.connect("released", self.on_canvas_stage_clicked)
         self.fixed.add_controller(stage_click)
+
+        stage_motion = Gtk.EventControllerMotion()
+        stage_motion.connect("motion", self.on_stage_pointer_motion)
+        self.fixed.add_controller(stage_motion)
 
         stage_select_drag = Gtk.GestureDrag()
         stage_select_drag.set_button(0)
@@ -6689,6 +6695,11 @@ class CanvasView(Gtk.Box):
 
     def on_canvas_stage_clicked(self, _gesture, _n_press, x: float, y: float):
         self.grab_focus()
+        if self.port_drag_active:
+            self.finalize_link_preview_at(int(x), int(y))
+            self.port_drag_active = False
+            self.port_drag_origin = {}
+            return
         if self.suppress_stage_click_once:
             self.suppress_stage_click_once = False
             return
@@ -6715,6 +6726,23 @@ class CanvasView(Gtk.Box):
         self.clear_inspector()
         self.update_control_state()
         self.set_status("Canvas selection cleared.")
+
+    def on_stage_pointer_motion(self, _controller, x: float, y: float):
+        if not self.port_drag_active:
+            return
+        source_id = self.link_preview_source_id or self.pending_link_source_id
+        if not source_id:
+            return
+        stage_x = int(x)
+        stage_y = int(y)
+        target = self.valid_link_target_at(stage_x, stage_y, source_id)
+        if target:
+            self.set_link_hover_target(target.id)
+            snap_x, snap_y = self.node_input_anchor(target)
+            self.update_link_preview_position(int(snap_x), int(snap_y))
+        else:
+            self.set_link_hover_target(None)
+            self.update_link_preview_position(stage_x, stage_y)
 
     def is_output_handle_hit(self, start_x: float, start_y: float) -> bool:
         handle_x = float(self.card_screen_width() - 4)
