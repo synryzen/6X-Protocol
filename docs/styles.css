@@ -183,6 +183,26 @@ p {
   gap: 6px;
 }
 
+.app-screenshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.app-screenshot-card {
+  margin: 0;
+  border: 1px solid rgba(141, 189, 255, 0.28);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(11, 22, 41, 0.8);
+}
+
+.app-screenshot-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .app-links {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));

@@ -31,7 +31,7 @@ class CanvasView(Gtk.Box):
     ZOOM_STEP = 0.1
     SNAP_GRID = 20
     ALIGN_SNAP_DISTANCE = 14
-    LINK_TARGET_SNAP_DISTANCE = 72
+    LINK_TARGET_SNAP_DISTANCE = 108
     LINK_TYPES = ["next", "true", "false"]
     PROVIDER_OPTIONS = ["inherit", "local", "openai", "anthropic"]
     TRIGGER_MODE_OPTIONS = ["manual", "schedule_interval", "webhook", "file_watch", "cron"]
@@ -5282,6 +5282,10 @@ class CanvasView(Gtk.Box):
             summary="Begins the workflow when its trigger condition is met.",
             x=x,
             y=y,
+            config={
+                "trigger_mode": "manual",
+                "trigger_value": "",
+            },
         )
 
     def on_add_action(self, _button):
@@ -5293,6 +5297,12 @@ class CanvasView(Gtk.Box):
             summary="Performs a concrete workflow action.",
             x=x,
             y=y,
+            config={
+                "integration": "standard",
+                "action_template": "generic_action",
+                "method": "POST",
+                "timeout_sec": "30.0",
+            },
         )
 
     def on_add_ai(self, _button):
@@ -6325,6 +6335,7 @@ class CanvasView(Gtk.Box):
         input_port.add_css_class("canvas-node-port-in")
         input_port.add_css_class("canvas-node-port-dot")
         input_port.set_size_request(20, 20)
+        input_port.set_can_target(True)
         input_port.set_halign(Gtk.Align.START)
         input_port.set_valign(Gtk.Align.CENTER)
 
@@ -6333,6 +6344,7 @@ class CanvasView(Gtk.Box):
         output_port.add_css_class("canvas-node-port-out")
         output_port.add_css_class("canvas-node-port-dot")
         output_port.set_size_request(20, 20)
+        output_port.set_can_target(True)
         output_port.set_halign(Gtk.Align.END)
         output_port.set_valign(Gtk.Align.CENTER)
 
@@ -6517,7 +6529,7 @@ class CanvasView(Gtk.Box):
         x = int(anchor_x + bias_x + float(offset_x))
         y = int(anchor_y + bias_y + float(offset_y))
         source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
-        target = self.valid_link_target_at(x, y, source_id)
+        target = self.active_drag_target(source_id, x, y)
         if target:
             self.set_link_hover_target(target.id)
             snap_x, snap_y = self.node_input_anchor(target)
@@ -6540,8 +6552,15 @@ class CanvasView(Gtk.Box):
         bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
         end_x = int(anchor_x + bias_x + float(offset_x))
         end_y = int(anchor_y + bias_y + float(offset_y))
+        source_id = self.link_preview_source_id or self.pending_link_source_id
 
         if self.port_drag_active:
+            if source_id:
+                hover_target = self.active_drag_target(source_id, end_x, end_y)
+                if hover_target:
+                    input_x, input_y = self.node_input_anchor(hover_target)
+                    end_x = int(input_x)
+                    end_y = int(input_y)
             self.finalize_link_preview_at(end_x, end_y)
         elif self.link_hover_target_id:
             hover_target = self.find_node(self.link_hover_target_id)
@@ -6735,7 +6754,7 @@ class CanvasView(Gtk.Box):
             return
         stage_x = int(x)
         stage_y = int(y)
-        target = self.valid_link_target_at(stage_x, stage_y, source_id)
+        target = self.active_drag_target(source_id, stage_x, stage_y)
         if target:
             self.set_link_hover_target(target.id)
             snap_x, snap_y = self.node_input_anchor(target)
@@ -6744,16 +6763,38 @@ class CanvasView(Gtk.Box):
             self.set_link_hover_target(None)
             self.update_link_preview_position(stage_x, stage_y)
 
+    def active_drag_target(self, source_id: str, x: int, y: int) -> CanvasNode | None:
+        hovered_target = self.drag_hover_target(source_id)
+        if hovered_target:
+            return hovered_target
+        return self.valid_link_target_at(x, y, source_id)
+
+    def drag_hover_target(self, source_id: str) -> CanvasNode | None:
+        if self.hovered_port_kind != "in":
+            return None
+        hovered_id = str(self.hovered_port_node_id or "").strip()
+        if not hovered_id or hovered_id == source_id:
+            return None
+        hovered_node = self.find_node(hovered_id)
+        if not hovered_node:
+            return None
+        if self.node_type_key(hovered_node.node_type) == "trigger":
+            return None
+        return hovered_node
+
     def is_output_handle_hit(self, start_x: float, start_y: float) -> bool:
-        handle_x = float(self.card_screen_width() - 4)
-        handle_y = float(self.card_screen_height() / 2)
+        width = float(self.card_screen_width())
+        height = float(self.card_screen_height())
+        handle_x = width - 6.0
+        # Align the quick-drag hit area to the visual output port row.
+        handle_y = height - max(12.0, min(18.0, height * 0.16))
         radius = max(16.0, min(30.0, float(self.card_screen_height()) * 0.34))
         hit_circle = (
             (float(start_x) - handle_x) ** 2 + (float(start_y) - handle_y) ** 2 <= radius ** 2
         )
         hit_lane = (
-            float(start_x) >= float(self.card_screen_width() - 28)
-            and 8.0 <= float(start_y) <= float(self.card_screen_height() - 8)
+            float(start_x) >= max(0.0, width - 40.0)
+            and max(0.0, height * 0.4) <= float(start_y) <= (height + 2.0)
         )
         return hit_circle or hit_lane
 
@@ -6836,7 +6877,7 @@ class CanvasView(Gtk.Box):
             x = int(anchor_x + bias_x + float(offset_x))
             y = int(anchor_y + bias_y + float(offset_y))
             source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
-            target = self.valid_link_target_at(x, y, source_id)
+            target = self.active_drag_target(source_id, x, y)
             if target:
                 self.set_link_hover_target(target.id)
                 snap_x, snap_y = self.node_input_anchor(target)
@@ -7866,15 +7907,17 @@ class CanvasView(Gtk.Box):
         cr.close_path()
 
     def node_input_anchor(self, node: CanvasNode) -> tuple[int, int]:
+        y_offset = max(12, min(18, self.card_screen_height() // 6))
         return (
             self.to_screen(node.x) + 4,
-            self.to_screen(node.y) + (self.card_screen_height() // 2),
+            self.to_screen(node.y) + self.card_screen_height() - y_offset,
         )
 
     def node_output_anchor(self, node: CanvasNode) -> tuple[int, int]:
+        y_offset = max(12, min(18, self.card_screen_height() // 6))
         return (
             self.to_screen(node.x) + self.card_screen_width() - 4,
-            self.to_screen(node.y) + (self.card_screen_height() // 2),
+            self.to_screen(node.y) + self.card_screen_height() - y_offset,
         )
 
     def find_node(self, node_id: str) -> CanvasNode | None:

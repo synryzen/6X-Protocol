@@ -6641,3 +6641,33 @@ window.theme-dark .about-info-row {
 window.theme-dark .about-value {
   color: #c8d7ef;
 }
+
+/* Premium studio v29: execution control hitboxes + canvas link affordance */
+window.app-window .canvas-workflow-mode .canvas-execution-grid spinbutton,
+window.app-window .canvas-inspector .canvas-execution-field spinbutton {
+  min-width: 82px;
+  min-height: 22px;
+}
+
+window.app-window .canvas-workflow-mode .canvas-execution-grid spinbutton entry,
+window.app-window .canvas-inspector .canvas-execution-field spinbutton entry {
+  padding: 0 5px;
+}
+
+window.app-window .canvas-workflow-mode .canvas-execution-grid spinbutton button,
+window.app-window .canvas-inspector .canvas-execution-field spinbutton button {
+  min-width: 12px;
+  min-height: 14px;
+  padding: 0;
+  margin: 0;
+}
+
+window.app-window .canvas-node-port {
+  min-width: 22px;
+  min-height: 22px;
+}
+
+window.app-window frame.canvas-node-link-source,
+window.app-window frame.canvas-node-link-source > border {
+  box-shadow: 0 0 0 1px alpha(#66adff, 0.52), 0 10px 24px alpha(#061325, 0.34);
+}
