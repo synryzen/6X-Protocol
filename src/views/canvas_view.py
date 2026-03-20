@@ -624,7 +624,7 @@ class CanvasView(Gtk.Box):
             label=(
                 "Shortcuts: Ctrl+S save  •  Ctrl+L link  •  Ctrl+P preflight  •  "
                 "Ctrl+Z undo/redo  •  Ctrl+Shift+G snap  •  Ctrl +/- zoom  •  "
-                "Shift-drag box select  •  Del remove  •  Drag mini map to move"
+                "Shift-drag box select  •  Ctrl-drag snap  •  Del remove  •  Drag mini map to move"
             )
         )
         shortcut_hint.set_wrap(True)
@@ -6897,19 +6897,28 @@ class CanvasView(Gtk.Box):
 
         proposed_x = float(start_x + (offset_x / self.zoom_factor))
         proposed_y = float(start_y + (offset_y / self.zoom_factor))
-        snapped_x = round(proposed_x / self.SNAP_GRID) * self.SNAP_GRID
-        snapped_y = round(proposed_y / self.SNAP_GRID) * self.SNAP_GRID
+        # Keep node motion visually stable while dragging. Forcing grid/guide snap on
+        # every motion event can cause rapid oscillation near boundaries.
+        snapped_x = proposed_x
+        snapped_y = proposed_y
+
+        state = _gesture.get_current_event_state()
+        live_snap_enabled = bool(state & Gdk.ModifierType.CONTROL_MASK)
+        if live_snap_enabled:
+            snapped_x = round(proposed_x / self.SNAP_GRID) * self.SNAP_GRID
+            snapped_y = round(proposed_y / self.SNAP_GRID) * self.SNAP_GRID
         guide_x, guide_y = self.find_alignment_guides(
             node_id,
-            snapped_x,
-            snapped_y,
+            int(round(proposed_x)),
+            int(round(proposed_y)),
             exclude_ids=set(self.drag_group_origins.keys()),
         )
 
-        if guide_x is not None:
-            snapped_x = guide_x
-        if guide_y is not None:
-            snapped_y = guide_y
+        if live_snap_enabled:
+            if guide_x is not None:
+                snapped_x = guide_x
+            if guide_y is not None:
+                snapped_y = guide_y
 
         delta_x = int(snapped_x - start_x)
         delta_y = int(snapped_y - start_y)
