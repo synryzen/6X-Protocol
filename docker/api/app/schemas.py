@@ -41,6 +41,9 @@ class RunIn(BaseModel):
     cancellation_requested: bool = False
     last_failed_node_id: str = ""
     last_failed_node_name: str = ""
+    execution_retry_max: int = 0
+    execution_backoff_ms: int = 0
+    execution_timeout_sec: float = 0.0
 
 
 class RunPatch(BaseModel):
@@ -58,6 +61,9 @@ class StartRunRequest(BaseModel):
     trigger: str = "manual"
     start_node_id: str = ""
     idempotency_key: str = ""
+    retry_max: int | None = None
+    retry_backoff_ms: int | None = None
+    timeout_sec: float | None = None
 
 
 class RetryRunRequest(BaseModel):
@@ -132,6 +138,9 @@ def make_run(payload: RunIn) -> dict[str, Any]:
         "cancellation_requested": bool(payload.cancellation_requested),
         "last_failed_node_id": payload.last_failed_node_id,
         "last_failed_node_name": payload.last_failed_node_name,
+        "execution_retry_max": max(0, int(payload.execution_retry_max)),
+        "execution_backoff_ms": max(0, int(payload.execution_backoff_ms)),
+        "execution_timeout_sec": max(0.0, float(payload.execution_timeout_sec)),
     }
 
 

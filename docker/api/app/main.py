@@ -197,6 +197,9 @@ def start_run(payload: StartRunRequest) -> dict[str, Any]:
         trigger=payload.trigger,
         start_node_id=payload.start_node_id,
         idempotency_key=payload.idempotency_key,
+        retry_max=payload.retry_max,
+        retry_backoff_ms=payload.retry_backoff_ms,
+        timeout_sec=payload.timeout_sec,
     )
 
 
@@ -271,6 +274,18 @@ def retry_run(run_id: str, payload: RetryRunRequest) -> dict[str, Any]:
         previous_retry_count = int(previous.get("retry_count", 0))
     except (TypeError, ValueError):
         previous_retry_count = 0
+    try:
+        previous_exec_retry_max = int(previous.get("execution_retry_max", 0))
+    except (TypeError, ValueError):
+        previous_exec_retry_max = 0
+    try:
+        previous_exec_backoff_ms = int(previous.get("execution_backoff_ms", 0))
+    except (TypeError, ValueError):
+        previous_exec_backoff_ms = 0
+    try:
+        previous_exec_timeout_sec = float(previous.get("execution_timeout_sec", 0.0))
+    except (TypeError, ValueError):
+        previous_exec_timeout_sec = 0.0
 
     return run_controller.start(
         workflow,
@@ -279,6 +294,9 @@ def retry_run(run_id: str, payload: RetryRunRequest) -> dict[str, Any]:
         replay_of_run_id=run_id,
         attempt=max(1, previous_attempt + 1),
         retry_count=max(0, previous_retry_count + 1),
+        retry_max=max(0, previous_exec_retry_max),
+        retry_backoff_ms=max(0, previous_exec_backoff_ms),
+        timeout_sec=max(0.0, previous_exec_timeout_sec),
     )
 
 

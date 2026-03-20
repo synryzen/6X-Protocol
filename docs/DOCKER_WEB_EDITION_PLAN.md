@@ -56,4 +56,6 @@ Add a cross-platform self-hosted path (Linux/macOS/Windows) without replacing th
 - Compose now includes a real FastAPI scaffold API, worker process scaffold, and web placeholder.
 - API scaffold now includes persistence-backed routes for workflows, runs, and settings.
 - Run control scaffolding now includes `start`, `cancel`, and `retry` endpoints with state transitions.
+- Run scaffold now applies node-type-aware execution and per-run/per-node timeout/retry/backoff controls.
+- Runtime traversal now uses workflow graph edges (including legacy links) with condition branch routing.
 - See `docker/README.md` and `docker/docker-compose.web.yml`.
