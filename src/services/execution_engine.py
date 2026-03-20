@@ -1318,11 +1318,13 @@ class ExecutionEngine:
 
         if integration_handler == "postgres_sql":
             payload_text = str(config.get("payload", "")).strip()
-            payload = self._json_payload_from_text(payload_text) if payload_text else {}
-            sql = str(config.get("sql", "")).strip() or str(payload.get("sql", "")).strip() or output
-            connection_url = str(config.get("connection_url", "")).strip()
-            if not connection_url:
-                connection_url = str(payload.get("connection_url", "")).strip()
+            payload = self._payload_mapping(payload_text)
+            sql = self._coalesce_config_value(config, payload, ["sql", "query"]) or output
+            connection_url = self._coalesce_config_value(
+                config,
+                payload,
+                ["connection_url", "url", "endpoint", "request_url"],
+            )
             if not connection_url:
                 connection_url = app_value("postgres_connection_url")
             if not sql:
@@ -1345,11 +1347,13 @@ class ExecutionEngine:
 
         if integration_handler == "mysql_sql":
             payload_text = str(config.get("payload", "")).strip()
-            payload = self._json_payload_from_text(payload_text) if payload_text else {}
-            sql = str(config.get("sql", "")).strip() or str(payload.get("sql", "")).strip() or output
-            connection_url = str(config.get("connection_url", "")).strip()
-            if not connection_url:
-                connection_url = str(payload.get("connection_url", "")).strip()
+            payload = self._payload_mapping(payload_text)
+            sql = self._coalesce_config_value(config, payload, ["sql", "query"]) or output
+            connection_url = self._coalesce_config_value(
+                config,
+                payload,
+                ["connection_url", "url", "endpoint", "request_url"],
+            )
             if not connection_url:
                 connection_url = app_value("mysql_connection_url")
             if not sql:
@@ -1393,8 +1397,14 @@ class ExecutionEngine:
             ]
 
         if integration_handler == "redis_command":
-            command = str(config.get("command", "")).strip()
-            redis_url = str(config.get("connection_url", "")).strip()
+            payload_text = str(config.get("payload", "")).strip()
+            payload = self._payload_mapping(payload_text)
+            command = self._coalesce_config_value(config, payload, ["command", "query"])
+            redis_url = self._coalesce_config_value(
+                config,
+                payload,
+                ["connection_url", "url", "endpoint", "request_url"],
+            )
             if not redis_url:
                 redis_url = app_value("redis_connection_url")
             if not command:
@@ -1416,9 +1426,9 @@ class ExecutionEngine:
             ]
 
         if integration_handler == "s3_cli":
-            command = str(config.get("command", "")).strip()
-            if not command:
-                raise ValueError("Action s3_cli requires 'command:' value, e.g. s3 ls.")
+            payload_text = str(config.get("payload", "")).strip()
+            payload = self._payload_mapping(payload_text)
+            command = self._coalesce_config_value(config, payload, ["command", "query"]) or "s3 ls"
             result_text = self._integration_shell_command(
                 f"aws {command}",
                 "",
@@ -1848,6 +1858,34 @@ class ExecutionEngine:
             return {"value": parsed}
         except json.JSONDecodeError:
             return {"text": payload_text}
+
+    def _payload_mapping(self, payload_text: str) -> Dict[str, Any]:
+        text = str(payload_text).strip()
+        if not text:
+            return {}
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            return {}
+        return {}
+
+    def _coalesce_config_value(
+        self,
+        config: Dict[str, Any],
+        payload: Dict[str, Any],
+        keys: List[str],
+    ) -> str:
+        for key in keys:
+            value = str(config.get(key, "")).strip()
+            if value:
+                return value
+        for key in keys:
+            value = str(payload.get(key, "")).strip()
+            if value:
+                return value
+        return ""
 
     def _headers_from_config(self, config: Dict[str, Any]) -> Dict[str, str]:
         headers: Dict[str, str] = {}

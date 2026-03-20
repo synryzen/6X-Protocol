@@ -653,11 +653,25 @@ class RunController:
             )
 
         if normalized == "telegram_bot":
+            payload_data = self._as_mapping(config.get("payload", ""))
             url = self._pick_url(config)
-            text = output_text or "Workflow action executed."
+            text = str(
+                config.get(
+                    "message",
+                    payload_data.get("text", output_text or "Workflow action executed."),
+                )
+            ).strip() or "Workflow action executed."
             if not url:
-                bot_token = str(config.get("bot_token", "")).strip()
-                chat_id = str(config.get("chat_id", "")).strip()
+                bot_token = str(
+                    config.get(
+                        "bot_token",
+                        config.get(
+                            "api_key",
+                            payload_data.get("bot_token", payload_data.get("api_key", "")),
+                        ),
+                    )
+                ).strip()
+                chat_id = str(config.get("chat_id", payload_data.get("chat_id", ""))).strip()
                 if not bot_token or not chat_id:
                     raise NodeExecutionError(
                         "Integration 'telegram_bot' requires url or both bot_token and chat_id."
@@ -681,8 +695,11 @@ class RunController:
             )
 
         if normalized == "openweather_current":
-            api_key = str(config.get("api_key", "")).strip()
-            location = str(config.get("location", config.get("city", ""))).strip()
+            payload_data = self._as_mapping(config.get("payload", ""))
+            api_key = str(config.get("api_key", payload_data.get("api_key", ""))).strip()
+            location = str(
+                config.get("location", config.get("city", payload_data.get("location", payload_data.get("city", ""))))
+            ).strip()
             units = str(config.get("units", "metric")).strip() or "metric"
             if not api_key or not location:
                 raise NodeExecutionError(
@@ -1016,13 +1033,12 @@ class RunController:
 
         if normalized == "postgres_sql":
             payload_data = self._as_mapping(config.get("payload", ""))
-            connection_url = str(
-                config.get(
-                    "connection_url",
-                    config.get("url", payload_data.get("connection_url", payload_data.get("url", ""))),
-                )
-            ).strip()
-            sql = str(config.get("sql", payload_data.get("sql", payload_data.get("query", "")))).strip()
+            connection_url = self._coalesce_fields(
+                config,
+                payload_data,
+                ["connection_url", "url", "endpoint", "request_url"],
+            )
+            sql = self._coalesce_fields(config, payload_data, ["sql", "query"])
             if not connection_url or not sql:
                 raise NodeExecutionError(
                     "Integration 'postgres_sql' requires connection_url and sql "
@@ -1039,13 +1055,12 @@ class RunController:
 
         if normalized == "mysql_sql":
             payload_data = self._as_mapping(config.get("payload", ""))
-            connection_url = str(
-                config.get(
-                    "connection_url",
-                    config.get("url", payload_data.get("connection_url", payload_data.get("url", ""))),
-                )
-            ).strip()
-            sql = str(config.get("sql", payload_data.get("sql", payload_data.get("query", "")))).strip()
+            connection_url = self._coalesce_fields(
+                config,
+                payload_data,
+                ["connection_url", "url", "endpoint", "request_url"],
+            )
+            sql = self._coalesce_fields(config, payload_data, ["sql", "query"])
             if not connection_url or not sql:
                 raise NodeExecutionError(
                     "Integration 'mysql_sql' requires connection_url and sql "
@@ -1096,15 +1111,12 @@ class RunController:
 
         if normalized == "redis_command":
             payload_data = self._as_mapping(config.get("payload", ""))
-            connection_url = str(
-                config.get(
-                    "connection_url",
-                    config.get("url", payload_data.get("connection_url", payload_data.get("url", ""))),
-                )
-            ).strip()
-            command_text = str(
-                config.get("command", payload_data.get("command", payload_data.get("query", "")))
-            ).strip()
+            connection_url = self._coalesce_fields(
+                config,
+                payload_data,
+                ["connection_url", "url", "endpoint", "request_url"],
+            )
+            command_text = self._coalesce_fields(config, payload_data, ["command", "query"])
             if not command_text:
                 raise NodeExecutionError("Integration 'redis_command' requires command.")
             command_timeout = self._command_timeout(timeout_value, config)
@@ -1120,7 +1132,8 @@ class RunController:
             )
 
         if normalized == "s3_cli":
-            command_text = str(config.get("command", "")).strip() or "s3 ls"
+            payload_data = self._as_mapping(config.get("payload", ""))
+            command_text = self._coalesce_fields(config, payload_data, ["command", "query"]) or "s3 ls"
             command_timeout = self._command_timeout(timeout_value, config)
             command_parts = shlex.split(command_text)
             if not command_parts:
@@ -1198,8 +1211,24 @@ class RunController:
         return max(0.2, min(180.0, float(command_timeout)))
 
     def _pick_url(self, config: dict[str, Any]) -> str:
-        for key in ["url", "webhook_url", "endpoint", "request_url"]:
+        for key in ["url", "webhook_url", "script_url", "endpoint", "request_url"]:
             value = str(config.get(key, "")).strip()
+            if value:
+                return value
+        return ""
+
+    def _coalesce_fields(
+        self,
+        config: dict[str, Any],
+        payload_data: dict[str, Any],
+        keys: list[str],
+    ) -> str:
+        for key in keys:
+            value = str(config.get(key, "")).strip()
+            if value:
+                return value
+        for key in keys:
+            value = str(payload_data.get(key, "")).strip()
             if value:
                 return value
         return ""

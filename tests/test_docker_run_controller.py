@@ -538,6 +538,105 @@ class DockerRunControllerTests(unittest.TestCase):
         self.assertIn("integration:sqlite_sql", preview)
         self.assertIn("rows:1", preview)
 
+    def test_postgres_sql_accepts_endpoint_alias_from_payload(self):
+        captured: dict[str, object] = {}
+
+        def fake_run_command(args, *, timeout_sec, integration, env=None):
+            captured["args"] = list(args)
+            captured["timeout_sec"] = timeout_sec
+            captured["integration"] = integration
+            return "42"
+
+        self.controller._run_command = fake_run_command  # type: ignore[method-assign]
+
+        workflow = {
+            "id": "wf_pg_endpoint_alias",
+            "name": "Postgres Alias",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Postgres Query",
+                        "type": "action",
+                        "config": {
+                            "integration": "postgres_sql",
+                            "payload": json.dumps(
+                                {
+                                    "endpoint": "postgresql://postgres:secret@localhost:5432/demo",
+                                    "query": "select 42;",
+                                }
+                            ),
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [{"source": "t1", "target": "a1", "type": "next"}],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+        self.assertEqual("postgres_sql", captured.get("integration"))
+        args = captured.get("args")
+        self.assertIsInstance(args, list)
+        self.assertGreaterEqual(len(args), 5)
+        self.assertEqual("psql", args[0])
+        self.assertEqual("postgresql://postgres:secret@localhost:5432/demo", args[1])
+        self.assertEqual("select 42;", args[-1])
+
+    def test_redis_command_accepts_request_url_and_query_aliases(self):
+        captured: dict[str, object] = {}
+
+        def fake_run_command(args, *, timeout_sec, integration, env=None):
+            captured["args"] = list(args)
+            captured["timeout_sec"] = timeout_sec
+            captured["integration"] = integration
+            return "PONG"
+
+        self.controller._run_command = fake_run_command  # type: ignore[method-assign]
+
+        workflow = {
+            "id": "wf_redis_aliases",
+            "name": "Redis Alias",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Redis Query",
+                        "type": "action",
+                        "config": {
+                            "integration": "redis_command",
+                            "payload": json.dumps(
+                                {
+                                    "request_url": "redis://127.0.0.1:6379/0",
+                                    "query": "PING",
+                                }
+                            ),
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [{"source": "t1", "target": "a1", "type": "next"}],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+        self.assertEqual("redis_command", captured.get("integration"))
+        args = captured.get("args")
+        self.assertIsInstance(args, list)
+        self.assertIn("-u", args)
+        self.assertIn("redis://127.0.0.1:6379/0", args)
+        self.assertIn("PING", args)
+
+    def test_pick_url_accepts_script_url_alias(self):
+        picked = self.controller._pick_url({"script_url": "https://example.com/script"})
+        self.assertEqual("https://example.com/script", picked)
+
     def test_generic_api_integration_sends_bearer_request(self):
         captured = {"auth": "", "method": "", "body": ""}
 
