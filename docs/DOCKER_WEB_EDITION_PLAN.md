@@ -2,7 +2,7 @@
 
 ## Last Verified Status
 - Date: **March 21, 2026**
-- Overall completion toward first public self-hosted web beta: **~80%**
+- Overall completion toward first public self-hosted web beta: **~84%**
 - Automated smoke status: **passing** via `./scripts/test_docker_web.sh`
 
 ## Product Layout
@@ -51,7 +51,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Runs CRUD and run-control endpoints
 - [x] Settings load/save endpoints
 - [x] Integrations catalog + CRUD + test endpoints
-- [ ] Rich execution timeline/query APIs
+- [x] Rich execution timeline/query APIs
 
 ### M3: Web client foundation
 - [x] Browser-accessible preview dashboard in Docker
@@ -62,8 +62,8 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Workflow editor form (create/update/duplicate with status/tags) in web preview
 - [x] Run timeline event filters (status + search) in web preview
 - [x] Expanded settings controls (`local_ai_enabled`, `theme_preset`, `reduce_motion`) in web preview
-- [ ] Workflow list/editor parity
-- [ ] Runs timeline parity
+- [x] Workflow list/editor parity
+- [x] Runs timeline parity
 - [ ] Settings parity
 - [ ] Production web canvas builder
 
@@ -99,7 +99,8 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Web preview action editor now auto-shows only relevant integration fields and writes normalized config keys for each integration type.
 - Web preview workflow panel now supports search and selected-workflow metadata lifecycle actions (edit/delete).
 - Web preview workflow panel now includes a form-based editor for create/update/duplicate operations with status/tags controls.
-- Web preview runs panel now supports timeline event filtering by status and search text.
+- Web preview runs panel now supports timeline querying (status/search/node/limit/order) via API-backed timeline endpoints.
+- Web preview runs panel now supports selected-run delete and richer run detail refresh workflow.
 - Web preview settings panel now supports local runtime enable toggle, theme preset selection, and reduce-motion toggle.
 
 ## Remaining To Reach First Public Web Beta

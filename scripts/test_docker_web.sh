@@ -235,7 +235,22 @@ if echo "$ROUTING_DETAILS" | jq -e '.node_results[] | select(.status=="success" 
   exit 1
 fi
 
-echo "[9/10] Validating integration profile endpoints..."
+echo "[9/11] Validating run timeline/log query endpoints..."
+TIMELINE_JSON="$(curl -fsS "http://127.0.0.1:8787/api/v1/runs/$ROUTING_RUN_ID/timeline?status=success&limit=25&order=desc")"
+echo "$TIMELINE_JSON" | jq .
+if ! echo "$TIMELINE_JSON" | jq -e '.items | type == "array"' >/dev/null; then
+  echo "Expected timeline endpoint to return array items."
+  exit 1
+fi
+
+LOGS_JSON="$(curl -fsS "http://127.0.0.1:8787/api/v1/runs/$ROUTING_RUN_ID/logs?limit=25&order=desc")"
+echo "$LOGS_JSON" | jq .
+if ! echo "$LOGS_JSON" | jq -e '.items | type == "array"' >/dev/null; then
+  echo "Expected logs endpoint to return array items."
+  exit 1
+fi
+
+echo "[10/11] Validating integration profile endpoints..."
 CATALOG_JSON="$(curl -fsS http://127.0.0.1:8787/api/v1/integrations/catalog)"
 echo "$CATALOG_JSON" | jq '.items[:3]'
 if ! echo "$CATALOG_JSON" | jq -e '.items | length > 0' >/dev/null; then
@@ -260,7 +275,7 @@ fi
 
 curl -fsS -X DELETE "http://127.0.0.1:8787/api/v1/integrations/$PROFILE_ID" | jq .
 
-echo "[10/10] Patching settings and run status..."
+echo "[11/11] Patching settings and run status..."
 curl -fsS -X PATCH http://127.0.0.1:8787/api/v1/settings \
   -H 'Content-Type: application/json' \
   -d '{"theme":"dark","ui_density":"compact","preferred_provider":"local"}' | jq .

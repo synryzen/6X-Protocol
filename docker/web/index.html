@@ -771,6 +771,7 @@
               <button id="cancelSelectedRun" class="btn danger">Cancel Selected</button>
               <button id="retrySelectedRun" class="btn warn">Retry Selected</button>
               <button id="retrySelectedFailedNode" class="btn">Retry Failed Node</button>
+              <button id="deleteSelectedRun" class="btn danger">Delete Selected</button>
             </div>
             <div class="list" id="runList"></div>
             <div class="run-detail" id="runDetailPanel" style="margin-top:8px;">Select a run to inspect details.</div>
@@ -790,6 +791,29 @@
                 <label class="label" for="runEventSearch">Timeline Search</label>
                 <input id="runEventSearch" class="input" type="text" placeholder="node, message, status..." />
               </div>
+            </div>
+            <div class="grid2" style="margin-top:8px;">
+              <div class="row">
+                <label class="label" for="runEventNodeFilter">Timeline Node</label>
+                <input id="runEventNodeFilter" class="input" type="text" placeholder="node id or name..." />
+              </div>
+              <div class="row">
+                <label class="label" for="runEventLimit">Timeline Limit</label>
+                <select class="select" id="runEventLimit">
+                  <option value="50">50</option>
+                  <option value="100" selected>100</option>
+                  <option value="200">200</option>
+                  <option value="400">400</option>
+                </select>
+              </div>
+            </div>
+            <div class="actions" style="justify-content:flex-start;margin-top:8px;">
+              <label class="label" for="runEventOrder" style="align-self:center;">Order</label>
+              <select class="select" id="runEventOrder" style="min-width:120px;">
+                <option value="desc" selected>newest first</option>
+                <option value="asc">oldest first</option>
+              </select>
+              <button id="refreshSelectedTimeline" class="btn">Refresh Timeline</button>
             </div>
             <div class="run-timeline" id="runTimelineList" style="margin-top:8px;"></div>
           </div>
@@ -1119,6 +1143,9 @@
       selectedWorkflowId: "",
       workflowEditorWorkflowId: "",
       selectedRunId: "",
+      selectedRunTimelineRunId: "",
+      selectedRunTimeline: [],
+      selectedRunTimelineTotal: 0,
       graphDraft: { version: 1, nodes: [], edges: [] },
       graphDirty: false,
       graphEditorNodeId: "",
@@ -1393,6 +1420,31 @@
       return null;
     }
 
+    function clearSelectedRunTimeline() {
+      state.selectedRunTimelineRunId = "";
+      state.selectedRunTimeline = [];
+      state.selectedRunTimelineTotal = 0;
+    }
+
+    function timelineQueryState() {
+      return {
+        status: String(byId("runEventStatusFilter")?.value || "").trim().toLowerCase(),
+        q: String(byId("runEventSearch")?.value || "").trim(),
+        nodeId: String(byId("runEventNodeFilter")?.value || "").trim(),
+        limit: Math.max(1, Math.min(400, Number(byId("runEventLimit")?.value || 100))),
+        order: String(byId("runEventOrder")?.value || "desc").trim().toLowerCase() === "asc" ? "asc" : "desc",
+      };
+    }
+
+    function selectedRunTimelineItems(run) {
+      if (!run) return [];
+      if (state.selectedRunTimelineRunId === String(run.id || "")) {
+        return Array.isArray(state.selectedRunTimeline) ? state.selectedRunTimeline : [];
+      }
+      const fallback = Array.isArray(run.node_results) ? run.node_results : [];
+      return fallback;
+    }
+
     function runMatchesSearch(run, searchText) {
       const needle = String(searchText || "").trim().toLowerCase();
       if (!needle) return true;
@@ -1443,11 +1495,18 @@
       }
     }
 
-    function timelineEventMatchesFilters(event, searchText, statusFilter) {
+    function timelineEventMatchesFilters(event, searchText, statusFilter, nodeFilter) {
       const normalizedStatus = String(statusFilter || "").trim().toLowerCase();
       const eventStatus = String(event.status || "").trim().toLowerCase();
       if (normalizedStatus && normalizedStatus !== eventStatus) {
         return false;
+      }
+      const normalizedNode = String(nodeFilter || "").trim().toLowerCase();
+      if (normalizedNode) {
+        const nodeHaystack = `${String(event.node_id || "").toLowerCase()} ${String(event.node_name || "").toLowerCase()}`;
+        if (!nodeHaystack.includes(normalizedNode)) {
+          return false;
+        }
       }
       const needle = String(searchText || "").trim().toLowerCase();
       if (!needle) return true;
@@ -1483,21 +1542,27 @@
       const attempt = Number.isFinite(Number(run.attempt)) ? Number(run.attempt) : 1;
       const retryCount = Number.isFinite(Number(run.retry_count)) ? Number(run.retry_count) : 0;
       const failedNode = escapeHtml(String(run.last_failed_node_name || run.last_failed_node_id || "—"));
+      const timelineCount = Number.isFinite(Number(state.selectedRunTimelineTotal))
+        ? Number(state.selectedRunTimelineTotal)
+        : 0;
       panel.innerHTML = [
         `<div><strong>${workflow}</strong> <span class="graph-pill">${status}</span></div>`,
         `<div class="small">Run: ${id}</div>`,
         `<div class="small">Trigger: ${trigger} • Attempt: ${attempt} • Retry Count: ${retryCount}</div>`,
         `<div class="small">Last Failed Node: ${failedNode}</div>`,
+        `<div class="small">Timeline events: ${timelineCount}</div>`,
         `<div class="small">${summary || "No summary."}</div>`,
       ].join("");
 
-      const timelineStatusFilter = String(byId("runEventStatusFilter")?.value || "").trim().toLowerCase();
-      const timelineSearchText = String(byId("runEventSearch")?.value || "").trim();
-      const eventsRaw = Array.isArray(run.node_results) ? run.node_results : [];
+      const timelineFilters = timelineQueryState();
+      const eventsRaw = selectedRunTimelineItems(run);
       const events = eventsRaw
-        .filter((event) => timelineEventMatchesFilters(event, timelineSearchText, timelineStatusFilter))
-        .slice(-80)
-        .reverse();
+        .filter((event) => timelineEventMatchesFilters(
+          event,
+          timelineFilters.q,
+          timelineFilters.status,
+          timelineFilters.nodeId
+        ));
       if (!events.length) {
         timeline.innerHTML = `<div class="item">No timeline events match current filters.</div>`;
       } else {
@@ -1525,6 +1590,7 @@
     function renderRuns() {
       const list = byId("runList");
       const runs = filteredRuns();
+      const previousSelectedRunId = String(state.selectedRunId || "");
       if (!runs.length) {
         list.innerHTML = `<div class="item">No runs match current filters.</div>`;
       } else {
@@ -1557,6 +1623,12 @@
       }
       if (!state.selectedRunId && runs.length) {
         state.selectedRunId = String(runs[0].id || "");
+      }
+      if (String(state.selectedRunId || "") !== previousSelectedRunId) {
+        clearSelectedRunTimeline();
+        if (state.selectedRunId) {
+          refreshSelectedRunTimeline();
+        }
       }
 
       const active = state.runs.filter((run) => activeStatuses.has(String(run.status || "").toLowerCase())).length;
@@ -2980,6 +3052,13 @@
         const response = await api("/api/v1/runs", { method: "GET" });
         state.runs = Array.isArray(response.items) ? response.items : [];
         renderRuns();
+        const run = selectedRun();
+        if (!run) {
+          clearSelectedRunTimeline();
+          renderRunDetails();
+          return;
+        }
+        await refreshSelectedRunTimeline();
       } catch (error) {
         log(`Run refresh failed: ${error.message}`, "error");
       }
@@ -3095,6 +3174,7 @@
     async function refreshSelectedRunDetails() {
       const run = selectedRun();
       if (!run) {
+        clearSelectedRunTimeline();
         renderRunDetails();
         return;
       }
@@ -3104,6 +3184,43 @@
         renderRuns();
       } catch (error) {
         log(`Refresh selected run failed: ${error.message}`, "error");
+      }
+    }
+
+    let runTimelineRefreshTimer = null;
+
+    function scheduleRefreshSelectedRunTimeline() {
+      if (runTimelineRefreshTimer) {
+        clearTimeout(runTimelineRefreshTimer);
+      }
+      runTimelineRefreshTimer = setTimeout(() => {
+        runTimelineRefreshTimer = null;
+        refreshSelectedRunTimeline();
+      }, 180);
+    }
+
+    async function refreshSelectedRunTimeline() {
+      const run = selectedRun();
+      if (!run) {
+        clearSelectedRunTimeline();
+        renderRunDetails();
+        return;
+      }
+      const query = timelineQueryState();
+      const params = new URLSearchParams();
+      if (query.status) params.set("status", query.status);
+      if (query.q) params.set("q", query.q);
+      if (query.nodeId) params.set("node_id", query.nodeId);
+      params.set("limit", String(query.limit));
+      params.set("order", query.order);
+      try {
+        const response = await api(`/api/v1/runs/${run.id}/timeline?${params.toString()}`, { method: "GET" });
+        state.selectedRunTimelineRunId = String(run.id || "");
+        state.selectedRunTimeline = Array.isArray(response.items) ? response.items : [];
+        state.selectedRunTimelineTotal = Number(response.total) || state.selectedRunTimeline.length;
+        renderRunDetails();
+      } catch (error) {
+        log(`Run timeline refresh failed: ${error.message}`, "error");
       }
     }
 
@@ -3160,13 +3277,43 @@
       }
     }
 
+    async function deleteSelectedRun() {
+      const run = selectedRun();
+      if (!run) {
+        log("Select a run first.", "warn");
+        return;
+      }
+      const runId = String(run.id || "");
+      if (!runId) {
+        log("Selected run has no id.", "warn");
+        return;
+      }
+      const confirmed = confirm(`Delete selected run ${runId.slice(0, 8)}? This cannot be undone.`);
+      if (!confirmed) return;
+      try {
+        await api(`/api/v1/runs/${runId}`, { method: "DELETE" });
+        if (state.selectedRunId === runId) {
+          state.selectedRunId = "";
+          clearSelectedRunTimeline();
+        }
+        log(`Run deleted: ${runId}`, "info");
+        await refreshRuns();
+      } catch (error) {
+        log(`Delete selected run failed: ${error.message}`, "error");
+      }
+    }
+
     function clearRunFilters() {
       byId("runWorkflowFilter").value = "";
       byId("runStatusFilter").value = "";
       byId("runSearch").value = "";
       if (byId("runEventStatusFilter")) byId("runEventStatusFilter").value = "";
       if (byId("runEventSearch")) byId("runEventSearch").value = "";
+      if (byId("runEventNodeFilter")) byId("runEventNodeFilter").value = "";
+      if (byId("runEventLimit")) byId("runEventLimit").value = "100";
+      if (byId("runEventOrder")) byId("runEventOrder").value = "desc";
       renderRuns();
+      refreshSelectedRunTimeline();
     }
 
     function applySettingsToForm(settings) {
@@ -3304,11 +3451,16 @@
       byId("cancelSelectedRun").addEventListener("click", cancelSelectedRun);
       byId("retrySelectedRun").addEventListener("click", retrySelectedRun);
       byId("retrySelectedFailedNode").addEventListener("click", retrySelectedRunFromFailedNode);
+      byId("deleteSelectedRun").addEventListener("click", deleteSelectedRun);
       byId("runWorkflowFilter").addEventListener("change", renderRuns);
       byId("runStatusFilter").addEventListener("change", renderRuns);
       byId("runSearch").addEventListener("input", renderRuns);
-      byId("runEventStatusFilter").addEventListener("change", renderRunDetails);
-      byId("runEventSearch").addEventListener("input", renderRunDetails);
+      byId("runEventStatusFilter").addEventListener("change", refreshSelectedRunTimeline);
+      byId("runEventSearch").addEventListener("input", scheduleRefreshSelectedRunTimeline);
+      byId("runEventNodeFilter").addEventListener("input", scheduleRefreshSelectedRunTimeline);
+      byId("runEventLimit").addEventListener("change", refreshSelectedRunTimeline);
+      byId("runEventOrder").addEventListener("change", refreshSelectedRunTimeline);
+      byId("refreshSelectedTimeline").addEventListener("click", refreshSelectedRunTimeline);
       byId("workflowSearch").addEventListener("input", renderWorkflows);
       byId("editSelectedWorkflow").addEventListener("click", loadSelectedWorkflowIntoEditor);
       byId("deleteSelectedWorkflow").addEventListener("click", deleteSelectedWorkflow);
@@ -3357,6 +3509,7 @@
         state.selectedRunId = runId;
         renderRuns();
         refreshSelectedRunDetails();
+        refreshSelectedRunTimeline();
       });
       byId("graphNodeList").addEventListener("click", (event) => {
         const removeTarget = event.target && typeof event.target.closest === "function"

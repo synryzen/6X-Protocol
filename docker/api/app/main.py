@@ -129,6 +129,62 @@ def _sanitize_profile_config(payload: Any) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _run_timeline_events(run: dict[str, Any]) -> list[dict[str, Any]]:
+    timeline = run.get("timeline")
+    if isinstance(timeline, list):
+        return [item for item in timeline if isinstance(item, dict)]
+    node_results = run.get("node_results")
+    if isinstance(node_results, list):
+        return [item for item in node_results if isinstance(item, dict)]
+    return []
+
+
+def _filter_timeline_events(
+    events: list[dict[str, Any]],
+    *,
+    status: str = "",
+    node_id: str = "",
+    q: str = "",
+) -> list[dict[str, Any]]:
+    normalized_status = status.strip().lower()
+    normalized_node = node_id.strip().lower()
+    needle = q.strip().lower()
+    filtered = events
+    if normalized_status:
+        filtered = [
+            item for item in filtered if str(item.get("status", "")).strip().lower() == normalized_status
+        ]
+    if normalized_node:
+        filtered = [
+            item
+            for item in filtered
+            if normalized_node
+            in (
+                f"{str(item.get('node_id', '')).strip().lower()} "
+                f"{str(item.get('node_name', '')).strip().lower()}"
+            )
+        ]
+    if needle:
+        filtered = [
+            item
+            for item in filtered
+            if needle
+            in (
+                " ".join(
+                    [
+                        str(item.get("node_id", "")),
+                        str(item.get("node_name", "")),
+                        str(item.get("status", "")),
+                        str(item.get("message", "")),
+                        str(item.get("timestamp", "")),
+                        str(item.get("output_preview", "")),
+                    ]
+                ).lower()
+            )
+        ]
+    return filtered
+
+
 @app.get("/healthz", tags=["health"])
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
@@ -239,6 +295,8 @@ def delete_workflow(workflow_id: str) -> dict[str, bool]:
 def list_runs(
     workflow_id: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    limit: int | None = Query(default=None, ge=1, le=500),
 ) -> dict[str, list[dict[str, Any]]]:
     runs = store.load_runs()
     if workflow_id:
@@ -246,7 +304,32 @@ def list_runs(
     if status:
         expected = status.strip().lower()
         runs = [item for item in runs if str(item.get("status", "")).lower() == expected]
+    if q:
+        needle = q.strip().lower()
+        if needle:
+            runs = [
+                item
+                for item in runs
+                if needle
+                in (
+                    " ".join(
+                        [
+                            str(item.get("id", "")),
+                            str(item.get("workflow_id", "")),
+                            str(item.get("workflow_name", "")),
+                            str(item.get("status", "")),
+                            str(item.get("summary", "")),
+                            str(item.get("trigger", "")),
+                            str(item.get("last_failed_node_id", "")),
+                            str(item.get("last_failed_node_name", "")),
+                            str(item.get("log", "")),
+                        ]
+                    ).lower()
+                )
+            ]
     runs.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
+    if isinstance(limit, int):
+        runs = runs[: max(1, min(500, int(limit)))]
     return {"items": runs}
 
 
@@ -289,6 +372,90 @@ def get_run(run_id: str) -> dict[str, Any]:
     if not item:
         raise HTTPException(status_code=404, detail="Run not found")
     return item
+
+
+@app.get("/api/v1/runs/{run_id}/timeline", tags=["runs"])
+def get_run_timeline(
+    run_id: str,
+    status: str | None = Query(default=None),
+    node_id: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    order: str = Query(default="desc"),
+) -> dict[str, Any]:
+    runs = store.load_runs()
+    run = _find_by_id(runs, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    events = _run_timeline_events(run)
+    events = _filter_timeline_events(
+        events,
+        status=str(status or ""),
+        node_id=str(node_id or ""),
+        q=str(q or ""),
+    )
+
+    total = len(events)
+    normalized_order = str(order or "desc").strip().lower()
+    if normalized_order == "desc":
+        events = list(reversed(events))
+    else:
+        normalized_order = "asc"
+
+    start = max(0, int(offset))
+    end = start + max(1, min(1000, int(limit)))
+    items = events[start:end]
+    return {
+        "run_id": run_id,
+        "order": normalized_order,
+        "total": total,
+        "limit": int(limit),
+        "offset": int(offset),
+        "items": items,
+    }
+
+
+@app.get("/api/v1/runs/{run_id}/logs", tags=["runs"])
+def get_run_logs(
+    run_id: str,
+    q: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=2000),
+    offset: int = Query(default=0, ge=0),
+    order: str = Query(default="desc"),
+) -> dict[str, Any]:
+    runs = store.load_runs()
+    run = _find_by_id(runs, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    lines = str(run.get("log", "")).splitlines()
+    normalized_q = str(q or "").strip().lower()
+    indexed: list[dict[str, Any]] = []
+    for idx, line in enumerate(lines, start=1):
+        if normalized_q and normalized_q not in line.lower():
+            continue
+        indexed.append({"line_no": idx, "line": line})
+
+    total = len(indexed)
+    normalized_order = str(order or "desc").strip().lower()
+    if normalized_order == "desc":
+        indexed = list(reversed(indexed))
+    else:
+        normalized_order = "asc"
+
+    start = max(0, int(offset))
+    end = start + max(1, min(2000, int(limit)))
+    items = indexed[start:end]
+    return {
+        "run_id": run_id,
+        "order": normalized_order,
+        "total": total,
+        "limit": int(limit),
+        "offset": int(offset),
+        "items": items,
+    }
 
 
 @app.patch("/api/v1/runs/{run_id}", response_model=RunOut, tags=["runs"])
