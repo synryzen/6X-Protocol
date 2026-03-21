@@ -166,6 +166,9 @@ class CanvasView(Gtk.Box):
         self.syncing_action_category = False
         self.loading_action_controls = False
         self.last_action_group_integration = ""
+        self.latest_action_missing_fields: list[str] = []
+        self.latest_action_issues: list[tuple[str, str, str]] = []
+        self.latest_action_issue_field: str | None = None
         self.action_field_rows: dict[str, Gtk.Widget] = {}
         self.action_field_labels: dict[str, Gtk.Label] = {}
         self.action_field_widgets: dict[str, list[Gtk.Widget]] = {}
@@ -1338,6 +1341,23 @@ class CanvasView(Gtk.Box):
         self.action_requirements_label.add_css_class("dim-label")
         self.action_requirements_label.add_css_class("inline-status")
 
+        self.action_profile_label = Gtk.Label(label="")
+        self.action_profile_label.set_wrap(True)
+        self.action_profile_label.set_halign(Gtk.Align.START)
+        self.action_profile_label.add_css_class("dim-label")
+        self.action_profile_label.add_css_class("inline-status")
+
+        self.action_issue_actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.action_issue_actions_row.add_css_class("compact-action-row")
+        self.action_focus_issue_button = Gtk.Button(label="Focus First Issue")
+        self.action_focus_issue_button.add_css_class("compact-action-button")
+        self.action_focus_issue_button.connect("clicked", self.on_focus_action_issue_clicked)
+        self.action_autofill_button = Gtk.Button(label="Autofill Required")
+        self.action_autofill_button.add_css_class("compact-action-button")
+        self.action_autofill_button.connect("clicked", self.on_scaffold_action_required_fields_clicked)
+        self.action_issue_actions_row.append(self.action_focus_issue_button)
+        self.action_issue_actions_row.append(self.action_autofill_button)
+
         self.action_integration_section = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=6,
@@ -1398,6 +1418,8 @@ class CanvasView(Gtk.Box):
         self.action_integration_section.append(self.action_category_row)
         self.action_integration_section.append(self.action_template_hint_label)
         self.action_integration_section.append(self.action_requirements_label)
+        self.action_integration_section.append(self.action_profile_label)
+        self.action_integration_section.append(self.action_issue_actions_row)
         self.action_integration_section.append(self.action_quick_row)
         self.action_integration_section.append(self.action_routing_group)
         self.action_integration_section.append(self.action_delivery_group)
@@ -3967,6 +3989,37 @@ class CanvasView(Gtk.Box):
             return "Required: approval message. Optional: timeout (0 = wait indefinitely)."
         return "Configure integration-specific fields, then click Apply Node Changes."
 
+    def action_execution_class(self, integration: str) -> str:
+        key = str(integration).strip().lower()
+        if key == "approval_gate":
+            return "approval"
+        if key in self.ACTION_FAST_INTEGRATIONS:
+            return "fast"
+        if key in self.ACTION_HEAVY_INTEGRATIONS:
+            return "heavy"
+        return "standard"
+
+    def action_profile_summary(self, integration: str) -> str:
+        key = str(integration).strip().lower() or "standard"
+        item = self.integration_registry.get_integration(key) or {}
+        name = str(item.get("name", "")).strip() or key.replace("_", " ").title()
+        raw_required_fields = item.get("required_fields", [])
+        required_fields = (
+            [str(field).strip() for field in raw_required_fields if str(field).strip()]
+            if isinstance(raw_required_fields, list)
+            else []
+        )
+        execution_class = self.action_execution_class(key).title()
+        if not required_fields:
+            return f"Profile: {name} • {execution_class} execution • No required fields."
+        preview = ", ".join(required_fields[:4])
+        if len(required_fields) > 4:
+            preview = f"{preview}, +{len(required_fields) - 4} more"
+        return (
+            f"Profile: {name} • {execution_class} execution • "
+            f"{len(required_fields)} required field(s): {preview}"
+        )
+
     def node_execution_profile(self, node_type: str, integration: str = "") -> dict[str, float]:
         node_key = self.node_type_key(node_type)
         target = str(integration).strip().lower()
@@ -4366,6 +4419,7 @@ class CanvasView(Gtk.Box):
         integration = self.selected_action_integration()
         self.refresh_action_presets(integration)
         self.update_action_quick_button_state(integration)
+        self.action_profile_label.set_text(self.action_profile_summary(integration))
 
         show_endpoint = integration in {
             "http_post",
@@ -4786,6 +4840,57 @@ class CanvasView(Gtk.Box):
             self.update_node_execution_hint(selected_node.node_type, integration)
         self.update_action_requirements_status()
 
+    def action_group_for_field(self, field_key: str) -> Gtk.Expander | None:
+        key = str(field_key).strip().lower()
+        if key in {"integration", "endpoint", "method", "timeout_sec"}:
+            return self.action_routing_group
+        if key in {"message", "to", "from", "subject", "chat_id"}:
+            return self.action_delivery_group
+        if key in {"payload", "location", "units", "path", "command"}:
+            return self.action_payload_group
+        if key in {"api_key", "headers", "account_sid", "auth_token", "domain", "username"}:
+            return self.action_auth_group
+        return None
+
+    def reveal_action_field(self, field_key: str, *, focus: bool = False) -> bool:
+        key = str(field_key).strip().lower()
+        group = self.action_group_for_field(key)
+        if group and group.get_visible():
+            group.set_expanded(True)
+
+        row = self.action_field_rows.get(key)
+        if not row or not row.get_visible():
+            return False
+        if focus:
+            for widget in self.action_field_widgets.get(key, []):
+                if widget.get_visible() and widget.get_sensitive():
+                    widget.grab_focus()
+                    return True
+            row.grab_focus()
+        return True
+
+    def first_action_issue_field(
+        self,
+        issues: list[tuple[str, str, str]],
+    ) -> str | None:
+        if not issues:
+            return None
+        for field_key, severity, _message in issues:
+            if str(severity).strip().lower() == "error":
+                return str(field_key).strip().lower()
+        return str(issues[0][0]).strip().lower()
+
+    def on_focus_action_issue_clicked(self, _button):
+        self.update_action_requirements_status()
+        target_field = str(self.latest_action_issue_field or "").strip().lower()
+        if not target_field:
+            self.set_status("No action field issues detected.")
+            return
+        if self.reveal_action_field(target_field, focus=True):
+            self.set_status(f"Focused field: {target_field}.")
+            return
+        self.set_status("Issue field is currently hidden for this integration.")
+
     def bind_action_field_change_events(self):
         action_entries = [
             self.action_endpoint_entry,
@@ -5104,10 +5209,16 @@ class CanvasView(Gtk.Box):
     def update_action_requirements_status(self):
         integration = self.selected_action_integration()
         summary = self.integration_requirement_summary(integration)
+        self.action_profile_label.set_text(self.action_profile_summary(integration))
         self.clear_action_field_feedback()
         selected_node = self.get_selected_node()
         if not selected_node or self.node_type_key(selected_node.node_type) not in {"action", "template"}:
             self.action_requirements_label.set_text(summary)
+            self.latest_action_missing_fields = []
+            self.latest_action_issues = []
+            self.latest_action_issue_field = None
+            self.action_focus_issue_button.set_sensitive(False)
+            self.action_autofill_button.set_sensitive(False)
             return
 
         merged = self.parse_detail_directives(selected_node.detail)
@@ -5171,6 +5282,13 @@ class CanvasView(Gtk.Box):
             missing_fields,
             app_settings,
         )
+        self.latest_action_missing_fields = list(missing_fields)
+        self.latest_action_issues = list(field_issues)
+        self.latest_action_issue_field = self.first_action_issue_field(field_issues)
+        self.action_autofill_button.set_sensitive(bool(missing_fields))
+        self.action_focus_issue_button.set_sensitive(bool(self.latest_action_issue_field))
+        if self.latest_action_issue_field:
+            self.reveal_action_field(self.latest_action_issue_field, focus=False)
 
         prioritized: dict[str, tuple[str, str]] = {}
         for field_key, severity, message in field_issues:
@@ -6501,6 +6619,13 @@ class CanvasView(Gtk.Box):
         self.test_node_button.set_sensitive(has_workflow and has_selected and can_test_node)
         self.action_scaffold_button.set_sensitive(
             has_workflow and has_selected and selected_key in {"action", "template"}
+        )
+        action_node_active = has_workflow and has_selected and selected_key in {"action", "template"}
+        self.action_focus_issue_button.set_sensitive(
+            action_node_active and bool(self.latest_action_issue_field)
+        )
+        self.action_autofill_button.set_sensitive(
+            action_node_active and bool(self.latest_action_missing_fields)
         )
         self.configure_node_test_controls(selected.node_type if selected else None)
         self.refresh_condition_branch_preview()
@@ -10253,6 +10378,12 @@ class CanvasView(Gtk.Box):
         self.action_timeout_spin.set_value(0.0)
         self.apply_node_execution_defaults_for_context("Action", "standard", announce=False)
         self.node_execution_hint_label.set_text("")
+        self.action_profile_label.set_text(self.action_profile_summary("standard"))
+        self.latest_action_missing_fields = []
+        self.latest_action_issues = []
+        self.latest_action_issue_field = None
+        self.action_focus_issue_button.set_sensitive(False)
+        self.action_autofill_button.set_sensitive(False)
         self.clear_node_test_result()
         self.test_node_button.set_sensitive(False)
         self.configure_node_test_controls(None)
