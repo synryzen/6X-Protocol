@@ -318,6 +318,100 @@ class IntegrationsView(Gtk.Box):
             or "https://gitlab.com/api/v4/user"
         )
 
+        self.quick_google_drive_key_entry = Gtk.Entry()
+        self.quick_google_drive_key_entry.set_placeholder_text("Google OAuth bearer token")
+        self.quick_google_drive_key_entry.set_visibility(False)
+        self.quick_google_drive_key_entry.set_text(
+            str(settings.get("google_drive_api_key", "")).strip()
+        )
+
+        self.quick_google_drive_url_entry = Gtk.Entry()
+        self.quick_google_drive_url_entry.set_placeholder_text(
+            "https://www.googleapis.com/drive/v3/files?pageSize=10"
+        )
+        self.quick_google_drive_url_entry.set_text(
+            str(settings.get("google_drive_api_url", "")).strip()
+            or "https://www.googleapis.com/drive/v3/files?pageSize=10"
+        )
+
+        self.quick_dropbox_key_entry = Gtk.Entry()
+        self.quick_dropbox_key_entry.set_placeholder_text("Dropbox access token")
+        self.quick_dropbox_key_entry.set_visibility(False)
+        self.quick_dropbox_key_entry.set_text(
+            str(settings.get("dropbox_api_key", "")).strip()
+        )
+
+        self.quick_dropbox_url_entry = Gtk.Entry()
+        self.quick_dropbox_url_entry.set_placeholder_text(
+            "https://api.dropboxapi.com/2/files/list_folder"
+        )
+        self.quick_dropbox_url_entry.set_text(
+            str(settings.get("dropbox_api_url", "")).strip()
+            or "https://api.dropboxapi.com/2/files/list_folder"
+        )
+
+        self.quick_shopify_key_entry = Gtk.Entry()
+        self.quick_shopify_key_entry.set_placeholder_text("Shopify Admin API token")
+        self.quick_shopify_key_entry.set_visibility(False)
+        self.quick_shopify_key_entry.set_text(
+            str(settings.get("shopify_api_key", "")).strip()
+        )
+
+        self.quick_shopify_url_entry = Gtk.Entry()
+        self.quick_shopify_url_entry.set_placeholder_text(
+            "https://your-store.myshopify.com/admin/api/2024-10/products.json?limit=10"
+        )
+        self.quick_shopify_url_entry.set_text(
+            str(settings.get("shopify_api_url", "")).strip()
+            or "https://your-store.myshopify.com/admin/api/2024-10/products.json?limit=10"
+        )
+
+        self.quick_webflow_key_entry = Gtk.Entry()
+        self.quick_webflow_key_entry.set_placeholder_text("Webflow API token")
+        self.quick_webflow_key_entry.set_visibility(False)
+        self.quick_webflow_key_entry.set_text(
+            str(settings.get("webflow_api_key", "")).strip()
+        )
+
+        self.quick_webflow_url_entry = Gtk.Entry()
+        self.quick_webflow_url_entry.set_placeholder_text("https://api.webflow.com/v2/sites")
+        self.quick_webflow_url_entry.set_text(
+            str(settings.get("webflow_api_url", "")).strip()
+            or "https://api.webflow.com/v2/sites"
+        )
+
+        self.quick_supabase_key_entry = Gtk.Entry()
+        self.quick_supabase_key_entry.set_placeholder_text("Supabase service role API key")
+        self.quick_supabase_key_entry.set_visibility(False)
+        self.quick_supabase_key_entry.set_text(
+            str(settings.get("supabase_api_key", "")).strip()
+        )
+
+        self.quick_supabase_url_entry = Gtk.Entry()
+        self.quick_supabase_url_entry.set_placeholder_text(
+            "https://YOUR_PROJECT.supabase.co/rest/v1/your_table?select=*"
+        )
+        self.quick_supabase_url_entry.set_text(
+            str(settings.get("supabase_api_url", "")).strip()
+            or "https://YOUR_PROJECT.supabase.co/rest/v1/your_table?select=*"
+        )
+
+        self.quick_openrouter_key_entry = Gtk.Entry()
+        self.quick_openrouter_key_entry.set_placeholder_text("OpenRouter API key")
+        self.quick_openrouter_key_entry.set_visibility(False)
+        self.quick_openrouter_key_entry.set_text(
+            str(settings.get("openrouter_api_key", "")).strip()
+        )
+
+        self.quick_openrouter_url_entry = Gtk.Entry()
+        self.quick_openrouter_url_entry.set_placeholder_text(
+            "https://openrouter.ai/api/v1/chat/completions"
+        )
+        self.quick_openrouter_url_entry.set_text(
+            str(settings.get("openrouter_api_url", "")).strip()
+            or "https://openrouter.ai/api/v1/chat/completions"
+        )
+
         self.quick_hubspot_key_entry = Gtk.Entry()
         self.quick_hubspot_key_entry.set_placeholder_text("HubSpot private app token")
         self.quick_hubspot_key_entry.set_visibility(False)
@@ -532,7 +626,13 @@ class IntegrationsView(Gtk.Box):
         page_content.append(self.list_box)
         page_content.set_hexpand(True)
         page_content.set_vexpand(True)
-        self.append(page_content)
+
+        content_scroller = Gtk.ScrolledWindow()
+        content_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        content_scroller.set_hexpand(True)
+        content_scroller.set_vexpand(True)
+        content_scroller.set_child(page_content)
+        self.append(content_scroller)
 
         self.refresh_list()
 
@@ -1124,6 +1224,212 @@ class IntegrationsView(Gtk.Box):
             ),
             2,
             7,
+            1,
+            1,
+        )
+        quick_grid.attach(
+            self.build_quick_setup_card(
+                card_key="google_drive",
+                title="Google Drive API",
+                icon_name="folder-symbolic",
+                fields=[
+                    build_labeled_field("API Key", self.quick_google_drive_key_entry),
+                    build_labeled_field("Request URL", self.quick_google_drive_url_entry),
+                ],
+                on_save=lambda button: self.on_save_token_url_quick_setup(
+                    button,
+                    "google_drive",
+                    "google_drive_api_key",
+                    self.quick_google_drive_key_entry,
+                    "Google Drive",
+                    url_settings_key="google_drive_api_url",
+                    url_entry=self.quick_google_drive_url_entry,
+                ),
+                on_test=lambda button: self.on_test_token_url_quick_setup(
+                    button,
+                    "google_drive",
+                    "google_drive_api",
+                    "google_drive_api_key",
+                    self.quick_google_drive_key_entry,
+                    self.quick_google_drive_url_entry,
+                    "Google Drive",
+                    method="GET",
+                ),
+            ),
+            0,
+            8,
+            1,
+            1,
+        )
+        quick_grid.attach(
+            self.build_quick_setup_card(
+                card_key="dropbox",
+                title="Dropbox API",
+                icon_name="folder-remote-symbolic",
+                fields=[
+                    build_labeled_field("API Key", self.quick_dropbox_key_entry),
+                    build_labeled_field("Request URL", self.quick_dropbox_url_entry),
+                ],
+                on_save=lambda button: self.on_save_token_url_quick_setup(
+                    button,
+                    "dropbox",
+                    "dropbox_api_key",
+                    self.quick_dropbox_key_entry,
+                    "Dropbox",
+                    url_settings_key="dropbox_api_url",
+                    url_entry=self.quick_dropbox_url_entry,
+                ),
+                on_test=lambda button: self.on_test_token_url_quick_setup(
+                    button,
+                    "dropbox",
+                    "dropbox_api",
+                    "dropbox_api_key",
+                    self.quick_dropbox_key_entry,
+                    self.quick_dropbox_url_entry,
+                    "Dropbox",
+                    payload='{"path":"","recursive":false,"limit":20}',
+                    method="POST",
+                ),
+            ),
+            1,
+            8,
+            1,
+            1,
+        )
+        quick_grid.attach(
+            self.build_quick_setup_card(
+                card_key="shopify",
+                title="Shopify API",
+                icon_name="shopping-cart-symbolic",
+                fields=[
+                    build_labeled_field("API Key", self.quick_shopify_key_entry),
+                    build_labeled_field("Request URL", self.quick_shopify_url_entry),
+                ],
+                on_save=lambda button: self.on_save_token_url_quick_setup(
+                    button,
+                    "shopify",
+                    "shopify_api_key",
+                    self.quick_shopify_key_entry,
+                    "Shopify",
+                    url_settings_key="shopify_api_url",
+                    url_entry=self.quick_shopify_url_entry,
+                ),
+                on_test=lambda button: self.on_test_token_url_quick_setup(
+                    button,
+                    "shopify",
+                    "shopify_api",
+                    "shopify_api_key",
+                    self.quick_shopify_key_entry,
+                    self.quick_shopify_url_entry,
+                    "Shopify",
+                    method="GET",
+                ),
+            ),
+            2,
+            8,
+            1,
+            1,
+        )
+        quick_grid.attach(
+            self.build_quick_setup_card(
+                card_key="webflow",
+                title="Webflow API",
+                icon_name="applications-internet-symbolic",
+                fields=[
+                    build_labeled_field("API Key", self.quick_webflow_key_entry),
+                    build_labeled_field("Request URL", self.quick_webflow_url_entry),
+                ],
+                on_save=lambda button: self.on_save_token_url_quick_setup(
+                    button,
+                    "webflow",
+                    "webflow_api_key",
+                    self.quick_webflow_key_entry,
+                    "Webflow",
+                    url_settings_key="webflow_api_url",
+                    url_entry=self.quick_webflow_url_entry,
+                ),
+                on_test=lambda button: self.on_test_token_url_quick_setup(
+                    button,
+                    "webflow",
+                    "webflow_api",
+                    "webflow_api_key",
+                    self.quick_webflow_key_entry,
+                    self.quick_webflow_url_entry,
+                    "Webflow",
+                    method="GET",
+                ),
+            ),
+            0,
+            9,
+            1,
+            1,
+        )
+        quick_grid.attach(
+            self.build_quick_setup_card(
+                card_key="supabase",
+                title="Supabase API",
+                icon_name="network-database-symbolic",
+                fields=[
+                    build_labeled_field("API Key", self.quick_supabase_key_entry),
+                    build_labeled_field("Request URL", self.quick_supabase_url_entry),
+                ],
+                on_save=lambda button: self.on_save_token_url_quick_setup(
+                    button,
+                    "supabase",
+                    "supabase_api_key",
+                    self.quick_supabase_key_entry,
+                    "Supabase",
+                    url_settings_key="supabase_api_url",
+                    url_entry=self.quick_supabase_url_entry,
+                ),
+                on_test=lambda button: self.on_test_token_url_quick_setup(
+                    button,
+                    "supabase",
+                    "supabase_api",
+                    "supabase_api_key",
+                    self.quick_supabase_key_entry,
+                    self.quick_supabase_url_entry,
+                    "Supabase",
+                    method="GET",
+                ),
+            ),
+            1,
+            9,
+            1,
+            1,
+        )
+        quick_grid.attach(
+            self.build_quick_setup_card(
+                card_key="openrouter",
+                title="OpenRouter API",
+                icon_name="preferences-system-symbolic",
+                fields=[
+                    build_labeled_field("API Key", self.quick_openrouter_key_entry),
+                    build_labeled_field("Request URL", self.quick_openrouter_url_entry),
+                ],
+                on_save=lambda button: self.on_save_token_url_quick_setup(
+                    button,
+                    "openrouter",
+                    "openrouter_api_key",
+                    self.quick_openrouter_key_entry,
+                    "OpenRouter",
+                    url_settings_key="openrouter_api_url",
+                    url_entry=self.quick_openrouter_url_entry,
+                ),
+                on_test=lambda button: self.on_test_token_url_quick_setup(
+                    button,
+                    "openrouter",
+                    "openrouter_api",
+                    "openrouter_api_key",
+                    self.quick_openrouter_key_entry,
+                    self.quick_openrouter_url_entry,
+                    "OpenRouter",
+                    payload='{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"Quick setup validation from 6X Protocol."}]}',
+                    method="POST",
+                ),
+            ),
+            2,
+            9,
             1,
             1,
         )
