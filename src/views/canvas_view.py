@@ -11,10 +11,13 @@ from gi.repository import Gtk, GLib, Gdk
 
 from src.models.canvas_edge import CanvasEdge
 from src.models.canvas_node import CanvasNode
+from src.models.run_record import RunRecord
 from src.models.workflow import Workflow
 from src.services.canvas_layout_service import CanvasLayoutService
 from src.services.execution_engine import ExecutionEngine
 from src.services.integration_registry_service import IntegrationRegistryService
+from src.services.run_execution_service import get_run_execution_service
+from src.services.run_store import RunStore
 from src.services.settings_store import SettingsStore
 from src.services.template_marketplace_service import TemplateMarketplaceService
 from src.services.workflow_validation_service import WorkflowValidationService
@@ -129,8 +132,14 @@ class CanvasView(Gtk.Box):
         )
         self.validation_service = WorkflowValidationService()
         self.template_marketplace = TemplateMarketplaceService()
+        self.run_store = RunStore()
+        self.run_execution_service = get_run_execution_service()
         self.templates: list[dict] = []
         self.template_dropdown: Gtk.DropDown | None = None
+        self.latest_workflow_run_id: str = ""
+        self.latest_workflow_run_status: str = ""
+        self.latest_workflow_run_failed_node_id: str = ""
+        self.latest_workflow_run_pending_approval_node_id: str = ""
 
         self.workflows: list[Workflow] = []
         self.workflow_dropdown: Gtk.DropDown | None = None
@@ -299,9 +308,42 @@ class CanvasView(Gtk.Box):
         run_row.add_css_class("canvas-toolbar-row")
         run_row.add_css_class("compact-toolbar-row")
         run_row.set_halign(Gtk.Align.FILL)
+
+        self.run_workflow_button = Gtk.Button(label="Run")
+        self.run_workflow_button.connect("clicked", self.on_run_active_workflow)
+        self.run_workflow_button.add_css_class("suggested-action")
+        self.run_workflow_button.add_css_class("compact-action-button")
+
+        self.cancel_run_button = Gtk.Button(label="Cancel")
+        self.cancel_run_button.connect("clicked", self.on_cancel_latest_workflow_run)
+        self.cancel_run_button.add_css_class("compact-action-button")
+
+        self.retry_failed_button = Gtk.Button(label="Retry Failed")
+        self.retry_failed_button.connect("clicked", self.on_retry_latest_failed_node)
+        self.retry_failed_button.add_css_class("compact-action-button")
+
+        self.resume_run_button = Gtk.Button(label="Approve")
+        self.resume_run_button.connect("clicked", self.on_resume_latest_approval)
+        self.resume_run_button.add_css_class("compact-action-button")
+
+        self.refresh_run_state_button = Gtk.Button(label="Refresh Run")
+        self.refresh_run_state_button.connect("clicked", self.on_refresh_workflow_run_state_clicked)
+        self.refresh_run_state_button.add_css_class("compact-action-button")
+
+        run_row.append(self.run_workflow_button)
+        run_row.append(self.cancel_run_button)
+        run_row.append(self.retry_failed_button)
+        run_row.append(self.resume_run_button)
+        run_row.append(self.refresh_run_state_button)
         run_row.append(self.preflight_button)
         run_row.append(self.save_graph_button)
         run_row.append(self.clear_button)
+
+        self.workflow_run_state_label = Gtk.Label(label="No workflow selected.")
+        self.workflow_run_state_label.set_wrap(True)
+        self.workflow_run_state_label.set_halign(Gtk.Align.START)
+        self.workflow_run_state_label.add_css_class("dim-label")
+        self.workflow_run_state_label.add_css_class("canvas-status")
 
         view_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         view_row.add_css_class("canvas-toolbar-row")
@@ -1685,6 +1727,7 @@ class CanvasView(Gtk.Box):
         control_box.append(wrap_horizontal_row(link_row))
         control_box.append(run_title)
         control_box.append(wrap_horizontal_row(run_row))
+        control_box.append(self.workflow_run_state_label)
         control_box.append(view_title)
         control_box.append(wrap_horizontal_row(view_row))
         control_box.append(wrap_horizontal_row(arrange_row))
@@ -1776,6 +1819,8 @@ class CanvasView(Gtk.Box):
         self.bind_trigger_condition_change_events()
         self.render_preflight_issue_list()
         self.clear_inspector()
+        self.refresh_workflow_run_state(quiet=True)
+        GLib.timeout_add(1200, self.poll_workflow_run_state)
 
     def set_status(self, message: str):
         self.status_label.set_text(message)
@@ -5710,6 +5755,117 @@ class CanvasView(Gtk.Box):
         self.reload_templates()
         self.set_status("Template list refreshed.")
 
+    def latest_run_for_workflow(self, workflow_id: str) -> RunRecord | None:
+        target_workflow_id = str(workflow_id).strip()
+        if not target_workflow_id:
+            return None
+        runs = self.run_store.load_runs()
+        for run in runs:
+            if str(run.workflow_id).strip() == target_workflow_id:
+                return run
+        return None
+
+    def refresh_workflow_run_state(self, quiet: bool = False):
+        workflow = self.get_active_workflow()
+        if not workflow:
+            self.latest_workflow_run_id = ""
+            self.latest_workflow_run_status = ""
+            self.latest_workflow_run_failed_node_id = ""
+            self.latest_workflow_run_pending_approval_node_id = ""
+            self.workflow_run_state_label.set_text("No workflow selected.")
+            self.update_control_state()
+            return
+
+        latest = self.latest_run_for_workflow(workflow.id)
+        if not latest:
+            self.latest_workflow_run_id = ""
+            self.latest_workflow_run_status = ""
+            self.latest_workflow_run_failed_node_id = ""
+            self.latest_workflow_run_pending_approval_node_id = ""
+            self.workflow_run_state_label.set_text("No runs yet for this workflow.")
+            self.update_control_state()
+            return
+
+        self.latest_workflow_run_id = str(latest.id).strip()
+        self.latest_workflow_run_status = str(latest.status).strip().lower()
+        self.latest_workflow_run_failed_node_id = str(latest.last_failed_node_id).strip()
+        self.latest_workflow_run_pending_approval_node_id = str(latest.pending_approval_node_id).strip()
+        run_short = self.latest_workflow_run_id[:8] if self.latest_workflow_run_id else "unknown"
+        summary = str(latest.summary).strip() or "No summary yet."
+        self.workflow_run_state_label.set_text(
+            f"Latest run {run_short} • {self.latest_workflow_run_status.upper()} • {summary}"
+        )
+        self.update_control_state()
+        if not quiet:
+            self.set_status(
+                f"Run state refreshed: {self.latest_workflow_run_status.upper()} ({run_short})."
+            )
+
+    def poll_workflow_run_state(self):
+        try:
+            self.refresh_workflow_run_state(quiet=True)
+        except Exception:
+            return True
+        return True
+
+    def on_refresh_workflow_run_state_clicked(self, _button):
+        self.refresh_workflow_run_state(quiet=False)
+
+    def on_run_active_workflow(self, _button):
+        workflow = self.get_active_workflow()
+        if not workflow:
+            self.set_status("Select a workflow before running.")
+            return
+
+        candidate = Workflow(
+            id=workflow.id,
+            name=workflow.name,
+            trigger=workflow.trigger,
+            action=workflow.action,
+            graph=self.build_graph_payload(),
+        )
+        run = self.run_execution_service.start_workflow_run(candidate)
+        run_short = str(run.id).strip()[:8] if run and run.id else "unknown"
+        self.refresh_workflow_run_state(quiet=True)
+        self.set_status(f"Run started for '{workflow.name}' (run {run_short}).")
+
+    def on_cancel_latest_workflow_run(self, _button):
+        if not self.latest_workflow_run_id:
+            self.set_status("No recent run available for this workflow.")
+            return
+        ok, message = self.run_execution_service.request_stop(self.latest_workflow_run_id)
+        self.refresh_workflow_run_state(quiet=True)
+        if ok:
+            self.set_status(message)
+        else:
+            self.set_status(f"Cancel failed: {message}")
+
+    def on_retry_latest_failed_node(self, _button):
+        if not self.latest_workflow_run_id:
+            self.set_status("No recent run available for this workflow.")
+            return
+        ok, message, _run = self.run_execution_service.retry_from_failed_node(
+            self.latest_workflow_run_id
+        )
+        self.refresh_workflow_run_state(quiet=True)
+        if ok:
+            self.set_status(message)
+        else:
+            self.set_status(f"Retry failed: {message}")
+
+    def on_resume_latest_approval(self, _button):
+        if not self.latest_workflow_run_id:
+            self.set_status("No recent run available for this workflow.")
+            return
+        ok, message, _run = self.run_execution_service.approve_and_resume(
+            self.latest_workflow_run_id
+        )
+        self.refresh_workflow_run_state(quiet=True)
+        if ok:
+            self.set_status(message)
+        else:
+            self.set_status(f"Resume failed: {message}")
+
     def rebuild_template_dropdown(self, labels: list[str], selected_index: int):
         if self.template_dropdown:
             self.template_dropdown_container.remove(self.template_dropdown)
@@ -5763,6 +5919,7 @@ class CanvasView(Gtk.Box):
             self.load_graph_settings({})
             self.refresh_canvas()
             self.clear_inspector()
+            self.refresh_workflow_run_state(quiet=True)
             self.update_control_state()
             self.set_status("No workflows available. Create one in Workflows to edit a graph.")
             return
@@ -5781,6 +5938,7 @@ class CanvasView(Gtk.Box):
 
         self.active_workflow_id = self.workflows[selected_index].id
         self.load_graph_for_active_workflow()
+        self.refresh_workflow_run_state(quiet=True)
         self.update_control_state()
 
     def on_workflow_selected(self, _dropdown, _param):
@@ -5793,6 +5951,7 @@ class CanvasView(Gtk.Box):
 
         self.active_workflow_id = self.workflows[selected_index].id
         self.load_graph_for_active_workflow()
+        self.refresh_workflow_run_state(quiet=True)
 
     def get_active_workflow(self) -> Workflow | None:
         if not self.active_workflow_id:
@@ -5815,6 +5974,7 @@ class CanvasView(Gtk.Box):
             self.load_graph_settings({})
             self.refresh_canvas()
             self.clear_inspector()
+            self.refresh_workflow_run_state(quiet=True)
             return
 
         graph = workflow.normalized_graph()
@@ -5839,6 +5999,7 @@ class CanvasView(Gtk.Box):
         self.refresh_canvas()
         self.inline_validate_graph()
         self.clear_inspector()
+        self.refresh_workflow_run_state(quiet=True)
         if self.nodes:
             self.set_status(
                 f"Loaded graph for '{workflow.name}'. Select a node to edit its settings."
@@ -5923,6 +6084,11 @@ class CanvasView(Gtk.Box):
             self.add_action_button,
             self.add_ai_button,
             self.add_condition_button,
+            self.run_workflow_button,
+            self.cancel_run_button,
+            self.retry_failed_button,
+            self.resume_run_button,
+            self.refresh_run_state_button,
             self.start_link_button,
             self.auto_wire_button,
             self.delete_selected_button,
@@ -5938,6 +6104,23 @@ class CanvasView(Gtk.Box):
         self.graph_timeout_spin.set_sensitive(has_workflow)
         for button in self.execution_preset_buttons.values():
             button.set_sensitive(has_workflow)
+        can_cancel_run = (
+            bool(self.latest_workflow_run_id)
+            and self.latest_workflow_run_status in {"running", "waiting_approval"}
+        )
+        can_retry_failed = (
+            bool(self.latest_workflow_run_id)
+            and self.latest_workflow_run_status == "failed"
+            and bool(self.latest_workflow_run_failed_node_id)
+        )
+        can_resume_approval = (
+            bool(self.latest_workflow_run_id)
+            and self.latest_workflow_run_status == "waiting_approval"
+            and bool(self.latest_workflow_run_pending_approval_node_id)
+        )
+        self.cancel_run_button.set_sensitive(has_workflow and can_cancel_run)
+        self.retry_failed_button.set_sensitive(has_workflow and can_retry_failed)
+        self.resume_run_button.set_sensitive(has_workflow and can_resume_approval)
         self.delete_selected_button.set_sensitive(has_workflow and has_selected)
         self.apply_node_button.set_sensitive(has_workflow and has_selected)
         self.add_template_button.set_sensitive(has_workflow and bool(self.templates))
