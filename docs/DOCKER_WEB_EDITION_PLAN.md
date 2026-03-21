@@ -2,7 +2,7 @@
 
 ## Last Verified Status
 - Date: **March 21, 2026**
-- Overall completion toward first public self-hosted web beta: **~77%**
+- Overall completion toward first public self-hosted web beta: **~80%**
 - Automated smoke status: **passing** via `./scripts/test_docker_web.sh`
 
 ## Product Layout
@@ -55,6 +55,8 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 
 ### M3: Web client foundation
 - [x] Browser-accessible preview dashboard in Docker
+- [x] Graph draft builder (nodes/links/preflight/save) in web preview
+- [x] Per-node behavior editor (trigger/action/AI/condition + execution defaults) in web preview
 - [ ] Workflow list/editor parity
 - [ ] Runs timeline parity
 - [ ] Settings parity
@@ -86,6 +88,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
   - integration profile create/test/delete lifecycle
 - Server execution model now handles node-type behavior + policy controls per run/node.
 - Web preview now includes integration profile save/test controls wired to API.
+- Web preview now includes graph draft editing + node behavior controls to configure integration/trigger/AI/condition details before save.
 
 ## Remaining To Reach First Public Web Beta
 1. Replace web preview dashboard with production web UI modules.
