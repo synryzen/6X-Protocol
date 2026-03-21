@@ -1539,6 +1539,31 @@ class ExecutionEngine:
         output = str(context.get("last_output", "")).strip()
         return logs, output
 
+    def execute_ai_node_for_test(
+        self,
+        node: CanvasNode,
+        input_context: str = "",
+    ) -> Tuple[List[str], str]:
+        context = {
+            "workflow_name": "AI Node Test",
+            "last_output": input_context,
+            "last_status": "success",
+            "approved_node_ids": set(),
+        }
+        logs = self._execute_ai_node(node, context)
+        output = str(context.get("last_output", "")).strip()
+        return logs, output
+
+    def evaluate_condition_for_test(self, expression: str, input_text: str) -> bool:
+        return self._evaluate_condition(expression, input_text)
+
+    def choose_condition_branch_for_test(
+        self,
+        outgoing: List[CanvasEdge],
+        condition_result: bool,
+    ) -> Optional[str]:
+        return self._choose_condition_edge(outgoing, condition_result)
+
     def _run_bot_chain(
         self,
         bot_names: List[str],

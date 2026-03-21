@@ -1458,13 +1458,17 @@ class CanvasView(Gtk.Box):
         self.node_test_result_card.append(self.node_test_result_output_scroll)
         self.node_test_result_card.set_visible(False)
 
-        test_node_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        test_node_row.add_css_class("compact-action-row")
-        test_node_row.append(self.action_scaffold_button)
-        test_node_row.append(self.test_node_button)
-        self.action_integration_section.append(test_node_row)
-        self.action_integration_section.append(self.node_test_status_label)
-        self.action_integration_section.append(self.node_test_result_card)
+        self.node_test_actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.node_test_actions_row.add_css_class("compact-action-row")
+        self.node_test_actions_row.append(self.action_scaffold_button)
+        self.node_test_actions_row.append(self.test_node_button)
+
+        self.node_test_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.node_test_section.add_css_class("canvas-action-integration-panel")
+        self.node_test_section.append(build_icon_section("Node Test Console", "system-run-symbolic"))
+        self.node_test_section.append(self.node_test_actions_row)
+        self.node_test_section.append(self.node_test_status_label)
+        self.node_test_section.append(self.node_test_result_card)
 
         self.provider_label = Gtk.Label(label="Provider Override")
         self.provider_label.set_halign(Gtk.Align.START)
@@ -1624,6 +1628,23 @@ class CanvasView(Gtk.Box):
             label=self.condition_min_len_label,
         )
 
+        self.condition_preview_input_entry = Gtk.Entry()
+        self.condition_preview_input_entry.set_placeholder_text(
+            "Sample input text used to preview true/false branch routing"
+        )
+        self.condition_preview_input_row, _ = self.build_inspector_field_row(
+            "Preview Input",
+            self.condition_preview_input_entry,
+        )
+
+        self.condition_preview_label = Gtk.Label(
+            label="Condition preview is shown here when a condition node is selected."
+        )
+        self.condition_preview_label.set_wrap(True)
+        self.condition_preview_label.set_halign(Gtk.Align.START)
+        self.condition_preview_label.add_css_class("dim-label")
+        self.condition_preview_label.add_css_class("inline-status")
+
         self.node_execution_title = Gtk.Label(label="Node Execution")
         self.node_execution_title.add_css_class("heading")
         self.node_execution_title.set_halign(Gtk.Align.START)
@@ -1781,11 +1802,14 @@ class CanvasView(Gtk.Box):
         self.inspector_box.append(self.condition_mode_row)
         self.inspector_box.append(self.condition_value_row)
         self.inspector_box.append(self.condition_min_len_field_row)
+        self.inspector_box.append(self.condition_preview_input_row)
+        self.inspector_box.append(self.condition_preview_label)
         self.inspector_box.append(self.node_execution_title)
         self.inspector_box.append(node_exec_grid)
         self.inspector_box.append(self.node_execution_preset_row)
         self.inspector_box.append(node_exec_action_row)
         self.inspector_box.append(self.node_execution_hint_label)
+        self.inspector_box.append(self.node_test_section)
         self.inspector_box.append(self.apply_node_button)
 
         inspector_scroll.set_child(self.inspector_box)
@@ -5058,6 +5082,7 @@ class CanvasView(Gtk.Box):
             self.trigger_cron_entry,
             self.trigger_value_entry,
             self.edit_condition_value_entry,
+            self.condition_preview_input_entry,
         ]:
             entry.connect("changed", self.on_trigger_condition_fields_changed)
 
@@ -6460,6 +6485,7 @@ class CanvasView(Gtk.Box):
             self.edit_condition_value_entry,
             self.edit_condition_min_len_scale,
             self.edit_condition_min_len_spin,
+            self.condition_preview_input_entry,
             self.node_retry_spin,
             self.node_backoff_spin,
             self.node_timeout_spin,
@@ -6471,9 +6497,13 @@ class CanvasView(Gtk.Box):
         self.action_integration_section.set_sensitive(has_workflow and has_selected)
         selected = self.get_selected_node()
         selected_key = self.node_type_key(selected.node_type) if selected else ""
-        self.test_node_button.set_sensitive(
+        can_test_node = selected_key in {"action", "template", "ai", "condition"}
+        self.test_node_button.set_sensitive(has_workflow and has_selected and can_test_node)
+        self.action_scaffold_button.set_sensitive(
             has_workflow and has_selected and selected_key in {"action", "template"}
         )
+        self.configure_node_test_controls(selected.node_type if selected else None)
+        self.refresh_condition_branch_preview()
         self.update_sidebar_mode()
 
     def add_node(
@@ -9862,6 +9892,44 @@ class CanvasView(Gtk.Box):
         self.node_test_result_state_chip.add_css_class("node-test-state-idle")
         self.node_test_result_card.set_visible(False)
 
+    def configure_node_test_controls(self, node_type: str | None):
+        node_key = self.node_type_key(node_type or "")
+        is_action_like = node_key in {"action", "template"}
+        is_ai = node_key == "ai"
+        is_condition = node_key == "condition"
+        self.action_scaffold_button.set_visible(is_action_like)
+
+        if is_action_like:
+            self.test_node_button.set_label("Test Integration Node")
+            return
+        if is_ai:
+            self.test_node_button.set_label("Test AI Node")
+            return
+        if is_condition:
+            self.test_node_button.set_label("Preview Branch")
+            return
+        self.test_node_button.set_label("Test Selected Node")
+
+    def format_structured_output_preview(self, output: str) -> tuple[str, str]:
+        text = str(output).strip()
+        if not text:
+            return "", ""
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            return "", text
+        if isinstance(parsed, dict):
+            keys = sorted(str(item) for item in parsed.keys())
+            preview = ", ".join(keys[:8])
+            if len(keys) > 8:
+                preview = f"{preview}, +{len(keys) - 8} more"
+            summary = f"Structured output detected (JSON object): {preview or 'no keys'}."
+            return summary, json.dumps(parsed, indent=2, ensure_ascii=True)
+        if isinstance(parsed, list):
+            summary = f"Structured output detected (JSON array with {len(parsed)} item(s))."
+            return summary, json.dumps(parsed, indent=2, ensure_ascii=True)
+        return "Structured output detected (JSON scalar).", json.dumps(parsed, ensure_ascii=True)
+
     def set_node_test_result(
         self,
         state: str,
@@ -9915,16 +9983,8 @@ class CanvasView(Gtk.Box):
             return
 
         node_key = self.node_type_key(node.node_type)
-        if node_key not in {"action", "template"}:
-            self.set_node_test_result(
-                "error",
-                "Node test is available for action/template nodes.",
-            )
-            return
-
-        integration = self.selected_action_integration()
-        if not integration:
-            self.set_node_test_result("error", "Choose an integration first.")
+        if node_key not in {"action", "template", "ai", "condition"}:
+            self.set_node_test_result("error", "Node test is available for action, AI, and condition nodes.")
             return
 
         temp_node = CanvasNode(
@@ -9937,29 +9997,89 @@ class CanvasView(Gtk.Box):
             y=node.y,
             config=self.build_updated_node_config(node),
         )
-        missing_fields = self.missing_required_action_fields(temp_node.config)
-        if missing_fields:
-            missing_label = ", ".join(missing_fields[:3])
-            if len(missing_fields) > 3:
-                missing_label = f"{missing_label}, +{len(missing_fields) - 3} more"
+
+        if node_key == "condition":
+            self.run_condition_preview_test(temp_node)
+            return
+
+        if node_key in {"action", "template"}:
+            integration = self.selected_action_integration()
+            if not integration:
+                self.set_node_test_result("error", "Choose an integration first.")
+                return
+            missing_fields = self.missing_required_action_fields(temp_node.config)
+            if missing_fields:
+                missing_label = ", ".join(missing_fields[:3])
+                if len(missing_fields) > 3:
+                    missing_label = f"{missing_label}, +{len(missing_fields) - 3} more"
+                self.set_node_test_result(
+                    "error",
+                    f"Fill required fields first: {missing_label}",
+                )
+                return
+
+            self.test_node_button.set_sensitive(False)
             self.set_node_test_result(
-                "error",
-                f"Fill required fields first: {missing_label}",
+                "running",
+                f"Testing '{integration}' integration...",
             )
+            threading.Thread(
+                target=self._run_action_node_test_worker,
+                args=(temp_node,),
+                daemon=True,
+            ).start()
             return
 
         self.test_node_button.set_sensitive(False)
         self.set_node_test_result(
             "running",
-            f"Testing '{integration}' integration...",
+            "Testing AI node with current provider/model settings...",
         )
         threading.Thread(
-            target=self._run_node_test_worker,
+            target=self._run_ai_node_test_worker,
             args=(temp_node,),
             daemon=True,
         ).start()
 
-    def _run_node_test_worker(self, node: CanvasNode):
+    def run_condition_preview_test(self, node: CanvasNode):
+        expression = str(node.config.get("expression", "")).strip() or node.detail.strip()
+        if not expression:
+            self.set_node_test_result("error", "Condition expression is empty.")
+            return
+
+        sample_input = self.condition_preview_input_entry.get_text().strip()
+        try:
+            result = self.execution_engine.evaluate_condition_for_test(expression, sample_input)
+        except Exception as error:
+            self.set_node_test_result("error", f"Condition preview failed: {error}")
+            return
+
+        outgoing = [edge for edge in self.edges if edge.source_node_id == node.id]
+        target_id = self.execution_engine.choose_condition_branch_for_test(outgoing, result)
+        target_name = ""
+        if target_id:
+            target_node = self.find_node(target_id)
+            target_name = target_node.name if target_node else target_id
+        branch_text = "true" if result else "false"
+        summary = (
+            f"Condition evaluated {branch_text} and routes to '{target_name}'."
+            if target_name
+            else f"Condition evaluated {branch_text} with no resolved outgoing branch."
+        )
+        output_lines = [
+            f"Expression: {expression}",
+            f"Sample Input: {sample_input or '(empty)'}",
+            f"Result: {branch_text.upper()}",
+            f"Branch Target: {target_name or '(none)'}",
+        ]
+        self.set_node_test_result(
+            "success",
+            summary,
+            output="\n".join(output_lines),
+        )
+        self.refresh_condition_branch_preview()
+
+    def _run_action_node_test_worker(self, node: CanvasNode):
         try:
             logs, output = self.execution_engine.execute_action_node_for_test(
                 node,
@@ -9970,6 +10090,17 @@ class CanvasView(Gtk.Box):
             return
         GLib.idle_add(self._finish_node_test_success, logs, output)
 
+    def _run_ai_node_test_worker(self, node: CanvasNode):
+        try:
+            logs, output = self.execution_engine.execute_ai_node_for_test(
+                node,
+                input_context=self.condition_preview_input_entry.get_text().strip(),
+            )
+        except Exception as error:
+            GLib.idle_add(self._finish_node_test_error, str(error))
+            return
+        GLib.idle_add(self._finish_ai_node_test_success, logs, output)
+
     def _finish_node_test_success(self, logs: list[str], output: str):
         self.test_node_button.set_sensitive(True)
         summary = logs[-1] if logs else "Node test completed."
@@ -9977,6 +10108,20 @@ class CanvasView(Gtk.Box):
             "success",
             summary,
             output=str(output),
+            logs=logs,
+        )
+        return False
+
+    def _finish_ai_node_test_success(self, logs: list[str], output: str):
+        self.test_node_button.set_sensitive(True)
+        summary = logs[-1] if logs else "AI node test completed."
+        structured_summary, rendered_output = self.format_structured_output_preview(output)
+        if structured_summary:
+            summary = f"{summary} {structured_summary}"
+        self.set_node_test_result(
+            "success",
+            summary,
+            output=rendered_output or str(output),
             logs=logs,
         )
         return False
@@ -10028,10 +10173,15 @@ class CanvasView(Gtk.Box):
 
         self.load_trigger_controls(merged_config, node.detail)
         self.load_condition_controls(merged_config.get("expression", ""))
+        if not self.condition_preview_input_entry.get_text().strip():
+            self.condition_preview_input_entry.set_text(
+                str(node.summary).strip() or "sample workflow output"
+            )
         self.load_action_controls(merged_config)
         self.load_node_execution_controls(merged_config, node.node_type)
         self.clear_node_test_result()
-        self.test_node_button.set_sensitive(True)
+        self.configure_node_test_controls(node.node_type)
+        self.refresh_condition_branch_preview()
         self.update_inspector_adjustment_states()
         self.update_action_integration_section_visibility(node.node_type)
         self.update_sidebar_mode()
@@ -10073,6 +10223,8 @@ class CanvasView(Gtk.Box):
         self.edit_condition_value_entry.set_text("")
         self.edit_condition_min_len_scale.set_value(120)
         self.edit_condition_min_len_spin.set_value(120)
+        self.condition_preview_input_entry.set_text("")
+        self.condition_preview_label.set_text("Select a condition node to preview branch routing.")
         self.action_integration_dropdown.set_selected(
             self.action_integration_index("standard")
         )
@@ -10099,6 +10251,7 @@ class CanvasView(Gtk.Box):
         self.node_execution_hint_label.set_text("")
         self.clear_node_test_result()
         self.test_node_button.set_sensitive(False)
+        self.configure_node_test_controls(None)
         self.update_trigger_controls_state()
         self.update_condition_controls_state()
         self.update_inspector_adjustment_states()
@@ -10126,6 +10279,7 @@ class CanvasView(Gtk.Box):
 
         self.trigger_section.set_visible(is_trigger)
         self.action_integration_section.set_visible(is_action_like)
+        self.node_test_section.set_visible(node_key in {"action", "template", "ai", "condition"})
 
         show_advanced = node_key in {"action", "template", "ai", "condition"}
         self.detail_expander.set_visible(show_advanced)
@@ -10152,6 +10306,7 @@ class CanvasView(Gtk.Box):
         self.condition_min_len_field_row.set_visible(
             is_condition and self.selected_condition_mode() == "min_len"
         )
+        self.configure_node_test_controls(node_type)
         self.update_trigger_controls_state()
         self.update_condition_controls_state()
 
@@ -10434,12 +10589,58 @@ class CanvasView(Gtk.Box):
         self.edit_condition_value_entry.set_sensitive(condition_visible and needs_value)
         self.condition_value_row.set_visible(condition_visible and needs_value)
         self.condition_min_len_field_row.set_visible(condition_visible and needs_min_len)
+        self.condition_preview_input_row.set_visible(condition_visible)
+        self.condition_preview_label.set_visible(condition_visible)
         self.edit_condition_min_len_scale.set_sensitive(condition_visible and needs_min_len)
         self.edit_condition_min_len_spin.set_sensitive(condition_visible and needs_min_len)
 
         if not needs_value:
             self.edit_condition_value_entry.set_text("")
         self.apply_condition_validation_feedback()
+        self.refresh_condition_branch_preview()
+
+    def refresh_condition_branch_preview(self):
+        if not self.condition_mode_row.get_visible():
+            self.condition_preview_label.set_text("")
+            return
+
+        node = self.get_selected_node()
+        if not node or self.node_type_key(node.node_type) != "condition":
+            self.condition_preview_label.set_text(
+                "Select a condition node to preview branch routing."
+            )
+            return
+
+        expression = self.current_condition_expression().strip()
+        if not expression:
+            self.condition_preview_label.set_text(
+                "Define a condition expression to preview true/false routing."
+            )
+            return
+
+        sample_input = self.condition_preview_input_entry.get_text().strip()
+        try:
+            result = self.execution_engine.evaluate_condition_for_test(
+                expression,
+                sample_input,
+            )
+        except Exception as error:
+            self.condition_preview_label.set_text(f"Condition preview error: {error}")
+            return
+
+        outgoing = [edge for edge in self.edges if edge.source_node_id == node.id]
+        target_id = self.execution_engine.choose_condition_branch_for_test(outgoing, result)
+        branch_text = "TRUE" if result else "FALSE"
+        if target_id:
+            target_node = self.find_node(target_id)
+            target_name = target_node.name if target_node else target_id
+            self.condition_preview_label.set_text(
+                f"Preview result: {branch_text} -> '{target_name}'."
+            )
+            return
+        self.condition_preview_label.set_text(
+            f"Preview result: {branch_text} with no outgoing branch target."
+        )
 
     def build_condition_inline_validation_issues(
         self,
