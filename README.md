@@ -118,6 +118,7 @@ See:
 - Integration profile endpoints implemented: catalog, CRUD, and connector test execution
 - Execution behavior implemented: timeout/retry/backoff and graph-aware branch routing
 - Parallel DAG behavior implemented: ready-node fan-out + join with skipped-branch pruning
+- Web graph editor supports node/link draft editing, link inspector, run timeline filters, and per-node behavior presets
 - Smoke test validated (March 21, 2026): `./scripts/test_docker_web.sh` including integration profile create/test/delete
 
 Estimated completion for a first public self-hosted web beta: **~72%**
