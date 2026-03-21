@@ -2001,20 +2001,24 @@ class CanvasView(Gtk.Box):
 
     def on_stage_select_drag_begin(self, gesture: Gtk.GestureDrag, start_x: float, start_y: float):
         self.stage_drag_node_id = None
+        # If pointer-down starts on a node card, let node-level drag/click gestures
+        # own the sequence. Stage selection should only begin on empty canvas.
+        if self.find_node_at_point(int(start_x), int(start_y)):
+            gesture.set_state(Gtk.EventSequenceState.DENIED)
+            return
+
         state = gesture.get_current_event_state()
         selection_modifiers = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active:
-            self.reset_node_drag_state()
+            gesture.set_state(Gtk.EventSequenceState.DENIED)
+            return
         if self.port_drag_active:
             gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
         if not bool(state & selection_modifiers):
             # Node drags are handled by per-node drag gestures.
-            gesture.set_state(Gtk.EventSequenceState.DENIED)
-            return
-        if self.find_node_at_point(int(start_x), int(start_y)):
             gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
         additive = bool(state & selection_modifiers)
