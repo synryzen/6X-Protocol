@@ -95,6 +95,11 @@ class CanvasView(Gtk.Box):
         "redis_command",
         "s3_cli",
     }
+    ACTION_CREDENTIAL_FIELDS = {
+        "api_key",
+        "auth_token",
+        "account_sid",
+    }
     REQUIRED_FIELD_ALIASES = {
         "url": ["webhook_url", "script_url", "connection_url"],
         "webhook_url": ["url"],
@@ -4112,9 +4117,22 @@ class CanvasView(Gtk.Box):
             return value[:max_chars]
         return f"{value[:max_chars - 1]}…"
 
+    def action_missing_field_breakdown(self, missing_fields: list[str]) -> tuple[list[str], list[str]]:
+        credential_missing: list[str] = []
+        value_missing: list[str] = []
+        for field in missing_fields:
+            key = str(field).strip().lower()
+            if not key:
+                continue
+            if key in self.ACTION_CREDENTIAL_FIELDS:
+                credential_missing.append(key)
+            else:
+                value_missing.append(key)
+        return credential_missing, value_missing
+
     def set_action_profile_status(self, text: str, tone: str = "neutral"):
         tone_key = str(tone).strip().lower() or "neutral"
-        if tone_key not in {"neutral", "ready", "partial", "setup"}:
+        if tone_key not in {"neutral", "ready", "partial", "setup", "auth"}:
             tone_key = "neutral"
 
         class_map = {
@@ -4122,6 +4140,7 @@ class CanvasView(Gtk.Box):
             "ready": "action-profile-ready",
             "partial": "action-profile-partial",
             "setup": "action-profile-setup",
+            "auth": "action-profile-auth",
         }
         for css_class in class_map.values():
             self.action_profile_label.remove_css_class(css_class)
@@ -4143,6 +4162,7 @@ class CanvasView(Gtk.Box):
         required_count = len(required_fields)
         missing_count = len(missing_fields)
         configured_count = max(0, required_count - missing_count)
+        credential_missing, value_missing = self.action_missing_field_breakdown(missing_fields)
         errors = [item for item in field_issues if item[1] == "error"]
         warnings = [item for item in field_issues if item[1] == "warning"]
 
@@ -4159,6 +4179,11 @@ class CanvasView(Gtk.Box):
             issue_summary = f"{len(errors)} error(s)"
             if warnings:
                 issue_summary = f"{issue_summary}, {len(warnings)} warning(s)"
+            if credential_missing and not value_missing:
+                return (
+                    f"{name} • {execution} profile • Credentials required ({configured_count}/{required_count} required fields filled) • {issue_summary}.",
+                    "auth",
+                )
             if missing_count >= required_count > 0:
                 return (
                     f"{name} • {execution} profile • Setup needed ({configured_count}/{required_count} required fields filled) • {issue_summary}.",
@@ -4170,6 +4195,11 @@ class CanvasView(Gtk.Box):
             )
 
         if missing_count > 0:
+            if credential_missing and not value_missing:
+                return (
+                    f"{name} • {execution} profile • Credentials missing ({configured_count}/{required_count} required fields filled) • add {len(credential_missing)} credential field(s).",
+                    "auth",
+                )
             tone = "setup" if missing_count >= required_count else "partial"
             return (
                 f"{name} • {execution} profile • {configured_count}/{required_count} required fields filled • Missing {missing_count} field(s).",
@@ -9407,6 +9437,9 @@ class CanvasView(Gtk.Box):
         )
         if not required_fields or not missing_fields:
             return "ready", "READY"
+        credential_missing, value_missing = self.action_missing_field_breakdown(missing_fields)
+        if credential_missing and not value_missing:
+            return "auth", "AUTH"
         if len(missing_fields) >= len(required_fields):
             return "setup", "SETUP"
         return "partial", "PARTIAL"

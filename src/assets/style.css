@@ -6875,6 +6875,12 @@ window.app-window .node-meta-setup {
   border: 1px solid alpha(#fb7185, 0.58);
 }
 
+window.app-window .node-meta-auth {
+  color: #ffedd5;
+  background: alpha(#7c2d12, 0.44);
+  border: 1px solid alpha(#fb923c, 0.58);
+}
+
 window.app-window.theme-light .node-meta-integration {
   color: #1d4ed8;
   background: alpha(#dbeafe, 0.96);
@@ -6911,6 +6917,12 @@ window.app-window.theme-light .node-meta-setup {
   border-color: alpha(#fb7185, 0.5);
 }
 
+window.app-window.theme-light .node-meta-auth {
+  color: #9a3412;
+  background: alpha(#ffedd5, 0.96);
+  border-color: alpha(#fb923c, 0.52);
+}
+
 window.app-window .action-profile-status {
   border-radius: 10px;
   border: 1px solid alpha(#64748b, 0.46);
@@ -6941,6 +6953,12 @@ window.app-window .action-profile-setup {
   border-color: alpha(#fb7185, 0.52);
 }
 
+window.app-window .action-profile-auth {
+  color: #ffedd5;
+  background: alpha(#7c2d12, 0.3);
+  border-color: alpha(#fb923c, 0.52);
+}
+
 window.app-window.theme-light .action-profile-neutral {
   color: #1d4ed8;
   background: alpha(#dbeafe, 0.95);
@@ -6959,4 +6977,9 @@ window.app-window.theme-light .action-profile-partial {
 window.app-window.theme-light .action-profile-setup {
   color: #9f1239;
   background: alpha(#ffe4e6, 0.95);
+}
+
+window.app-window.theme-light .action-profile-auth {
+  color: #9a3412;
+  background: alpha(#ffedd5, 0.95);
 }
