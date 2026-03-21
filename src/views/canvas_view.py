@@ -621,7 +621,7 @@ class CanvasView(Gtk.Box):
 
         stage_select_drag = Gtk.GestureDrag()
         stage_select_drag.set_button(Gdk.BUTTON_PRIMARY)
-        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         stage_select_drag.set_exclusive(False)
         stage_select_drag.connect("drag-begin", self.on_stage_select_drag_begin)
         stage_select_drag.connect("drag-update", self.on_stage_select_drag_update)
@@ -7173,17 +7173,30 @@ class CanvasView(Gtk.Box):
 
         step_x = max(80, int(self.layout_service.step_x))
         step_y = max(60, int(self.layout_service.step_y))
-        probe_x = x
-        probe_y = y
-        for _ in range(120):
-            if not self.node_overlaps_existing(probe_x, probe_y):
-                return probe_x, probe_y
-            probe_x += step_x
-            if probe_x > max_x:
-                probe_x = 80
-                probe_y += step_y
-                if probe_y > max_y:
-                    probe_y = 80
+
+        # First probe around the preferred spawn anchor in expanding rings so
+        # newly added nodes appear near context without piling on the same spot.
+        for ring in range(1, 10):
+            for dx, dy in (
+                (ring, 0),
+                (-ring, 0),
+                (0, ring),
+                (0, -ring),
+                (ring, ring),
+                (-ring, ring),
+                (ring, -ring),
+                (-ring, -ring),
+            ):
+                probe_x = max(0, min(max_x, int(x + (dx * step_x))))
+                probe_y = max(0, min(max_y, int(y + (dy * step_y))))
+                if not self.node_overlaps_existing(probe_x, probe_y):
+                    return probe_x, probe_y
+
+        # Then sweep the full stage grid as a fallback.
+        for probe_y in range(80, max_y + 1, step_y):
+            for probe_x in range(80, max_x + 1, step_x):
+                if not self.node_overlaps_existing(probe_x, probe_y):
+                    return probe_x, probe_y
         return x, y
 
     def sync_layout_cursor_from_nodes(self):
@@ -8838,6 +8851,10 @@ class CanvasView(Gtk.Box):
                 self.update_inspector(hit_node)
                 self.update_control_state()
                 self.link_layer.queue_draw()
+            else:
+                # Keep inspector synced even when the node is already selected.
+                self.update_inspector(hit_node)
+                self.update_control_state()
             return
 
         if not self.get_selected_node() and not self.pending_link_source_id:
