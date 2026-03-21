@@ -1913,6 +1913,26 @@ class CanvasView(Gtk.Box):
     def set_status(self, message: str):
         self.status_label.set_text(message)
 
+    def reset_node_drag_state(self):
+        self.drag_origin = {}
+        self.drag_group_origins = {}
+        self.node_drag_active = False
+        self.drag_history_captured = False
+        self.drag_guide_x = None
+        self.drag_guide_y = None
+        self.stage_drag_node_id = None
+        self.set_node_drag_cursor("grab")
+
+    def reset_port_drag_state(self):
+        previous_source = self.pending_link_source_id
+        self.cancel_link_preview()
+        self.port_drag_active = False
+        self.port_drag_origin = {}
+        self.pending_link_source_id = None
+        self.set_link_hover_target(None)
+        self.apply_link_source_visual_state(previous_source, None)
+        self.update_control_state()
+
     def set_selection(self, node_ids: set[str], primary_id: str | None = None):
         previous_ids = set(self.selected_node_ids)
         previous_primary = self.selected_node_id
@@ -1978,7 +1998,11 @@ class CanvasView(Gtk.Box):
         self.stage_drag_node_id = None
         state = gesture.get_current_event_state()
         selection_modifiers = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK
-        if self.port_drag_active or self.node_drag_active:
+        if self.port_drag_active and not self.link_preview_source_id:
+            self.reset_port_drag_state()
+        if self.node_drag_active:
+            self.reset_node_drag_state()
+        if self.port_drag_active:
             gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
         if not bool(state & selection_modifiers):
@@ -8414,13 +8438,12 @@ class CanvasView(Gtk.Box):
     def on_node_clicked(self, gesture: Gtk.GestureClick, _n_press, _x, _y, node_id: str):
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         self.grab_focus()
+        if self.port_drag_active and not self.link_preview_source_id:
+            self.reset_port_drag_state()
+        if self.node_drag_active:
+            self.reset_node_drag_state()
         if self.suppress_next_node_click:
             self.suppress_next_node_click = False
-            return
-        if self.node_drag_active and not self.drag_origin:
-            # Recover from interrupted gesture state so clicks are not blocked.
-            self.node_drag_active = False
-        if self.node_drag_active:
             return
 
         previous_selected = self.selected_node_id
@@ -8491,6 +8514,10 @@ class CanvasView(Gtk.Box):
 
     def on_canvas_stage_clicked(self, gesture, _n_press, x: float, y: float):
         self.grab_focus()
+        if self.node_drag_active:
+            self.reset_node_drag_state()
+        if self.port_drag_active and not self.link_preview_source_id:
+            self.reset_port_drag_state()
         if self.port_drag_active:
             self.finalize_link_preview_at(int(x), int(y))
             self.port_drag_active = False
@@ -8645,6 +8672,15 @@ class CanvasView(Gtk.Box):
         return float(translated[1]), float(translated[2])
 
     def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
+        if self.port_drag_active and not self.link_preview_source_id:
+            self.reset_port_drag_state()
+        if self.node_drag_active:
+            # Defensive recovery from interrupted gesture sequences.
+            current_drag_id = str(self.drag_origin.get("node_id", "")).strip()
+            if current_drag_id == str(node_id).strip() and self.drag_origin:
+                return
+            self.reset_node_drag_state()
+
         # Dragging should always move nodes. If link mode is active, cancel it first.
         if self.pending_link_source_id and self.pending_link_source_id != node_id:
             previous_source = self.pending_link_source_id
