@@ -4087,6 +4087,24 @@ class CanvasView(Gtk.Box):
             return "standard"
         return "standard"
 
+    def allowed_node_execution_presets(self, node_type: str, integration: str = "") -> set[str]:
+        node_key = self.node_type_key(node_type)
+        target = str(integration).strip().lower()
+        if node_key in {"trigger", "condition"}:
+            return {"fast", "standard"}
+        if node_key == "ai":
+            return {"standard", "heavy"}
+        if node_key in {"action", "template"}:
+            if target == "approval_gate":
+                return {"approval", "standard"}
+            return {"fast", "standard", "heavy"}
+        return {"standard"}
+
+    def update_node_execution_preset_availability(self, node_type: str, integration: str = ""):
+        allowed = self.allowed_node_execution_presets(node_type, integration)
+        for preset_key, button in self.node_execution_preset_buttons.items():
+            button.set_visible(preset_key in allowed)
+
     def node_execution_preset_profile(
         self,
         preset_key: str,
@@ -4146,8 +4164,9 @@ class CanvasView(Gtk.Box):
         return None
 
     def sync_node_execution_preset_buttons(self, node_type: str, integration: str = ""):
-        active_key = self.current_node_execution_preset(node_type, integration)
         self.loading_node_execution_preset = True
+        self.update_node_execution_preset_availability(node_type, integration)
+        active_key = self.current_node_execution_preset(node_type, integration)
         for preset_key, button in self.node_execution_preset_buttons.items():
             button.set_active(active_key == preset_key)
         self.loading_node_execution_preset = False
@@ -4176,6 +4195,10 @@ class CanvasView(Gtk.Box):
             if self.node_type_key(node.node_type) in {"action", "template"}
             else ""
         )
+        allowed = self.allowed_node_execution_presets(node.node_type, integration)
+        if preset_key not in allowed:
+            button.set_active(False)
+            return
         profile = self.node_execution_preset_profile(preset_key, node.node_type, integration)
         self.loading_node_execution_preset = True
         self.node_retry_spin.set_value(float(profile.get("retry_max", 0.0)))
