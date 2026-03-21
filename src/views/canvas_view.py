@@ -8212,6 +8212,7 @@ class CanvasView(Gtk.Box):
         click = Gtk.GestureClick()
         click.set_button(Gdk.BUTTON_PRIMARY)
         click.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
+        click.connect("pressed", self.on_node_pressed, node.id)
         click.connect("released", self.on_node_clicked, node.id)
         frame.add_controller(click)
 
@@ -8464,6 +8465,44 @@ class CanvasView(Gtk.Box):
         self.set_status(
             f"Link mode active from '{selected.name}' as '{link_type}'. Select a target node."
         )
+
+    def on_node_pressed(self, gesture: Gtk.GestureClick, _n_press, _x, _y, node_id: str):
+        self.grab_focus()
+        if self.port_drag_active and not self.link_preview_source_id:
+            self.reset_port_drag_state()
+        if self.node_drag_active and not self.drag_origin:
+            self.reset_node_drag_state()
+        if self.suppress_next_node_click:
+            return
+
+        node = self.find_node(node_id)
+        if not node:
+            return
+        if self.pending_link_source_id:
+            return
+
+        state = gesture.get_current_event_state()
+        additive = bool(
+            state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
+        )
+        if additive:
+            return
+
+        if self.selected_node_id == node_id and node_id in self.selected_node_ids:
+            return
+
+        previous_selected = self.selected_node_id
+        previous_selection_set = set(self.selected_node_ids)
+        self.set_single_selection(node_id)
+        self.apply_selection_set_visual_state(
+            previous_selection_set,
+            self.selected_node_ids,
+            previous_selected,
+            self.selected_node_id,
+        )
+        self.update_inspector(node)
+        self.update_control_state()
+        self.link_layer.queue_draw()
 
     def on_node_clicked(self, gesture: Gtk.GestureClick, _n_press, _x, _y, node_id: str):
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
@@ -8832,6 +8871,10 @@ class CanvasView(Gtk.Box):
             else:
                 self.set_link_hover_target(None)
                 self.update_link_preview_position(x, y)
+            return
+
+        if self.node_drag_active and not self.drag_origin:
+            self.reset_node_drag_state()
             return
 
         if self.drag_origin.get("node_id") != node_id:
