@@ -1358,6 +1358,13 @@ class CanvasView(Gtk.Box):
         self.action_issue_actions_row.append(self.action_focus_issue_button)
         self.action_issue_actions_row.append(self.action_autofill_button)
 
+        self.action_required_fields_flow = Gtk.FlowBox()
+        self.action_required_fields_flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.action_required_fields_flow.set_max_children_per_line(4)
+        self.action_required_fields_flow.set_column_spacing(6)
+        self.action_required_fields_flow.set_row_spacing(6)
+        self.action_required_fields_flow.add_css_class("action-required-flow")
+
         self.action_integration_section = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=6,
@@ -1420,6 +1427,7 @@ class CanvasView(Gtk.Box):
         self.action_integration_section.append(self.action_requirements_label)
         self.action_integration_section.append(self.action_profile_label)
         self.action_integration_section.append(self.action_issue_actions_row)
+        self.action_integration_section.append(self.action_required_fields_flow)
         self.action_integration_section.append(self.action_quick_row)
         self.action_integration_section.append(self.action_routing_group)
         self.action_integration_section.append(self.action_delivery_group)
@@ -4020,6 +4028,72 @@ class CanvasView(Gtk.Box):
             f"{len(required_fields)} required field(s): {preview}"
         )
 
+    def integration_required_fields(self, integration: str) -> list[str]:
+        key = str(integration).strip().lower() or "standard"
+        item = self.integration_registry.get_integration(key) or {}
+        raw_required_fields = item.get("required_fields", [])
+        if not isinstance(raw_required_fields, list):
+            return []
+        return [str(field).strip().lower() for field in raw_required_fields if str(field).strip()]
+
+    def required_field_chip_label(self, field_key: str) -> str:
+        key = str(field_key).strip().lower()
+        mapping = {
+            "url": "URL",
+            "webhook_url": "Webhook URL",
+            "script_url": "Script URL",
+            "connection_url": "Connection URL",
+            "api_key": "API Key",
+            "auth_token": "Auth Token",
+            "account_sid": "Account SID",
+            "chat_id": "Chat ID",
+            "spreadsheet_id": "Sheet ID",
+            "range": "Range",
+            "sql": "SQL",
+            "query": "Query",
+            "to": "To",
+            "from": "From",
+            "subject": "Subject",
+            "message": "Message",
+            "payload": "Payload",
+            "headers": "Headers",
+            "path": "Path",
+            "command": "Command",
+        }
+        if key in mapping:
+            return mapping[key]
+        words = [segment for segment in key.replace("-", "_").split("_") if segment]
+        if not words:
+            return "Field"
+        return " ".join(word[:1].upper() + word[1:] for word in words)
+
+    def rebuild_action_required_field_chips(self, integration: str, missing_fields: list[str] | None = None):
+        flow = self.action_required_fields_flow
+        child = flow.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            flow.remove(child)
+            child = next_child
+
+        required_fields = self.integration_required_fields(integration)
+        if not required_fields:
+            flow.set_visible(False)
+            return
+
+        missing = {str(item).strip().lower() for item in (missing_fields or []) if str(item).strip()}
+        for required_field in required_fields:
+            button = Gtk.Button(label=self.required_field_chip_label(required_field))
+            button.add_css_class("compact-action-button")
+            button.add_css_class("action-required-chip")
+            if required_field in missing:
+                button.add_css_class("action-required-missing")
+            else:
+                button.add_css_class("action-required-ready")
+            button.set_tooltip_text(f"Focus field: {required_field}")
+            button.connect("clicked", self.on_action_required_chip_clicked, required_field)
+            flow.insert(button, -1)
+        flow.set_visible(True)
+
     def node_execution_profile(self, node_type: str, integration: str = "") -> dict[str, float]:
         node_key = self.node_type_key(node_type)
         target = str(integration).strip().lower()
@@ -4443,6 +4517,7 @@ class CanvasView(Gtk.Box):
         self.refresh_action_presets(integration)
         self.update_action_quick_button_state(integration)
         self.action_profile_label.set_text(self.action_profile_summary(integration))
+        self.rebuild_action_required_field_chips(integration, self.latest_action_missing_fields)
 
         show_endpoint = integration in {
             "http_post",
@@ -4914,6 +4989,13 @@ class CanvasView(Gtk.Box):
             return
         self.set_status("Issue field is currently hidden for this integration.")
 
+    def on_action_required_chip_clicked(self, _button, required_field: str):
+        target_field = self.action_field_key_for_requirement(required_field)
+        if self.reveal_action_field(target_field, focus=True):
+            self.set_status(f"Focused required field: {required_field}.")
+            return
+        self.set_status(f"Required field '{required_field}' is not currently visible.")
+
     def bind_action_field_change_events(self):
         action_entries = [
             self.action_endpoint_entry,
@@ -5242,6 +5324,7 @@ class CanvasView(Gtk.Box):
             self.latest_action_issue_field = None
             self.action_focus_issue_button.set_sensitive(False)
             self.action_autofill_button.set_sensitive(False)
+            self.rebuild_action_required_field_chips(integration, [])
             return
 
         merged = self.parse_detail_directives(selected_node.detail)
@@ -5310,6 +5393,7 @@ class CanvasView(Gtk.Box):
         self.latest_action_issue_field = self.first_action_issue_field(field_issues)
         self.action_autofill_button.set_sensitive(bool(missing_fields))
         self.action_focus_issue_button.set_sensitive(bool(self.latest_action_issue_field))
+        self.rebuild_action_required_field_chips(integration, missing_fields)
         if self.latest_action_issue_field:
             self.reveal_action_field(self.latest_action_issue_field, focus=False)
 
@@ -10407,6 +10491,7 @@ class CanvasView(Gtk.Box):
         self.latest_action_issue_field = None
         self.action_focus_issue_button.set_sensitive(False)
         self.action_autofill_button.set_sensitive(False)
+        self.rebuild_action_required_field_chips("standard", [])
         self.clear_node_test_result()
         self.test_node_button.set_sensitive(False)
         self.configure_node_test_controls(None)

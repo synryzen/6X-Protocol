@@ -6791,3 +6791,40 @@ window.app-window.theme-light .canvas-node-field-warning-label,
 window.app-window.theme-light .canvas-node-field-feedback-warning {
   color: #92400e;
 }
+
+/* Premium studio v32: action required field chips */
+window.app-window .action-required-flow {
+  margin: 2px 0 4px 0;
+}
+
+window.app-window .action-required-chip {
+  min-height: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+window.app-window .action-required-ready {
+  border-color: alpha(#34d399, 0.58);
+  background: alpha(#064e3b, 0.48);
+  color: #b7f7df;
+}
+
+window.app-window .action-required-missing {
+  border-color: alpha(#fb7185, 0.68);
+  background: alpha(#881337, 0.44);
+  color: #ffd0d8;
+}
+
+window.app-window.theme-light .action-required-ready {
+  border-color: alpha(#10b981, 0.54);
+  background: alpha(#d1fae5, 0.95);
+  color: #065f46;
+}
+
+window.app-window.theme-light .action-required-missing {
+  border-color: alpha(#f43f5e, 0.52);
+  background: alpha(#ffe4e6, 0.95);
+  color: #9f1239;
+}
