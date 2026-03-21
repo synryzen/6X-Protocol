@@ -657,6 +657,16 @@
                 <input id="graphEditorActionCommand" class="input" type="text" placeholder="echo \"$INPUT_CONTEXT\"" />
               </div>
             </div>
+            <div class="graph-editor-grid" id="graphEditorActionHandoffRow">
+              <div class="row" id="graphEditorActionBotChainRow">
+                <label class="label" for="graphEditorActionBotChain">Bot Chain</label>
+                <input id="graphEditorActionBotChain" class="input" type="text" placeholder="Planner > Writer > Reviewer" />
+              </div>
+              <div class="row" id="graphEditorActionBotRow">
+                <label class="label" for="graphEditorActionBot">Single Bot</label>
+                <input id="graphEditorActionBot" class="input" type="text" placeholder="Fallback bot name (optional)" />
+              </div>
+            </div>
             <div class="graph-editor-grid">
               <div class="row" id="graphEditorConditionRow">
                 <label class="label" for="graphEditorCondition">Condition Expression</label>
@@ -1007,6 +1017,7 @@
       "mailgun_email",
     ]);
     const actionHeavyIntegrations = new Set([
+      "handoff",
       "shell_command",
       "file_append",
       "postgres_sql",
@@ -1033,6 +1044,7 @@
       { key: "http_request", label: "HTTP Request", integration: "http_request" },
       { key: "weather_lookup", label: "Weather Lookup", integration: "openweather_current" },
       { key: "script_google_apps", label: "Google Apps Script", integration: "google_apps_script" },
+      { key: "bot_handoff", label: "Bot Handoff", integration: "handoff" },
       { key: "file_append", label: "Append File", integration: "file_append" },
       { key: "shell_command", label: "Shell Command", integration: "shell_command" },
       { key: "approval_gate", label: "Approval Gate", integration: "approval_gate" },
@@ -1048,6 +1060,7 @@
       http_request: { endpoint: "https://api.example.com/endpoint", method: "GET" },
       weather_lookup: { location: "Austin,US", method: "GET" },
       script_google_apps: { endpoint: "https://script.google.com/macros/s/REPLACE/exec", method: "POST" },
+      bot_handoff: { bot_chain: "Planner > Writer", message: "${last_output}" },
       file_append: { path: "/tmp/6x-workflow.log", message: "${last_output}" },
       shell_command: { command: "echo \"$INPUT_CONTEXT\"" },
       approval_gate: { message: "Approve this step before continuing." },
@@ -1156,11 +1169,20 @@
       "mailgun_email",
       "approval_gate",
       "file_append",
+      "handoff",
     ]);
     const integrationRequiresLocation = new Set(["openweather_current"]);
     const integrationRequiresPath = new Set(["file_append", "sqlite_sql"]);
-    const integrationRequiresCommand = new Set(["shell_command", "postgres_sql", "mysql_sql", "redis_command", "s3_cli"]);
+    const integrationRequiresCommand = new Set(["shell_command", "postgres_sql", "mysql_sql", "sqlite_sql", "redis_command", "s3_cli"]);
     const integrationUsesChatId = new Set(["telegram_bot"]);
+    const integrationUsesBotChain = new Set(["handoff"]);
+    const triggerModeExecutionProfiles = {
+      manual: { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 15 },
+      schedule_interval: { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 20 },
+      cron: { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 20 },
+      webhook: { retry_max: 1, retry_backoff_ms: 150, timeout_sec: 45 },
+      file_watch: { retry_max: 1, retry_backoff_ms: 150, timeout_sec: 45 },
+    };
 
     const state = {
       apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
@@ -2225,9 +2247,9 @@
       requirementsEl.textContent = `Required fields: ${required.join(", ")}`;
     }
 
-    function nodeExecutionPresetValues(nodeType, integration, presetKey) {
+    function nodeExecutionPresetValues(nodeType, integration, presetKey, triggerMode = "manual") {
       const kind = normalizeNodeType(nodeType);
-      const base = nodeExecutionDefaults(kind, integration);
+      const base = nodeExecutionDefaults(kind, integration, triggerMode);
       const preset = String(presetKey || "balanced").trim().toLowerCase();
       if (preset === "safe") {
         if (kind === "ai") return { retry_max: 0, retry_backoff_ms: 150, timeout_sec: 90 };
@@ -2244,7 +2266,7 @@
       return base;
     }
 
-    function detectNodeExecutionPreset(nodeType, integration, retryMax, backoffMs, timeoutSec) {
+    function detectNodeExecutionPreset(nodeType, integration, retryMax, backoffMs, timeoutSec, triggerMode = "manual") {
       const retry = Number(retryMax);
       const backoff = Number(backoffMs);
       const timeout = Number(timeoutSec);
@@ -2253,7 +2275,7 @@
       }
       const presets = ["safe", "balanced", "aggressive"];
       for (const preset of presets) {
-        const values = nodeExecutionPresetValues(nodeType, integration, preset);
+        const values = nodeExecutionPresetValues(nodeType, integration, preset, triggerMode);
         if (
           Number(values.retry_max) === Number(retry)
           && Number(values.retry_backoff_ms) === Number(backoff)
@@ -2265,14 +2287,14 @@
       return "custom";
     }
 
-    function applyNodeExecutionPresetInputs(nodeType, integration, presetKey) {
-      const values = nodeExecutionPresetValues(nodeType, integration, presetKey);
+    function applyNodeExecutionPresetInputs(nodeType, integration, presetKey, triggerMode = "manual") {
+      const values = nodeExecutionPresetValues(nodeType, integration, presetKey, triggerMode);
       byId("graphEditorRetry").value = String(values.retry_max);
       byId("graphEditorBackoff").value = String(values.retry_backoff_ms);
       byId("graphEditorTimeout").value = String(values.timeout_sec);
     }
 
-    function refreshGraphExecutionPresetControl(nodeType, integration) {
+    function refreshGraphExecutionPresetControl(nodeType, integration, triggerMode = "manual") {
       const presetSelect = byId("graphEditorExecutionPreset");
       if (!presetSelect) return;
       const currentPreset = detectNodeExecutionPreset(
@@ -2280,7 +2302,8 @@
         integration,
         byId("graphEditorRetry").value,
         byId("graphEditorBackoff").value,
-        byId("graphEditorTimeout").value
+        byId("graphEditorTimeout").value,
+        triggerMode
       );
       presetSelect.value = currentPreset;
     }
@@ -2310,6 +2333,10 @@
         const integration = normalizeActionIntegration(integrationKey);
         const catalog = integrationCatalogItem(integration);
         const name = catalog ? String(catalog.name || integration) : integration;
+        if (integrationUsesBotChain.has(integration)) {
+          helper.textContent = `Action integration '${name}' selected. Configure bot chain order (Bot A > Bot B) or a single bot fallback.`;
+          return;
+        }
         helper.textContent = `Action integration '${name}' selected. Apply node defaults to reset execution policy.`;
         return;
       }
@@ -2342,6 +2369,7 @@
         "graphEditorActionSystemRow",
         integrationRequiresPath.has(integration) || integrationRequiresCommand.has(integration)
       );
+      setElementVisible("graphEditorActionHandoffRow", integrationUsesBotChain.has(integration));
       setElementVisible("graphEditorActionEndpointRow", integrationRequiresEndpoint.has(integration));
       setElementVisible("graphEditorActionMethodRow", integrationRequiresMethod.has(integration));
       setElementVisible("graphEditorActionApiKeyRow", integrationRequiresAuth.has(integration));
@@ -2350,6 +2378,8 @@
       setElementVisible("graphEditorActionLocationRow", integrationRequiresLocation.has(integration));
       setElementVisible("graphEditorActionPathRow", integrationRequiresPath.has(integration));
       setElementVisible("graphEditorActionCommandRow", integrationRequiresCommand.has(integration));
+      setElementVisible("graphEditorActionBotChainRow", integrationUsesBotChain.has(integration));
+      setElementVisible("graphEditorActionBotRow", integrationUsesBotChain.has(integration));
     }
 
     function actionConfigFieldValue(config, key) {
@@ -2362,6 +2392,8 @@
         location: ["location"],
         path: ["path", "file_path", "db_path"],
         command: ["command", "sql", "query"],
+        bot_chain: ["bot_chain"],
+        bot: ["bot"],
         method: ["method"],
       };
       const keys = aliases[key] || [key];
@@ -2382,6 +2414,8 @@
       byId("graphEditorActionLocation").value = actionConfigFieldValue(config, "location");
       byId("graphEditorActionPath").value = actionConfigFieldValue(config, "path");
       byId("graphEditorActionCommand").value = actionConfigFieldValue(config, "command");
+      byId("graphEditorActionBotChain").value = actionConfigFieldValue(config, "bot_chain");
+      byId("graphEditorActionBot").value = actionConfigFieldValue(config, "bot");
       const method = actionConfigFieldValue(config, "method").toUpperCase();
       byId("graphEditorActionMethod").value = method || "POST";
     }
@@ -2405,6 +2439,8 @@
       writeIfAllowed("graphEditorActionLocation", defaults.location);
       writeIfAllowed("graphEditorActionPath", defaults.path);
       writeIfAllowed("graphEditorActionCommand", defaults.command);
+      writeIfAllowed("graphEditorActionBotChain", defaults.bot_chain);
+      writeIfAllowed("graphEditorActionBot", defaults.bot);
       if (defaults.method) {
         byId("graphEditorActionMethod").value = String(defaults.method).trim().toUpperCase();
       }
@@ -2420,6 +2456,8 @@
       const location = String(byId("graphEditorActionLocation").value || "").trim();
       const path = String(byId("graphEditorActionPath").value || "").trim();
       const command = String(byId("graphEditorActionCommand").value || "").trim();
+      const botChain = String(byId("graphEditorActionBotChain").value || "").trim();
+      const bot = String(byId("graphEditorActionBot").value || "").trim();
       const method = String(byId("graphEditorActionMethod").value || "POST").trim().toUpperCase() || "POST";
 
       const setOrDelete = (key, value) => {
@@ -2475,13 +2513,23 @@
           setOrDelete("command", command);
         }
       }
+      if (integrationUsesBotChain.has(integration)) {
+        setOrDelete("bot_chain", botChain);
+        setOrDelete("bot", bot);
+      } else {
+        setOrDelete("bot_chain", "");
+        setOrDelete("bot", "");
+      }
       return nextConfig;
     }
 
-    function nodeExecutionDefaults(nodeType, integration = "standard") {
+    function nodeExecutionDefaults(nodeType, integration = "standard", triggerMode = "manual") {
       const kind = normalizeNodeType(nodeType);
       const actionKey = normalizeActionIntegration(integration);
-      if (kind === "trigger") return { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 15 };
+      if (kind === "trigger") {
+        const mode = String(triggerMode || "manual").trim().toLowerCase() || "manual";
+        return triggerModeExecutionProfiles[mode] || triggerModeExecutionProfiles.manual;
+      }
       if (kind === "condition") return { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 8 };
       if (kind === "ai") return { retry_max: 1, retry_backoff_ms: 300, timeout_sec: 120 };
       if (kind === "action") {
@@ -2494,9 +2542,9 @@
       return { retry_max: 1, retry_backoff_ms: 250, timeout_sec: 60 };
     }
 
-    function defaultConfigForNodeType(nodeType, integration = "standard") {
+    function defaultConfigForNodeType(nodeType, integration = "standard", triggerMode = "manual") {
       const kind = normalizeNodeType(nodeType);
-      const policy = nodeExecutionDefaults(kind, integration);
+      const policy = nodeExecutionDefaults(kind, integration, triggerMode);
       if (kind === "trigger") {
         return {
           trigger_mode: "manual",
@@ -2564,6 +2612,7 @@
       setElementVisible("graphEditorActionAuthRow", actionMode);
       setElementVisible("graphEditorActionPayloadRow", actionMode);
       setElementVisible("graphEditorActionSystemRow", actionMode);
+      setElementVisible("graphEditorActionHandoffRow", actionMode);
       setElementVisible("graphEditorTriggerModeRow", kind === "trigger");
       setElementVisible("graphEditorTriggerValueRow", kind === "trigger");
       setElementVisible("graphEditorConditionRow", kind === "condition");
@@ -2620,6 +2669,8 @@
         byId("graphEditorActionLocation").value = "";
         byId("graphEditorActionPath").value = "";
         byId("graphEditorActionCommand").value = "";
+        byId("graphEditorActionBotChain").value = "";
+        byId("graphEditorActionBot").value = "";
         byId("graphEditorActionMethod").value = "POST";
         byId("graphEditorRetry").value = "0";
         byId("graphEditorBackoff").value = "0";
@@ -2653,7 +2704,8 @@
       byId("graphEditorModel").value = String(config.model || "local/default");
       byId("graphEditorPrompt").value = String(config.prompt || "");
       fillGraphEditorActionFieldsFromConfig(config);
-      const defaults = nodeExecutionDefaults(type, actionIntegration);
+      const triggerMode = String(config.trigger_mode || "manual").trim().toLowerCase() || "manual";
+      const defaults = nodeExecutionDefaults(type, actionIntegration, triggerMode);
       byId("graphEditorRetry").value = String(
         Number.isFinite(Number(config.retry_max)) ? Number(config.retry_max) : defaults.retry_max
       );
@@ -2667,7 +2719,7 @@
       if (["safe", "balanced", "aggressive", "custom"].includes(presetRaw)) {
         byId("graphEditorExecutionPreset").value = presetRaw;
       } else {
-        refreshGraphExecutionPresetControl(type, actionIntegration);
+        refreshGraphExecutionPresetControl(type, actionIntegration, triggerMode);
       }
       setGraphEditorVisibilityForType(type);
       updateGraphEditorIntegrationRequirements(actionIntegration);
@@ -2687,7 +2739,8 @@
       }
       const type = normalizeNodeType(byId("graphEditorType").value || node.type);
       const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
-      applyNodeExecutionPresetInputs(type, integration, "balanced");
+      const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
+      applyNodeExecutionPresetInputs(type, integration, "balanced", triggerMode);
       byId("graphEditorExecutionPreset").value = "balanced";
       if (type === "trigger") {
         byId("graphEditorTriggerMode").value = "manual";
@@ -3598,7 +3651,8 @@
           applyGraphEditorActionTemplateDefaults(templateKey, { force: true });
           setGraphEditorActionFieldVisibility(integration);
         }
-        refreshGraphExecutionPresetControl(type, integration);
+        const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
+        refreshGraphExecutionPresetControl(type, integration, triggerMode);
         updateGraphEditorIntegrationRequirements(integration);
         refreshGraphNodeBehaviorHelper(
           type,
@@ -3613,7 +3667,8 @@
         const templateKey = inferActionTemplateKey({}, integration);
         renderActionTemplateOptions(templateKey);
         applyGraphEditorActionTemplateDefaults(templateKey, { force: false });
-        applyNodeExecutionPresetInputs(type, integration, "balanced");
+        const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
+        applyNodeExecutionPresetInputs(type, integration, "balanced", triggerMode);
         byId("graphEditorExecutionPreset").value = "balanced";
         updateGraphEditorIntegrationRequirements(integration);
         setGraphEditorActionFieldVisibility(integration);
@@ -3627,7 +3682,8 @@
         const integration = normalizeActionIntegration(template.integration || "standard");
         byId("graphEditorIntegration").value = integration;
         applyGraphEditorActionTemplateDefaults(template.key, { force: true });
-        applyNodeExecutionPresetInputs(type, integration, "balanced");
+        const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
+        applyNodeExecutionPresetInputs(type, integration, "balanced", triggerMode);
         byId("graphEditorExecutionPreset").value = "balanced";
         updateGraphEditorIntegrationRequirements(integration);
         setGraphEditorActionFieldVisibility(integration);
@@ -3636,6 +3692,14 @@
       byId("graphEditorTriggerMode").addEventListener("change", () => {
         const mode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
         applyTriggerModeDefaults(mode);
+        const type = normalizeNodeType(byId("graphEditorType").value || "action");
+        const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
+        if (type === "trigger") {
+          applyNodeExecutionPresetInputs(type, integration, "balanced", mode);
+          byId("graphEditorExecutionPreset").value = "balanced";
+        } else {
+          refreshGraphExecutionPresetControl(type, integration, mode);
+        }
         refreshGraphNodeBehaviorHelper(
           "trigger",
           byId("graphEditorIntegration").value || "standard",
@@ -3647,14 +3711,16 @@
         if (preset === "custom") return;
         const type = normalizeNodeType(byId("graphEditorType").value || "action");
         const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
-        applyNodeExecutionPresetInputs(type, integration, preset);
+        const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
+        applyNodeExecutionPresetInputs(type, integration, preset, triggerMode);
       });
       const executionInputIds = ["graphEditorRetry", "graphEditorBackoff", "graphEditorTimeout"];
       for (const inputId of executionInputIds) {
         byId(inputId).addEventListener("input", () => {
           const type = normalizeNodeType(byId("graphEditorType").value || "action");
           const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
-          refreshGraphExecutionPresetControl(type, integration);
+          const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
+          refreshGraphExecutionPresetControl(type, integration, triggerMode);
         });
       }
       byId("graphApplyNodeDefaults").addEventListener("click", applyGraphNodeEditorDefaults);
