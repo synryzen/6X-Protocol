@@ -121,7 +121,7 @@ See:
 - Web graph editor supports node/link draft editing, link inspector, run timeline filters, and per-node behavior presets
 - Smoke test validated (March 21, 2026): `./scripts/test_docker_web.sh` including integration profile create/test/delete
 
-Estimated completion for a first public self-hosted web beta: **~72%**
+Estimated completion for a first public self-hosted web beta: **~84%**
 
 Remaining high-value items:
 - Replace placeholder web panel with production web app views (workflow list/canvas/runs/settings).

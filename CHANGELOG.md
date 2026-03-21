@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+### Changed
+- Canvas node interaction reliability hardened again:
+  stage/node gesture arbitration tightened, node hit fallback now keeps inspector
+  selection in sync, and output port drag hit-targets are easier to catch for
+  wire linking.
+- Docker/web runtime status synchronized with latest smoke validation:
+  end-to-end compose test now confirms run start/cancel/retry flows, retry-from-
+  failed-node replay, timeout/retry/backoff behavior, routing timeline filters,
+  and integration profile create/test/delete lifecycle.
+- README Docker progress updated to reflect active preview completion at ~84%.
+
 ## [0.1.4] - 2026-03-19
 ### Added
 - In-app About page with creator/support identity and direct links:
