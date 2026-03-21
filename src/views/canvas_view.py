@@ -594,6 +594,7 @@ class CanvasView(Gtk.Box):
 
         stage_click = Gtk.GestureClick()
         stage_click.set_button(Gdk.BUTTON_PRIMARY)
+        stage_click.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         stage_click.set_exclusive(False)
         stage_click.connect("released", self.on_canvas_stage_clicked)
         self.fixed.add_controller(stage_click)
@@ -604,6 +605,7 @@ class CanvasView(Gtk.Box):
 
         stage_select_drag = Gtk.GestureDrag()
         stage_select_drag.set_button(Gdk.BUTTON_PRIMARY)
+        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         stage_select_drag.set_exclusive(False)
         stage_select_drag.connect("drag-begin", self.on_stage_select_drag_begin)
         stage_select_drag.connect("drag-update", self.on_stage_select_drag_update)
@@ -8291,7 +8293,7 @@ class CanvasView(Gtk.Box):
         input_port.add_css_class("canvas-node-port")
         input_port.add_css_class("canvas-node-port-in")
         input_port.add_css_class("canvas-node-port-dot")
-        input_port.set_size_request(28, 28)
+        input_port.set_size_request(32, 32)
         input_port.set_can_target(True)
         input_port.set_halign(Gtk.Align.START)
         input_port.set_valign(Gtk.Align.CENTER)
@@ -8300,7 +8302,7 @@ class CanvasView(Gtk.Box):
         output_port.add_css_class("canvas-node-port")
         output_port.add_css_class("canvas-node-port-out")
         output_port.add_css_class("canvas-node-port-dot")
-        output_port.set_size_request(28, 28)
+        output_port.set_size_request(32, 32)
         output_port.set_can_target(True)
         output_port.set_halign(Gtk.Align.END)
         output_port.set_valign(Gtk.Align.CENTER)
@@ -10210,7 +10212,7 @@ class CanvasView(Gtk.Box):
         anchor_x, anchor_y = self.node_output_handle_local_anchor()
         dx = float(local_x) - anchor_x
         dy = float(local_y) - anchor_y
-        radius = max(14.0, min(26.0, float(self.card_screen_width()) * 0.14))
+        radius = max(18.0, min(32.0, float(self.card_screen_width()) * 0.18))
         return (dx * dx) + (dy * dy) <= (radius * radius)
 
     def find_node(self, node_id: str) -> CanvasNode | None:
