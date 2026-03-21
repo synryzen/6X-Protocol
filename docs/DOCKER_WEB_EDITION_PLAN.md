@@ -2,7 +2,7 @@
 
 ## Last Verified Status
 - Date: **March 21, 2026**
-- Overall completion toward first public self-hosted web beta: **~72%**
+- Overall completion toward first public self-hosted web beta: **~77%**
 - Automated smoke status: **passing** via `./scripts/test_docker_web.sh`
 
 ## Product Layout
@@ -50,7 +50,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Workflow CRUD endpoints
 - [x] Runs CRUD and run-control endpoints
 - [x] Settings load/save endpoints
-- [ ] Integrations CRUD/test parity endpoints
+- [x] Integrations catalog + CRUD + test endpoints
 - [ ] Rich execution timeline/query APIs
 
 ### M3: Web client foundation
@@ -83,13 +83,15 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
   - retry from failed node
   - timeout/retry policy behavior
   - graph branching validation
+  - integration profile create/test/delete lifecycle
 - Server execution model now handles node-type behavior + policy controls per run/node.
+- Web preview now includes integration profile save/test controls wired to API.
 
 ## Remaining To Reach First Public Web Beta
 1. Replace web preview dashboard with production web UI modules.
 2. Add migration/versioned persistence workflow.
 3. Add auth and secrets baseline.
-4. Add integration endpoint parity with desktop capabilities.
+4. Expand integration profile UX toward full connector-field parity with desktop editor.
 
 ## Recommended Positioning
 - **Desktop mode:** local-first Linux native experience.

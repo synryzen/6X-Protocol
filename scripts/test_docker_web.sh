@@ -33,16 +33,16 @@ if [[ ! -f .env ]]; then
   cp .env.example .env
 fi
 
-echo "[1/9] Building and starting compose stack..."
+echo "[1/10] Building and starting compose stack..."
 docker compose -f "$COMPOSE_FILE" up -d --build
 
 cleanup() {
-  echo "[9/9] Stopping compose stack..."
+  echo "[10/10] Stopping compose stack..."
   docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-echo "[2/9] Waiting for API health..."
+echo "[2/10] Waiting for API health..."
 for _ in {1..30}; do
   if curl -fsS http://127.0.0.1:8787/healthz >/dev/null 2>&1; then
     break
@@ -51,7 +51,7 @@ for _ in {1..30}; do
 done
 curl -fsS http://127.0.0.1:8787/healthz | jq .
 
-echo "[3/9] Creating workflow..."
+echo "[3/10] Creating workflow..."
 WORKFLOW_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/workflows \
   -H 'Content-Type: application/json' \
   -d '{"name":"Docker Smoke Workflow","description":"Created by test script","graph":{"nodes":[{"id":"n1","name":"Trigger","type":"trigger"},{"id":"n2","name":"AI Step","type":"ai"},{"id":"n3","name":"Action","type":"action"}],"edges":[]}}')"
@@ -59,14 +59,14 @@ WORKFLOW_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/workflows \
 echo "$WORKFLOW_JSON" | jq .
 WORKFLOW_ID="$(echo "$WORKFLOW_JSON" | jq -r '.id')"
 
-echo "[4/9] Starting run for workflow..."
+echo "[4/10] Starting run for workflow..."
 RUN_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/runs/start \
   -H 'Content-Type: application/json' \
   -d "{\"workflow_id\":\"$WORKFLOW_ID\",\"trigger\":\"manual\"}")"
 echo "$RUN_JSON" | jq .
 RUN_ID="$(echo "$RUN_JSON" | jq -r '.id')"
 
-echo "[5/9] Exercising cancel + retry controls..."
+echo "[5/10] Exercising cancel + retry controls..."
 curl -fsS -X POST "http://127.0.0.1:8787/api/v1/runs/$RUN_ID/cancel" | jq .
 
 for _ in {1..20}; do
@@ -86,7 +86,7 @@ RETRY_RUN_ID="$(echo "$RETRY_JSON" | jq -r '.id')"
 sleep 1
 curl -fsS "http://127.0.0.1:8787/api/v1/runs/$RETRY_RUN_ID" | jq .
 
-echo "[6/9] Validating retry-from-failed-node flow..."
+echo "[6/10] Validating retry-from-failed-node flow..."
 FAIL_WORKFLOW_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/workflows \
   -H 'Content-Type: application/json' \
   -d '{"name":"Docker Failure Workflow","description":"Failure/retry flow validation","graph":{"nodes":[{"id":"f1","name":"Start","type":"trigger"},{"id":"f2","name":"Failing Step","type":"action","metadata":{"simulate_failure":true}},{"id":"f3","name":"Recover Step","type":"action"}],"edges":[]}}')"
@@ -134,7 +134,7 @@ for _ in {1..30}; do
 done
 curl -fsS "http://127.0.0.1:8787/api/v1/runs/$FAIL_RETRY_RUN_ID" | jq .
 
-echo "[7/9] Validating retry/backoff/timeout execution policies..."
+echo "[7/10] Validating retry/backoff/timeout execution policies..."
 POLICY_WORKFLOW_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/workflows \
   -H 'Content-Type: application/json' \
   -d '{"name":"Docker Policy Workflow","description":"Execution policy validation","graph":{"nodes":[{"id":"p1","name":"Policy Start","type":"trigger"},{"id":"p2","name":"Flaky Action","type":"action","metadata":{"simulate_failure_attempts":1,"simulate_delay_ms":120}}],"edges":[]}}')"
@@ -202,7 +202,7 @@ if ! echo "$TIMEOUT_DETAILS" | jq -r '.summary' | grep -qi 'Timed out'; then
   exit 1
 fi
 
-echo "[8/9] Validating graph routing + condition branching..."
+echo "[8/10] Validating graph routing + condition branching..."
 ROUTING_WORKFLOW_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/workflows \
   -H 'Content-Type: application/json' \
   -d '{"name":"Docker Routing Workflow","description":"Condition branch validation","graph":{"nodes":[{"id":"r1","name":"Start","type":"trigger"},{"id":"r2","name":"Decide","type":"condition","config":{"expression":"always_false"}},{"id":"r3","name":"True Branch","type":"action"},{"id":"r4","name":"False Branch","type":"action"}],"edges":[{"source":"r1","target":"r2","type":"next"},{"source":"r2","target":"r3","type":"true"},{"source":"r2","target":"r4","type":"false"}]}}')"
@@ -235,7 +235,32 @@ if echo "$ROUTING_DETAILS" | jq -e '.node_results[] | select(.status=="success" 
   exit 1
 fi
 
-echo "[9/9] Patching settings and run status..."
+echo "[9/10] Validating integration profile endpoints..."
+CATALOG_JSON="$(curl -fsS http://127.0.0.1:8787/api/v1/integrations/catalog)"
+echo "$CATALOG_JSON" | jq '.items[:3]'
+if ! echo "$CATALOG_JSON" | jq -e '.items | length > 0' >/dev/null; then
+  echo "Expected non-empty integration catalog."
+  exit 1
+fi
+
+PROFILE_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/integrations \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"http_request","name":"Docker Smoke Profile","description":"Created by smoke test","config":{"url":"https://example.com","method":"GET"},"enabled":true}')"
+echo "$PROFILE_JSON" | jq .
+PROFILE_ID="$(echo "$PROFILE_JSON" | jq -r '.id')"
+
+TEST_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/integrations/test \
+  -H 'Content-Type: application/json' \
+  -d "{\"profile_id\":\"$PROFILE_ID\",\"input_context\":\"docker smoke integration test\"}")"
+echo "$TEST_JSON" | jq .
+if [[ "$(echo "$TEST_JSON" | jq -r '.ok')" != "true" ]]; then
+  echo "Expected integration profile test to pass."
+  exit 1
+fi
+
+curl -fsS -X DELETE "http://127.0.0.1:8787/api/v1/integrations/$PROFILE_ID" | jq .
+
+echo "[10/10] Patching settings and run status..."
 curl -fsS -X PATCH http://127.0.0.1:8787/api/v1/settings \
   -H 'Content-Type: application/json' \
   -d '{"theme":"dark","ui_density":"compact","preferred_provider":"local"}' | jq .

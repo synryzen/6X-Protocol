@@ -255,6 +255,21 @@
       color: #b6c7e8;
     }
 
+    .mini-title {
+      margin: 0 0 4px;
+      font-size: 13px;
+      color: #cfe0fb;
+    }
+
+    .item.active {
+      background: rgba(47, 88, 150, 0.3);
+      border-left: 2px solid rgba(131, 186, 255, 0.9);
+    }
+
+    .item button {
+      margin-top: 6px;
+    }
+
     @media (max-width: 980px) {
       body { padding: 12px; }
       .topbar { grid-template-columns: 1fr; }
@@ -307,7 +322,7 @@
       </article>
 
       <article class="card section">
-        <h2>Settings + Activity</h2>
+        <h2>Settings + Integrations + Activity</h2>
         <div class="settings">
           <div class="row">
             <label class="label" for="preferredProvider">Preferred Provider</label>
@@ -347,6 +362,49 @@
             <button id="saveSettings" class="btn primary">Save Settings</button>
           </div>
         </div>
+
+        <div class="settings">
+          <h2 class="mini-title">Integration Profiles + Test</h2>
+          <div class="row">
+            <label class="label" for="integrationCatalog">Integration</label>
+            <select class="select" id="integrationCatalog"></select>
+          </div>
+          <div class="grid2">
+            <div class="row">
+              <label class="label" for="integrationProfileName">Profile Name</label>
+              <input id="integrationProfileName" class="input" type="text" placeholder="Slack Alerts" />
+            </div>
+            <div class="row">
+              <label class="label" for="integrationProfileDescription">Description</label>
+              <input id="integrationProfileDescription" class="input" type="text" placeholder="Team alert route" />
+            </div>
+          </div>
+          <div class="row">
+            <label class="label" for="integrationTestUrl">Endpoint / URL</label>
+            <input id="integrationTestUrl" class="input" type="text" placeholder="https://api.example.com/..." />
+          </div>
+          <div class="grid2">
+            <div class="row">
+              <label class="label" for="integrationTestApiKey">API Key / Token</label>
+              <input id="integrationTestApiKey" class="input" type="text" placeholder="token or key" />
+            </div>
+            <div class="row">
+              <label class="label" for="integrationTestLocation">Location (Weather)</label>
+              <input id="integrationTestLocation" class="input" type="text" placeholder="Austin,US" />
+            </div>
+          </div>
+          <div class="row">
+            <label class="label" for="integrationTestMessage">Test Message / Payload</label>
+            <input id="integrationTestMessage" class="input" type="text" placeholder="Smoke test message" />
+          </div>
+          <div class="actions" style="justify-content:flex-start;">
+            <button id="newIntegrationProfile" class="btn">New</button>
+            <button id="saveIntegrationProfile" class="btn primary">Save Profile</button>
+            <button id="testIntegrationProfile" class="btn good">Run Test</button>
+            <button id="refreshIntegrationProfiles" class="btn">Refresh Profiles</button>
+          </div>
+          <div class="list" id="integrationProfileList"></div>
+        </div>
         <div class="logs" id="logs"></div>
       </article>
     </section>
@@ -360,6 +418,9 @@
       apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
       workflows: [],
       runs: [],
+      integrationCatalog: [],
+      integrationProfiles: [],
+      selectedIntegrationProfileId: "",
     };
 
     function byId(id) {
@@ -444,6 +505,140 @@
       byId("metricFailedRuns").textContent = String(failed);
     }
 
+    function selectedIntegrationCatalogKey() {
+      return String(byId("integrationCatalog").value || "").trim().toLowerCase();
+    }
+
+    function profileConfigValue(config, key, fallback = "") {
+      if (!config || typeof config !== "object") return fallback;
+      const direct = config[key];
+      if (direct !== undefined && direct !== null && String(direct).trim()) return String(direct).trim();
+      return fallback;
+    }
+
+    function clearIntegrationProfileForm() {
+      state.selectedIntegrationProfileId = "";
+      byId("integrationProfileName").value = "";
+      byId("integrationProfileDescription").value = "";
+      byId("integrationTestUrl").value = "";
+      byId("integrationTestApiKey").value = "";
+      byId("integrationTestLocation").value = "";
+      byId("integrationTestMessage").value = "";
+    }
+
+    function applyIntegrationProfile(profile) {
+      if (!profile || typeof profile !== "object") return;
+      const config = profile.config && typeof profile.config === "object" ? profile.config : {};
+      state.selectedIntegrationProfileId = String(profile.id || "").trim();
+      byId("integrationProfileName").value = String(profile.name || "");
+      byId("integrationProfileDescription").value = String(profile.description || "");
+      byId("integrationTestUrl").value =
+        profileConfigValue(config, "url")
+        || profileConfigValue(config, "webhook_url")
+        || profileConfigValue(config, "script_url");
+      byId("integrationTestApiKey").value =
+        profileConfigValue(config, "api_key")
+        || profileConfigValue(config, "auth_token");
+      byId("integrationTestLocation").value = profileConfigValue(config, "location");
+      byId("integrationTestMessage").value = profileConfigValue(config, "message");
+      const key = String(profile.key || "").trim().toLowerCase();
+      if (key) byId("integrationCatalog").value = key;
+    }
+
+    function currentIntegrationConfigFromForm() {
+      const config = {};
+      const url = byId("integrationTestUrl").value.trim();
+      const apiKey = byId("integrationTestApiKey").value.trim();
+      const location = byId("integrationTestLocation").value.trim();
+      const message = byId("integrationTestMessage").value.trim();
+      const integrationKey = selectedIntegrationCatalogKey();
+
+      if (url) {
+        config.url = url;
+        config.webhook_url = url;
+        config.script_url = url;
+      }
+      if (apiKey) {
+        config.api_key = apiKey;
+        config.auth_token = apiKey;
+      }
+      if (location) config.location = location;
+      if (message) config.message = message;
+
+      if (integrationKey === "telegram_bot" && message) {
+        config.payload = JSON.stringify({ text: message });
+      }
+      if (integrationKey === "http_post" || integrationKey === "http_request") {
+        config.method = integrationKey === "http_post" ? "POST" : "GET";
+      }
+      return config;
+    }
+
+    function renderIntegrationProfiles() {
+      const list = byId("integrationProfileList");
+      if (!state.integrationProfiles.length) {
+        list.innerHTML = `<div class="item">No integration profiles yet.</div>`;
+        return;
+      }
+      list.innerHTML = state.integrationProfiles
+        .slice(0, 50)
+        .map((profile) => {
+          const id = escapeHtml(profile.id || "");
+          const key = escapeHtml(profile.key || "unknown");
+          const name = escapeHtml(profile.name || "Untitled profile");
+          const status = escapeHtml(profile.last_test_status || "untested");
+          const message = escapeHtml(profile.last_test_message || "");
+          const active = String(profile.id || "") === state.selectedIntegrationProfileId ? "active" : "";
+          return (
+            `<div class="item ${active}" data-profile-id="${id}">`
+            + `<strong>${name}</strong>`
+            + `<span class="small">${key} • ${status}</span>`
+            + `<span class="small">${message}</span>`
+            + `</div>`
+          );
+        })
+        .join("");
+    }
+
+    async function refreshIntegrationCatalog() {
+      try {
+        const response = await api("/api/v1/integrations/catalog", { method: "GET" });
+        state.integrationCatalog = Array.isArray(response.items) ? response.items : [];
+        const select = byId("integrationCatalog");
+        const previous = String(select.value || "").trim().toLowerCase();
+        const options = state.integrationCatalog.map((item) => {
+          const key = String(item.key || "").trim();
+          const name = String(item.name || key).trim();
+          return `<option value="${escapeHtml(key)}">${escapeHtml(name)} (${escapeHtml(String(item.category || "general"))})</option>`;
+        });
+        if (!options.length) {
+          options.push(`<option value="standard">Standard Action</option>`);
+        }
+        select.innerHTML = options.join("");
+        if (previous && state.integrationCatalog.some((item) => String(item.key || "").trim().toLowerCase() === previous)) {
+          select.value = previous;
+        }
+      } catch (error) {
+        log(`Integration catalog refresh failed: ${error.message}`, "error");
+      }
+    }
+
+    async function refreshIntegrationProfiles() {
+      try {
+        const response = await api("/api/v1/integrations", { method: "GET" });
+        state.integrationProfiles = Array.isArray(response.items) ? response.items : [];
+        if (
+          state.selectedIntegrationProfileId
+          && !state.integrationProfiles.some((item) => String(item.id || "") === state.selectedIntegrationProfileId)
+        ) {
+          state.selectedIntegrationProfileId = "";
+        }
+        renderIntegrationProfiles();
+      } catch (error) {
+        log(`Integration profile refresh failed: ${error.message}`, "error");
+      }
+    }
+
     async function refreshHealth() {
       const healthEl = byId("apiHealth");
       try {
@@ -490,6 +685,8 @@
       await refreshOverview();
       await refreshWorkflows();
       await refreshRuns();
+      await refreshIntegrationCatalog();
+      await refreshIntegrationProfiles();
     }
 
     async function createSampleWorkflow() {
@@ -625,6 +822,74 @@
       }
     }
 
+    async function saveIntegrationProfile() {
+      const key = selectedIntegrationCatalogKey();
+      const name = byId("integrationProfileName").value.trim();
+      if (!key) {
+        log("Choose an integration key first.", "warn");
+        return;
+      }
+      if (!name) {
+        log("Profile name is required.", "warn");
+        return;
+      }
+      const payload = {
+        key,
+        name,
+        description: byId("integrationProfileDescription").value.trim(),
+        config: currentIntegrationConfigFromForm(),
+        enabled: true,
+      };
+      try {
+        if (state.selectedIntegrationProfileId) {
+          await api(`/api/v1/integrations/${state.selectedIntegrationProfileId}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          });
+          log(`Integration profile updated: ${name}`, "info");
+        } else {
+          const created = await api("/api/v1/integrations", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          state.selectedIntegrationProfileId = String(created.id || "");
+          log(`Integration profile created: ${name}`, "info");
+        }
+        await refreshIntegrationProfiles();
+      } catch (error) {
+        log(`Save profile failed: ${error.message}`, "error");
+      }
+    }
+
+    async function testIntegrationProfile() {
+      const key = selectedIntegrationCatalogKey();
+      const profileId = String(state.selectedIntegrationProfileId || "").trim();
+      if (!key && !profileId) {
+        log("Choose an integration or profile first.", "warn");
+        return;
+      }
+      const payload = {
+        integration_key: key,
+        profile_id: profileId,
+        config: currentIntegrationConfigFromForm(),
+        input_context: byId("integrationTestMessage").value.trim() || "integration test ping",
+      };
+      try {
+        const result = await api("/api/v1/integrations/test", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        const level = result.ok ? "info" : "error";
+        log(`${result.ok ? "Integration test passed" : "Integration test failed"}: ${result.message}`, level);
+        if (result.output) {
+          log(`Output: ${result.output}`, result.ok ? "info" : "warn");
+        }
+        await refreshIntegrationProfiles();
+      } catch (error) {
+        log(`Integration test request failed: ${error.message}`, "error");
+      }
+    }
+
     function bindEvents() {
       byId("saveApiBase").addEventListener("click", () => {
         const nextBase = byId("apiBase").value.trim().replace(/\/$/, "");
@@ -645,6 +910,29 @@
       byId("retryLatest").addEventListener("click", retryLatestRun);
       byId("loadSettings").addEventListener("click", loadSettings);
       byId("saveSettings").addEventListener("click", saveSettings);
+      byId("newIntegrationProfile").addEventListener("click", () => {
+        clearIntegrationProfileForm();
+        renderIntegrationProfiles();
+      });
+      byId("saveIntegrationProfile").addEventListener("click", saveIntegrationProfile);
+      byId("testIntegrationProfile").addEventListener("click", testIntegrationProfile);
+      byId("refreshIntegrationProfiles").addEventListener("click", async () => {
+        await refreshIntegrationCatalog();
+        await refreshIntegrationProfiles();
+      });
+      byId("integrationProfileList").addEventListener("click", (event) => {
+        const target = event.target && typeof event.target.closest === "function"
+          ? event.target.closest("[data-profile-id]")
+          : null;
+        if (!target) return;
+        const profileId = String(target.getAttribute("data-profile-id") || "").trim();
+        if (!profileId) return;
+        const profile = state.integrationProfiles.find((item) => String(item.id || "") === profileId);
+        if (!profile) return;
+        applyIntegrationProfile(profile);
+        renderIntegrationProfiles();
+        log(`Selected integration profile: ${profile.name}`, "info");
+      });
     }
 
     function init() {

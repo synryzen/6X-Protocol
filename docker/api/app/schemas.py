@@ -87,6 +87,50 @@ class SettingsPatch(BaseModel):
     reduce_motion: bool | None = None
 
 
+class IntegrationProfileIn(BaseModel):
+    key: str = Field(min_length=1, max_length=120)
+    name: str = Field(min_length=1, max_length=200)
+    description: str = ""
+    config: dict[str, Any] = Field(default_factory=dict)
+    enabled: bool = True
+    tags: list[str] = Field(default_factory=list)
+
+
+class IntegrationProfilePatch(BaseModel):
+    key: str | None = None
+    name: str | None = None
+    description: str | None = None
+    config: dict[str, Any] | None = None
+    enabled: bool | None = None
+    tags: list[str] | None = None
+
+
+class IntegrationProfileOut(IntegrationProfileIn):
+    id: str
+    last_test_status: str = ""
+    last_test_message: str = ""
+    last_tested_at: str = ""
+    created_at: str
+    updated_at: str
+
+
+class IntegrationTestRequest(BaseModel):
+    integration_key: str = ""
+    profile_id: str = ""
+    config: dict[str, Any] = Field(default_factory=dict)
+    input_context: str = "integration test ping"
+    timeout_sec: float = 8.0
+
+
+class IntegrationTestResult(BaseModel):
+    ok: bool
+    integration_key: str
+    profile_id: str = ""
+    message: str
+    output: str = ""
+    tested_at: str
+
+
 DEFAULT_SETTINGS: dict[str, Any] = {
     "preferred_provider": "local",
     "local_ai_enabled": True,
@@ -141,6 +185,24 @@ def make_run(payload: RunIn) -> dict[str, Any]:
         "execution_retry_max": max(0, int(payload.execution_retry_max)),
         "execution_backoff_ms": max(0, int(payload.execution_backoff_ms)),
         "execution_timeout_sec": max(0.0, float(payload.execution_timeout_sec)),
+    }
+
+
+def make_integration_profile(payload: IntegrationProfileIn) -> dict[str, Any]:
+    now = utc_now_iso()
+    return {
+        "id": str(uuid4()),
+        "key": payload.key.strip().lower(),
+        "name": payload.name.strip(),
+        "description": payload.description.strip(),
+        "config": payload.config if isinstance(payload.config, dict) else {},
+        "enabled": bool(payload.enabled),
+        "tags": payload.tags if isinstance(payload.tags, list) else [],
+        "last_test_status": "",
+        "last_test_message": "",
+        "last_tested_at": "",
+        "created_at": now,
+        "updated_at": now,
     }
 
 

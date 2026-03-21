@@ -68,3 +68,10 @@ class JsonStore:
 
     def save_settings(self, settings: dict[str, Any]) -> None:
         self._write_json("settings.json", settings)
+
+    def load_integrations(self) -> list[dict[str, Any]]:
+        data = self._read_json("integrations.json", [])
+        return data if isinstance(data, list) else []
+
+    def save_integrations(self, integrations: list[dict[str, Any]]) -> None:
+        self._write_json("integrations.json", integrations)

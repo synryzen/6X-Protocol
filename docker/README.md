@@ -44,6 +44,7 @@ Web dashboard actions include:
 - start/cancel/retry run controls
 - live workflow/run list
 - settings load/save panel
+- integration catalog + profile save/test panel
 
 Cross-origin browser access is controlled by:
 `CORS_ALLOW_ORIGINS` (see `.env.example`).
@@ -68,6 +69,10 @@ Current API routes:
 - `POST /api/v1/runs/start`
 - `POST /api/v1/runs/{id}/cancel`
 - `POST /api/v1/runs/{id}/retry`
+- `GET /api/v1/integrations/catalog`
+- `GET/POST /api/v1/integrations`
+- `GET/PATCH/DELETE /api/v1/integrations/{id}`
+- `POST /api/v1/integrations/test`
 - `GET/PATCH /api/v1/settings`
 - `POST /api/v1/settings/reset`
 
