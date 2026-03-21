@@ -8887,21 +8887,41 @@ class CanvasView(Gtk.Box):
         self.set_status("Canvas selection cleared.")
 
     def on_stage_pointer_motion(self, _controller, x: float, y: float):
-        if not self.port_drag_active:
+        if self.port_drag_active:
+            source_id = self.link_preview_source_id or self.pending_link_source_id
+            if not source_id:
+                return
+            stage_x = int(x)
+            stage_y = int(y)
+            target = self.active_drag_target(source_id, stage_x, stage_y)
+            if target:
+                self.set_link_hover_target(target.id)
+                snap_x, snap_y = self.node_input_anchor(target)
+                self.update_link_preview_position(int(snap_x), int(snap_y))
+            else:
+                self.set_link_hover_target(None)
+                self.update_link_preview_position(stage_x, stage_y)
             return
-        source_id = self.link_preview_source_id or self.pending_link_source_id
-        if not source_id:
+
+        if not self.node_drag_active:
             return
-        stage_x = int(x)
-        stage_y = int(y)
-        target = self.active_drag_target(source_id, stage_x, stage_y)
-        if target:
-            self.set_link_hover_target(target.id)
-            snap_x, snap_y = self.node_input_anchor(target)
-            self.update_link_preview_position(int(snap_x), int(snap_y))
-        else:
-            self.set_link_hover_target(None)
-            self.update_link_preview_position(stage_x, stage_y)
+        if not self.drag_origin:
+            self.reset_node_drag_state()
+            return
+        active_node_id = str(self.drag_origin.get("node_id", "")).strip()
+        if not active_node_id:
+            return
+        state = (
+            _controller.get_current_event_state()
+            if hasattr(_controller, "get_current_event_state")
+            else Gdk.ModifierType(0)
+        )
+        self.apply_active_node_drag_position(
+            active_node_id,
+            float(x),
+            float(y),
+            live_snap_enabled=bool(state & Gdk.ModifierType.CONTROL_MASK),
+        )
 
     def active_drag_target(self, source_id: str, x: int, y: int) -> CanvasNode | None:
         hovered_target = self.drag_hover_target(source_id)
@@ -9051,53 +9071,30 @@ class CanvasView(Gtk.Box):
             self.link_layer.queue_draw()
         self.update_inspector(node)
 
-    def on_node_drag_update(self, _gesture, offset_x: float, offset_y: float, node_id: str):
-        if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:
-            anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
-            anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
-            bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
-            bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
-            x = int(anchor_x + bias_x + float(offset_x))
-            y = int(anchor_y + bias_y + float(offset_y))
-            source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
-            target = self.active_drag_target(source_id, x, y)
-            if target:
-                self.set_link_hover_target(target.id)
-                snap_x, snap_y = self.node_input_anchor(target)
-                self.update_link_preview_position(int(snap_x), int(snap_y))
-            else:
-                self.set_link_hover_target(None)
-                self.update_link_preview_position(x, y)
-            return
-
-        if self.node_drag_active and not self.drag_origin:
-            self.reset_node_drag_state()
-            return
-
+    def apply_active_node_drag_position(
+        self,
+        node_id: str,
+        pointer_stage_x: float,
+        pointer_stage_y: float,
+        *,
+        live_snap_enabled: bool = False,
+    ):
         if self.drag_origin.get("node_id") != node_id:
             return
-
         if node_id not in self.drag_group_origins:
             return
 
         start_x, start_y = self.drag_group_origins[node_id]
+        start_pointer_x = float(self.drag_origin.get("pointer_stage_x", self.to_screen(start_x)))
+        start_pointer_y = float(self.drag_origin.get("pointer_stage_y", self.to_screen(start_y)))
+        proposed_x = float(start_x + ((float(pointer_stage_x) - start_pointer_x) / self.zoom_factor))
+        proposed_y = float(start_y + ((float(pointer_stage_y) - start_pointer_y) / self.zoom_factor))
 
-        proposed_x = float(start_x + (offset_x / self.zoom_factor))
-        proposed_y = float(start_y + (offset_y / self.zoom_factor))
-        stage_pointer = self.gesture_stage_point(_gesture)
-        if stage_pointer:
-            pointer_stage_x, pointer_stage_y = stage_pointer
-            start_pointer_x = float(self.drag_origin.get("pointer_stage_x", self.to_screen(start_x)))
-            start_pointer_y = float(self.drag_origin.get("pointer_stage_y", self.to_screen(start_y)))
-            proposed_x = float(start_x + ((pointer_stage_x - start_pointer_x) / self.zoom_factor))
-            proposed_y = float(start_y + ((pointer_stage_y - start_pointer_y) / self.zoom_factor))
         # Keep node motion visually stable while dragging. Forcing grid/guide snap on
         # every motion event can cause rapid oscillation near boundaries.
         snapped_x = proposed_x
         snapped_y = proposed_y
 
-        state = _gesture.get_current_event_state()
-        live_snap_enabled = bool(state & Gdk.ModifierType.CONTROL_MASK)
         if live_snap_enabled:
             snapped_x = round(proposed_x / self.SNAP_GRID) * self.SNAP_GRID
             snapped_y = round(proposed_y / self.SNAP_GRID) * self.SNAP_GRID
@@ -9141,6 +9138,58 @@ class CanvasView(Gtk.Box):
         primary_node = self.get_selected_node()
         if primary_node:
             self.node_position_label.set_text(f"Position: {primary_node.x}, {primary_node.y}")
+
+    def on_node_drag_update(self, _gesture, offset_x: float, offset_y: float, node_id: str):
+        if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:
+            anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
+            anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
+            bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
+            bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
+            x = int(anchor_x + bias_x + float(offset_x))
+            y = int(anchor_y + bias_y + float(offset_y))
+            source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
+            target = self.active_drag_target(source_id, x, y)
+            if target:
+                self.set_link_hover_target(target.id)
+                snap_x, snap_y = self.node_input_anchor(target)
+                self.update_link_preview_position(int(snap_x), int(snap_y))
+            else:
+                self.set_link_hover_target(None)
+                self.update_link_preview_position(x, y)
+            return
+
+        if self.node_drag_active and not self.drag_origin:
+            self.reset_node_drag_state()
+            return
+
+        if self.drag_origin.get("node_id") != node_id:
+            return
+
+        stage_pointer = self.gesture_stage_point(_gesture)
+        if stage_pointer:
+            pointer_stage_x, pointer_stage_y = stage_pointer
+        else:
+            start_pointer_x = float(
+                self.drag_origin.get(
+                    "pointer_stage_x",
+                    self.to_screen(self.drag_group_origins.get(node_id, (0, 0))[0]),
+                )
+            )
+            start_pointer_y = float(
+                self.drag_origin.get(
+                    "pointer_stage_y",
+                    self.to_screen(self.drag_group_origins.get(node_id, (0, 0))[1]),
+                )
+            )
+            pointer_stage_x = float(start_pointer_x + float(offset_x))
+            pointer_stage_y = float(start_pointer_y + float(offset_y))
+        state = _gesture.get_current_event_state()
+        self.apply_active_node_drag_position(
+            node_id,
+            float(pointer_stage_x),
+            float(pointer_stage_y),
+            live_snap_enabled=bool(state & Gdk.ModifierType.CONTROL_MASK),
+        )
 
     def on_node_drag_end(self, _gesture, _offset_x, _offset_y, node_id: str):
         if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:

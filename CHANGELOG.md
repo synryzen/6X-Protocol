@@ -13,6 +13,9 @@ All notable changes to this project are documented here.
   gestures, clicked-node fallback now always refreshes inspector state, spawn
   placement avoids overlap via ring/grid probing, and output-port wire drags use
   live pointer tracking for more consistent release-to-connect behavior.
+- Canvas drag resilience improved further with a stage-motion fallback that
+  continues active node movement using live pointer coordinates when some GTK
+  environments miss intermittent node drag-update callbacks.
 - Canvas node settings now apply context-aware execution defaults:
   trigger mode profiles (manual/interval/cron/webhook/watch) and action template
   context can auto-tune retry/backoff/timeout behavior.
