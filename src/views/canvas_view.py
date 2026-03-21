@@ -594,6 +594,7 @@ class CanvasView(Gtk.Box):
 
         stage_click = Gtk.GestureClick()
         stage_click.set_button(Gdk.BUTTON_PRIMARY)
+        stage_click.set_exclusive(False)
         stage_click.connect("released", self.on_canvas_stage_clicked)
         self.fixed.add_controller(stage_click)
 
@@ -603,6 +604,7 @@ class CanvasView(Gtk.Box):
 
         stage_select_drag = Gtk.GestureDrag()
         stage_select_drag.set_button(Gdk.BUTTON_PRIMARY)
+        stage_select_drag.set_exclusive(False)
         stage_select_drag.connect("drag-begin", self.on_stage_select_drag_begin)
         stage_select_drag.connect("drag-update", self.on_stage_select_drag_update)
         stage_select_drag.connect("drag-end", self.on_stage_select_drag_end)
@@ -6796,6 +6798,7 @@ class CanvasView(Gtk.Box):
             self.pending_link_source_id = None
             self.clear_preflight_annotations()
             self.load_graph_settings({})
+            self.sync_layout_cursor_from_nodes()
             self.refresh_canvas()
             self.clear_inspector()
             self.refresh_workflow_run_state(quiet=True)
@@ -6819,6 +6822,7 @@ class CanvasView(Gtk.Box):
         self.pending_link_source_id = None
         self.reset_history()
         self.load_graph_settings(graph)
+        self.sync_layout_cursor_from_nodes()
 
         self.refresh_canvas()
         self.inline_validate_graph()
@@ -7034,6 +7038,86 @@ class CanvasView(Gtk.Box):
         self.refresh_condition_branch_preview()
         self.update_sidebar_mode()
 
+    def node_overlaps_existing(
+        self,
+        x: int,
+        y: int,
+        *,
+        ignore_node_id: str | None = None,
+    ) -> bool:
+        overlap_w = max(24, int(self.CARD_WIDTH * 0.82))
+        overlap_h = max(20, int(self.CARD_HEIGHT * 0.82))
+        for node in self.nodes:
+            if ignore_node_id and node.id == ignore_node_id:
+                continue
+            if abs(int(node.x) - int(x)) < overlap_w and abs(int(node.y) - int(y)) < overlap_h:
+                return True
+        return False
+
+    def resolve_node_spawn_position(self, requested_x: int, requested_y: int) -> tuple[int, int]:
+        max_x = max(0, self.STAGE_WIDTH - self.CARD_WIDTH)
+        max_y = max(0, self.STAGE_HEIGHT - self.CARD_HEIGHT)
+        x = max(0, min(max_x, int(requested_x)))
+        y = max(0, min(max_y, int(requested_y)))
+
+        selected = self.get_selected_node()
+        if selected:
+            x = max(0, min(max_x, int(selected.x + (self.layout_service.step_x * 0.72))))
+            y = max(0, min(max_y, int(selected.y + (self.layout_service.step_y * 0.36))))
+        elif self.nodes:
+            anchor = self.nodes[-1]
+            x = max(0, min(max_x, int(anchor.x + (self.layout_service.step_x * 0.72))))
+            y = max(0, min(max_y, int(anchor.y + (self.layout_service.step_y * 0.36))))
+
+        if not self.node_overlaps_existing(x, y):
+            return x, y
+
+        step_x = max(80, int(self.layout_service.step_x))
+        step_y = max(60, int(self.layout_service.step_y))
+        probe_x = x
+        probe_y = y
+        for _ in range(120):
+            if not self.node_overlaps_existing(probe_x, probe_y):
+                return probe_x, probe_y
+            probe_x += step_x
+            if probe_x > max_x:
+                probe_x = 80
+                probe_y += step_y
+                if probe_y > max_y:
+                    probe_y = 80
+        return x, y
+
+    def sync_layout_cursor_from_nodes(self):
+        if not self.nodes:
+            self.layout_service.next_x = 80
+            self.layout_service.next_y = 80
+            return
+
+        max_x = max(0, self.STAGE_WIDTH - self.CARD_WIDTH)
+        max_y = max(0, self.STAGE_HEIGHT - self.CARD_HEIGHT)
+        anchor = max(self.nodes, key=lambda item: (int(item.y), int(item.x)))
+        next_x = int(anchor.x + self.layout_service.step_x)
+        next_y = int(anchor.y)
+        if next_x > max_x:
+            next_x = 80
+            next_y = int(anchor.y + self.layout_service.step_y)
+        if next_y > max_y:
+            next_y = 80
+        self.layout_service.next_x = max(0, min(max_x, next_x))
+        self.layout_service.next_y = max(0, min(max_y, next_y))
+
+    def default_auto_link_source_id(self, incoming_node_type: str) -> str:
+        if self.node_type_key(incoming_node_type) == "trigger":
+            return ""
+        if self.selected_node_id and self.find_node(self.selected_node_id):
+            return self.selected_node_id
+        for node in reversed(self.nodes):
+            if self.node_type_key(node.node_type) != "trigger":
+                return node.id
+        if self.nodes:
+            return self.nodes[-1].id
+        return ""
+
     def add_node(
         self,
         name: str,
@@ -7044,7 +7128,8 @@ class CanvasView(Gtk.Box):
         y: int,
         config: dict[str, str] | None = None,
     ):
-        previous_selected = self.selected_node_id
+        x, y = self.resolve_node_spawn_position(x, y)
+        previous_selected = self.default_auto_link_source_id(node_type)
         self.push_undo_snapshot()
         node = CanvasNode(
             id=str(uuid.uuid4()),
@@ -7070,6 +7155,7 @@ class CanvasView(Gtk.Box):
                 )
         self.selected_node_id = node.id
         self.selected_node_ids = {node.id}
+        self.sync_layout_cursor_from_nodes()
         self.refresh_canvas()
         self.update_inspector(node)
         if auto_linked:
@@ -8204,18 +8290,21 @@ class CanvasView(Gtk.Box):
         output_click = Gtk.GestureClick()
         output_click.set_button(Gdk.BUTTON_PRIMARY)
         output_click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        output_click.set_exclusive(False)
         output_click.connect("released", self.on_output_port_released, node.id)
         output_port.add_controller(output_click)
 
         input_click = Gtk.GestureClick()
         input_click.set_button(Gdk.BUTTON_PRIMARY)
         input_click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        input_click.set_exclusive(False)
         input_click.connect("released", self.on_input_port_released, node.id)
         input_port.add_controller(input_click)
 
         click = Gtk.GestureClick()
         click.set_button(Gdk.BUTTON_PRIMARY)
         click.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
+        click.set_exclusive(False)
         click.connect("pressed", self.on_node_pressed, node.id)
         click.connect("released", self.on_node_clicked, node.id)
         frame.add_controller(click)
@@ -8588,8 +8677,6 @@ class CanvasView(Gtk.Box):
 
     def on_canvas_stage_clicked(self, gesture, _n_press, x: float, y: float):
         self.grab_focus()
-        if self.node_drag_active:
-            self.reset_node_drag_state()
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.port_drag_active:
@@ -8609,69 +8696,8 @@ class CanvasView(Gtk.Box):
             return
         hit_node = self.find_node_at_point(int(x), int(y))
         if hit_node:
-            if self.pending_link_source_id and self.pending_link_source_id != hit_node.id:
-                source = self.find_node(self.pending_link_source_id)
-                previous_selected = self.selected_node_id
-                previous_selection_set = set(self.selected_node_ids)
-                previous_source = self.pending_link_source_id
-                linked = self.add_edge(self.pending_link_source_id, hit_node.id)
-                self.pending_link_source_id = None
-                self.cancel_link_preview()
-                self.set_single_selection(hit_node.id)
-                self.apply_selection_set_visual_state(
-                    previous_selection_set,
-                    self.selected_node_ids,
-                    previous_selected,
-                    self.selected_node_id,
-                )
-                self.apply_link_source_visual_state(previous_source, None)
-                if linked:
-                    self.update_inspector(hit_node)
-                    self.update_control_state()
-                    source_name = source.name if source else previous_source
-                    self.set_status(f"Linked '{source_name}' -> '{hit_node.name}'.")
-                    return
-
-            if self.pending_link_source_id == hit_node.id:
-                previous_source = self.pending_link_source_id
-                self.pending_link_source_id = None
-                self.cancel_link_preview()
-                self.apply_link_source_visual_state(previous_source, None)
-                self.set_status("Link mode canceled.")
-
-            # Fallback: if node-level click handler was preempted by gesture arena ordering,
-            # still select the node and surface its inspector controls.
-            state = gesture.get_current_event_state()
-            additive = bool(
-                state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
-            )
-            previous_selected = self.selected_node_id
-            previous_selection_set = set(self.selected_node_ids)
-            if additive:
-                updated = set(self.selected_node_ids)
-                if hit_node.id in updated:
-                    updated.remove(hit_node.id)
-                    new_primary = self.selected_node_id
-                    if new_primary == hit_node.id:
-                        new_primary = next(iter(updated), None) if updated else None
-                    self.set_selection(updated, primary_id=new_primary)
-                else:
-                    updated.add(hit_node.id)
-                    self.set_selection(updated, primary_id=hit_node.id)
-            else:
-                self.set_single_selection(hit_node.id)
-            self.apply_selection_set_visual_state(
-                previous_selection_set,
-                self.selected_node_ids,
-                previous_selected,
-                self.selected_node_id,
-            )
-            selected_node = self.get_selected_node()
-            if selected_node:
-                self.update_inspector(selected_node)
-            else:
-                self.clear_inspector()
-            self.update_control_state()
+            # Node widgets own node selection/link/drag interactions. Ignore stage fallback
+            # when the release occurs over a node so stage gestures do not race node gestures.
             return
 
         if not self.get_selected_node() and not self.pending_link_source_id:
