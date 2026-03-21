@@ -4,6 +4,9 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Docker web graph editor node behavior panel now includes richer
+  integration-specific action fields (Twilio account/auth, delivery envelope,
+  subject/domain, headers) with dynamic visibility and save/load/default wiring.
 - Canvas drag/link stability now enforces a single drag owner per gesture
   sequence (stage fallback vs node controller), preventing competing handlers
   from fighting and causing node shake or frozen drags.

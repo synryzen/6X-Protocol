@@ -637,6 +637,36 @@
                 <input id="graphEditorActionChatId" class="input" type="text" placeholder="chat id / channel id" />
               </div>
             </div>
+            <div class="graph-editor-grid" id="graphEditorActionProviderAuthRow">
+              <div class="row" id="graphEditorActionAccountSidRow">
+                <label class="label" for="graphEditorActionAccountSid">Account SID</label>
+                <input id="graphEditorActionAccountSid" class="input" type="text" placeholder="ACxxxxxxxxxxxxxxxx" />
+              </div>
+              <div class="row" id="graphEditorActionAuthTokenRow">
+                <label class="label" for="graphEditorActionAuthToken">Auth Token</label>
+                <input id="graphEditorActionAuthToken" class="input" type="text" placeholder="service auth token" />
+              </div>
+            </div>
+            <div class="graph-editor-grid" id="graphEditorActionDeliveryRow">
+              <div class="row" id="graphEditorActionToRow">
+                <label class="label" for="graphEditorActionTo">To</label>
+                <input id="graphEditorActionTo" class="input" type="text" placeholder="Recipient / destination" />
+              </div>
+              <div class="row" id="graphEditorActionFromRow">
+                <label class="label" for="graphEditorActionFrom">From</label>
+                <input id="graphEditorActionFrom" class="input" type="text" placeholder="Sender / source" />
+              </div>
+            </div>
+            <div class="graph-editor-grid" id="graphEditorActionDeliveryMetaRow">
+              <div class="row" id="graphEditorActionSubjectRow">
+                <label class="label" for="graphEditorActionSubject">Subject</label>
+                <input id="graphEditorActionSubject" class="input" type="text" placeholder="Workflow update" />
+              </div>
+              <div class="row" id="graphEditorActionDomainRow">
+                <label class="label" for="graphEditorActionDomain">Domain</label>
+                <input id="graphEditorActionDomain" class="input" type="text" placeholder="mg.yourdomain.com" />
+              </div>
+            </div>
             <div class="graph-editor-grid" id="graphEditorActionPayloadRow">
               <div class="row" id="graphEditorActionMessageRow">
                 <label class="label" for="graphEditorActionMessage">Message / Payload</label>
@@ -656,6 +686,10 @@
                 <label class="label" for="graphEditorActionCommand">Shell Command</label>
                 <input id="graphEditorActionCommand" class="input" type="text" placeholder="echo \"$INPUT_CONTEXT\"" />
               </div>
+            </div>
+            <div class="row" id="graphEditorActionHeadersRow">
+              <label class="label" for="graphEditorActionHeaders">HTTP Headers (JSON)</label>
+              <input id="graphEditorActionHeaders" class="input" type="text" placeholder="{\"X-Custom-Header\":\"value\"}" />
             </div>
             <div class="graph-editor-grid" id="graphEditorActionHandoffRow">
               <div class="row" id="graphEditorActionBotChainRow">
@@ -1055,8 +1089,19 @@
       notify_discord: { message: "Workflow update: ${last_output}" },
       notify_teams: { message: "Workflow update: ${last_output}" },
       message_telegram: { message: "Workflow update: ${last_output}", method: "POST" },
-      message_sms: { message: "Workflow update: ${last_output}", method: "POST" },
-      message_email: { subject: "Workflow update", message: "Workflow update: ${last_output}", method: "POST" },
+      message_sms: {
+        message: "Workflow update: ${last_output}",
+        from: "+15550001111",
+        to: "+15550002222",
+        method: "POST",
+      },
+      message_email: {
+        subject: "Workflow update",
+        message: "Workflow update: ${last_output}",
+        from: "alerts@example.com",
+        to: "you@example.com",
+        method: "POST",
+      },
       http_request: { endpoint: "https://api.example.com/endpoint", method: "GET" },
       weather_lookup: { location: "Austin,US", method: "GET" },
       script_google_apps: { endpoint: "https://script.google.com/macros/s/REPLACE/exec", method: "POST" },
@@ -1176,6 +1221,41 @@
     const integrationRequiresCommand = new Set(["shell_command", "postgres_sql", "mysql_sql", "sqlite_sql", "redis_command", "s3_cli"]);
     const integrationUsesChatId = new Set(["telegram_bot"]);
     const integrationUsesBotChain = new Set(["handoff"]);
+    const integrationUsesAccountSid = new Set(["twilio_sms"]);
+    const integrationUsesAuthToken = new Set(["twilio_sms"]);
+    const integrationUsesTo = new Set(["twilio_sms", "gmail_send", "resend_email", "mailgun_email"]);
+    const integrationUsesFrom = new Set(["twilio_sms", "resend_email", "mailgun_email"]);
+    const integrationUsesSubject = new Set(["gmail_send", "resend_email", "mailgun_email"]);
+    const integrationUsesDomain = new Set(["mailgun_email"]);
+    const integrationUsesHeaders = new Set([
+      "http_post",
+      "http_request",
+      "google_apps_script",
+      "google_sheets",
+      "google_calendar_api",
+      "outlook_graph",
+      "notion_api",
+      "airtable_api",
+      "hubspot_api",
+      "stripe_api",
+      "github_rest",
+      "gitlab_api",
+      "google_drive_api",
+      "dropbox_api",
+      "shopify_api",
+      "webflow_api",
+      "supabase_api",
+      "openrouter_api",
+      "linear_api",
+      "jira_api",
+      "asana_api",
+      "clickup_api",
+      "trello_api",
+      "monday_api",
+      "zendesk_api",
+      "salesforce_api",
+      "pipedrive_api",
+    ]);
     const triggerModeExecutionProfiles = {
       manual: { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 15 },
       schedule_interval: { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 20 },
@@ -2337,6 +2417,14 @@
           helper.textContent = `Action integration '${name}' selected. Configure bot chain order (Bot A > Bot B) or a single bot fallback.`;
           return;
         }
+        if (integrationUsesAccountSid.has(integration)) {
+          helper.textContent = `Action integration '${name}' selected. Configure account SID, auth token, and to/from delivery values.`;
+          return;
+        }
+        if (integrationUsesSubject.has(integration) || integrationUsesDomain.has(integration)) {
+          helper.textContent = `Action integration '${name}' selected. Configure sender/recipient envelope fields and message subject/domain.`;
+          return;
+        }
         helper.textContent = `Action integration '${name}' selected. Apply node defaults to reset execution policy.`;
         return;
       }
@@ -2353,27 +2441,48 @@
 
     function setGraphEditorActionFieldVisibility(integrationKey) {
       const integration = normalizeActionIntegration(integrationKey);
+      const showRouting = integrationRequiresEndpoint.has(integration) || integrationRequiresMethod.has(integration);
+      const showAuth = integrationRequiresAuth.has(integration) || integrationUsesChatId.has(integration);
+      const showPayload = integrationRequiresMessage.has(integration) || integrationRequiresLocation.has(integration);
+      const showSystem = integrationRequiresPath.has(integration) || integrationRequiresCommand.has(integration);
+      const showProviderAuth = integrationUsesAccountSid.has(integration) || integrationUsesAuthToken.has(integration);
+      const showDelivery = integrationUsesTo.has(integration) || integrationUsesFrom.has(integration);
+      const showDeliveryMeta = integrationUsesSubject.has(integration) || integrationUsesDomain.has(integration);
+
       setElementVisible(
         "graphEditorActionRoutingRow",
-        integrationRequiresEndpoint.has(integration) || integrationRequiresMethod.has(integration)
+        showRouting
       );
       setElementVisible(
         "graphEditorActionAuthRow",
-        integrationRequiresAuth.has(integration) || integrationUsesChatId.has(integration)
+        showAuth
       );
       setElementVisible(
         "graphEditorActionPayloadRow",
-        integrationRequiresMessage.has(integration) || integrationRequiresLocation.has(integration)
+        showPayload
       );
       setElementVisible(
         "graphEditorActionSystemRow",
-        integrationRequiresPath.has(integration) || integrationRequiresCommand.has(integration)
+        showSystem
       );
+      setElementVisible("graphEditorActionProviderAuthRow", showProviderAuth);
+      setElementVisible("graphEditorActionDeliveryRow", showDelivery);
+      setElementVisible("graphEditorActionDeliveryMetaRow", showDeliveryMeta);
+      setElementVisible("graphEditorActionHeadersRow", integrationUsesHeaders.has(integration));
       setElementVisible("graphEditorActionHandoffRow", integrationUsesBotChain.has(integration));
       setElementVisible("graphEditorActionEndpointRow", integrationRequiresEndpoint.has(integration));
       setElementVisible("graphEditorActionMethodRow", integrationRequiresMethod.has(integration));
-      setElementVisible("graphEditorActionApiKeyRow", integrationRequiresAuth.has(integration));
+      setElementVisible(
+        "graphEditorActionApiKeyRow",
+        integrationRequiresAuth.has(integration) && !integrationUsesAccountSid.has(integration)
+      );
       setElementVisible("graphEditorActionChatIdRow", integrationUsesChatId.has(integration));
+      setElementVisible("graphEditorActionAccountSidRow", integrationUsesAccountSid.has(integration));
+      setElementVisible("graphEditorActionAuthTokenRow", integrationUsesAuthToken.has(integration));
+      setElementVisible("graphEditorActionToRow", integrationUsesTo.has(integration));
+      setElementVisible("graphEditorActionFromRow", integrationUsesFrom.has(integration));
+      setElementVisible("graphEditorActionSubjectRow", integrationUsesSubject.has(integration));
+      setElementVisible("graphEditorActionDomainRow", integrationUsesDomain.has(integration));
       setElementVisible("graphEditorActionMessageRow", integrationRequiresMessage.has(integration));
       setElementVisible("graphEditorActionLocationRow", integrationRequiresLocation.has(integration));
       setElementVisible("graphEditorActionPathRow", integrationRequiresPath.has(integration));
@@ -2389,6 +2498,13 @@
         api_key: ["api_key", "auth_token", "token"],
         chat_id: ["chat_id", "channel_id"],
         message: ["message", "payload", "body", "text"],
+        to: ["to", "recipient", "destination"],
+        from: ["from", "sender", "source"],
+        subject: ["subject", "title"],
+        account_sid: ["account_sid"],
+        auth_token: ["auth_token"],
+        domain: ["domain"],
+        headers: ["headers"],
         location: ["location"],
         path: ["path", "file_path", "db_path"],
         command: ["command", "sql", "query"],
@@ -2411,6 +2527,13 @@
       byId("graphEditorActionApiKey").value = actionConfigFieldValue(config, "api_key");
       byId("graphEditorActionChatId").value = actionConfigFieldValue(config, "chat_id");
       byId("graphEditorActionMessage").value = actionConfigFieldValue(config, "message");
+      byId("graphEditorActionTo").value = actionConfigFieldValue(config, "to");
+      byId("graphEditorActionFrom").value = actionConfigFieldValue(config, "from");
+      byId("graphEditorActionSubject").value = actionConfigFieldValue(config, "subject");
+      byId("graphEditorActionAccountSid").value = actionConfigFieldValue(config, "account_sid");
+      byId("graphEditorActionAuthToken").value = actionConfigFieldValue(config, "auth_token");
+      byId("graphEditorActionDomain").value = actionConfigFieldValue(config, "domain");
+      byId("graphEditorActionHeaders").value = actionConfigFieldValue(config, "headers");
       byId("graphEditorActionLocation").value = actionConfigFieldValue(config, "location");
       byId("graphEditorActionPath").value = actionConfigFieldValue(config, "path");
       byId("graphEditorActionCommand").value = actionConfigFieldValue(config, "command");
@@ -2436,6 +2559,13 @@
       writeIfAllowed("graphEditorActionApiKey", defaults.api_key);
       writeIfAllowed("graphEditorActionChatId", defaults.chat_id);
       writeIfAllowed("graphEditorActionMessage", defaults.message);
+      writeIfAllowed("graphEditorActionTo", defaults.to);
+      writeIfAllowed("graphEditorActionFrom", defaults.from);
+      writeIfAllowed("graphEditorActionSubject", defaults.subject);
+      writeIfAllowed("graphEditorActionAccountSid", defaults.account_sid);
+      writeIfAllowed("graphEditorActionAuthToken", defaults.auth_token);
+      writeIfAllowed("graphEditorActionDomain", defaults.domain);
+      writeIfAllowed("graphEditorActionHeaders", defaults.headers);
       writeIfAllowed("graphEditorActionLocation", defaults.location);
       writeIfAllowed("graphEditorActionPath", defaults.path);
       writeIfAllowed("graphEditorActionCommand", defaults.command);
@@ -2453,6 +2583,13 @@
       const apiKey = String(byId("graphEditorActionApiKey").value || "").trim();
       const chatId = String(byId("graphEditorActionChatId").value || "").trim();
       const message = String(byId("graphEditorActionMessage").value || "").trim();
+      const to = String(byId("graphEditorActionTo").value || "").trim();
+      const from = String(byId("graphEditorActionFrom").value || "").trim();
+      const subject = String(byId("graphEditorActionSubject").value || "").trim();
+      const accountSid = String(byId("graphEditorActionAccountSid").value || "").trim();
+      const authToken = String(byId("graphEditorActionAuthToken").value || "").trim();
+      const domain = String(byId("graphEditorActionDomain").value || "").trim();
+      const headers = String(byId("graphEditorActionHeaders").value || "").trim();
       const location = String(byId("graphEditorActionLocation").value || "").trim();
       const path = String(byId("graphEditorActionPath").value || "").trim();
       const command = String(byId("graphEditorActionCommand").value || "").trim();
@@ -2494,8 +2631,43 @@
       if (integrationRequiresAuth.has(integration)) {
         setOrDelete("api_key", apiKey);
       }
+      if (integrationUsesAccountSid.has(integration)) {
+        setOrDelete("account_sid", accountSid);
+      } else {
+        setOrDelete("account_sid", "");
+      }
+      if (integrationUsesAuthToken.has(integration)) {
+        setOrDelete("auth_token", authToken);
+      } else {
+        setOrDelete("auth_token", "");
+      }
       if (integrationUsesChatId.has(integration)) {
         setOrDelete("chat_id", chatId);
+      }
+      if (integrationUsesTo.has(integration)) {
+        setOrDelete("to", to);
+      } else {
+        setOrDelete("to", "");
+      }
+      if (integrationUsesFrom.has(integration)) {
+        setOrDelete("from", from);
+      } else {
+        setOrDelete("from", "");
+      }
+      if (integrationUsesSubject.has(integration)) {
+        setOrDelete("subject", subject);
+      } else {
+        setOrDelete("subject", "");
+      }
+      if (integrationUsesDomain.has(integration)) {
+        setOrDelete("domain", domain);
+      } else {
+        setOrDelete("domain", "");
+      }
+      if (integrationUsesHeaders.has(integration)) {
+        setOrDelete("headers", headers);
+      } else {
+        setOrDelete("headers", "");
       }
       if (integrationRequiresMessage.has(integration)) {
         setOrDelete("message", message);
@@ -2666,6 +2838,13 @@
         byId("graphEditorActionApiKey").value = "";
         byId("graphEditorActionChatId").value = "";
         byId("graphEditorActionMessage").value = "";
+        byId("graphEditorActionTo").value = "";
+        byId("graphEditorActionFrom").value = "";
+        byId("graphEditorActionSubject").value = "";
+        byId("graphEditorActionAccountSid").value = "";
+        byId("graphEditorActionAuthToken").value = "";
+        byId("graphEditorActionDomain").value = "";
+        byId("graphEditorActionHeaders").value = "";
         byId("graphEditorActionLocation").value = "";
         byId("graphEditorActionPath").value = "";
         byId("graphEditorActionCommand").value = "";
