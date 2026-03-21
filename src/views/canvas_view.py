@@ -2009,57 +2009,11 @@ class CanvasView(Gtk.Box):
         selection_modifiers = Gdk.ModifierType.SHIFT_MASK
         hit_node = self.find_node_at_point(int(start_x), int(start_y))
 
-        # Stage-level fallback drag: if node-level drag gesture arbitration fails, allow
-        # dragging nodes directly from the stage gesture so dragging never gets stuck.
+        # If drag starts over a node and we're not box-selecting, let node-level gestures
+        # (node move + output-port linking) own the sequence. Claiming it here can preempt
+        # those handlers and lead to non-movable nodes or broken wire dragging.
         if hit_node and not bool(state & Gdk.ModifierType.SHIFT_MASK):
-            if self.port_drag_active and not self.link_preview_source_id:
-                self.reset_port_drag_state()
-            if self.port_drag_active:
-                gesture.set_state(Gtk.EventSequenceState.DENIED)
-                return
-
-            previous_selected = self.selected_node_id
-            previous_selection_set = set(self.selected_node_ids)
-            if hit_node.id not in self.selected_node_ids:
-                self.set_single_selection(hit_node.id)
-            else:
-                self.set_selection(set(self.selected_node_ids), primary_id=hit_node.id)
-
-            self.node_drag_active = True
-            self.node_drag_moved = False
-            self.stage_drag_node_id = hit_node.id
-            self.stage_drag_origin = {
-                "start_x": float(start_x),
-                "start_y": float(start_y),
-            }
-            self.drag_origin = {
-                "node_id": hit_node.id,
-                "x": hit_node.x,
-                "y": hit_node.y,
-                "pointer_stage_x": float(start_x),
-                "pointer_stage_y": float(start_y),
-            }
-            self.drag_group_origins = {
-                item.id: (item.x, item.y)
-                for item in self.nodes
-                if item.id in self.selected_node_ids
-            }
-            self.drag_history_captured = False
-            self.drag_guide_x = None
-            self.drag_guide_y = None
-            self.suppress_stage_click_once = True
-            self.set_node_drag_cursor("grabbing")
-            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-            if previous_selected != self.selected_node_id or previous_selection_set != self.selected_node_ids:
-                self.apply_selection_set_visual_state(
-                    previous_selection_set,
-                    self.selected_node_ids,
-                    previous_selected,
-                    self.selected_node_id,
-                )
-                self.link_layer.queue_draw()
-            self.update_inspector(hit_node)
-            self.update_control_state()
+            gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
 
         if self.port_drag_active and not self.link_preview_source_id:
