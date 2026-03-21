@@ -189,6 +189,7 @@ class CanvasView(Gtk.Box):
         self.node_execution_preset_buttons: dict[str, Gtk.ToggleButton] = {}
         self.loading_node_execution_preset = False
         self.node_drag_active = False
+        self.stage_drag_node_id: str | None = None
         self.suppress_next_node_click = False
         self.zoom_factor = 1.0
         self.pan_drag_active = False
@@ -1973,12 +1974,25 @@ class CanvasView(Gtk.Box):
         return left, top, right, bottom
 
     def on_stage_select_drag_begin(self, gesture: Gtk.GestureDrag, start_x: float, start_y: float):
+        self.stage_drag_node_id = None
         state = gesture.get_current_event_state()
         selection_modifiers = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK
-        if not bool(state & selection_modifiers):
+        if self.port_drag_active or self.node_drag_active:
             gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
-        if self.port_drag_active or self.node_drag_active:
+        if not bool(state & selection_modifiers):
+            hit_node = self.find_node_at_point(int(start_x), int(start_y))
+            if hit_node:
+                local_x = float(start_x - self.to_screen(hit_node.x))
+                local_y = float(start_y - self.to_screen(hit_node.y))
+                self.stage_drag_node_id = hit_node.id
+                self.on_node_drag_begin(gesture, local_x, local_y, hit_node.id)
+                if self.node_drag_active or self.port_drag_active:
+                    gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+                else:
+                    self.stage_drag_node_id = None
+                    gesture.set_state(Gtk.EventSequenceState.DENIED)
+                return
             gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
         if self.find_node_at_point(int(start_x), int(start_y)):
@@ -1996,6 +2010,9 @@ class CanvasView(Gtk.Box):
         self.link_layer.queue_draw()
 
     def on_stage_select_drag_update(self, _gesture: Gtk.GestureDrag, offset_x: float, offset_y: float):
+        if self.stage_drag_node_id:
+            self.on_node_drag_update(_gesture, offset_x, offset_y, self.stage_drag_node_id)
+            return
         if not self.selection_rect_active:
             return
         self.selection_rect_end_x = self.selection_rect_start_x + float(offset_x)
@@ -2003,6 +2020,11 @@ class CanvasView(Gtk.Box):
         self.link_layer.queue_draw()
 
     def on_stage_select_drag_end(self, _gesture: Gtk.GestureDrag, _offset_x: float, _offset_y: float):
+        if self.stage_drag_node_id:
+            active_node_id = self.stage_drag_node_id
+            self.stage_drag_node_id = None
+            self.on_node_drag_end(_gesture, _offset_x, _offset_y, active_node_id)
+            return
         if not self.selection_rect_active:
             return
 
