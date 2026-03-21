@@ -1770,6 +1770,28 @@ class CanvasView(Gtk.Box):
         self.node_execution_hint_label.add_css_class("dim-label")
         self.node_execution_hint_label.add_css_class("inline-status")
 
+        self.node_error_mode_dropdown = Gtk.DropDown.new_from_strings(
+            ["Fail Run", "Continue Next Node", "Go To Node ID"]
+        )
+        self.node_error_mode_dropdown.connect(
+            "notify::selected",
+            self.on_node_error_mode_changed,
+        )
+        self.node_error_mode_row, _ = self.build_inspector_field_row(
+            "On Error",
+            self.node_error_mode_dropdown,
+        )
+
+        self.node_error_target_entry = Gtk.Entry()
+        self.node_error_target_entry.set_placeholder_text(
+            "Target node id (used only for Go To Node ID)"
+        )
+        self.node_error_target_entry.connect("changed", self.on_node_error_target_changed)
+        self.node_error_target_row, _ = self.build_inspector_field_row(
+            "Error Target Node",
+            self.node_error_target_entry,
+        )
+
         self.apply_node_button = Gtk.Button(label="Apply Node Changes")
         self.apply_node_button.connect("clicked", self.on_apply_node_changes)
         self.apply_node_button.add_css_class("suggested-action")
@@ -1838,6 +1860,8 @@ class CanvasView(Gtk.Box):
         self.inspector_box.append(node_exec_grid)
         self.inspector_box.append(self.node_execution_preset_row)
         self.inspector_box.append(node_exec_action_row)
+        self.inspector_box.append(self.node_error_mode_row)
+        self.inspector_box.append(self.node_error_target_row)
         self.inspector_box.append(self.node_execution_hint_label)
         self.inspector_box.append(self.node_test_section)
         self.inspector_box.append(self.apply_node_button)
@@ -4115,6 +4139,31 @@ class CanvasView(Gtk.Box):
             return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 45.0}
         return {"retry_max": 1.0, "retry_backoff_ms": 250.0, "timeout_sec": 60.0}
 
+    def normalized_node_error_mode(self, value: str) -> str:
+        normalized = str(value).strip().lower()
+        if normalized in {"continue", "next", "skip"}:
+            return "continue"
+        if normalized in {"goto", "route", "target"}:
+            return "goto"
+        return "fail"
+
+    def node_error_mode_index(self, value: str) -> int:
+        normalized = self.normalized_node_error_mode(value)
+        mapping = {"fail": 0, "continue": 1, "goto": 2}
+        return mapping.get(normalized, 0)
+
+    def selected_node_error_mode(self) -> str:
+        selected = int(self.node_error_mode_dropdown.get_selected())
+        if selected == 1:
+            return "continue"
+        if selected == 2:
+            return "goto"
+        return "fail"
+
+    def update_node_error_controls_visibility(self):
+        show_target = self.selected_node_error_mode() == "goto"
+        self.node_error_target_row.set_visible(show_target)
+
     def node_has_explicit_execution_overrides(self, config: dict | None) -> bool:
         if not isinstance(config, dict):
             return False
@@ -4317,7 +4366,18 @@ class CanvasView(Gtk.Box):
         self.node_retry_spin.set_value(float(max(0, retry_max)))
         self.node_backoff_spin.set_value(float(max(0, backoff_ms)))
         self.node_timeout_spin.set_value(float(max(0.0, timeout_sec)))
+        raw_error_mode = (
+            str(merged_config.get("on_error", "")).strip()
+            or str(merged_config.get("error_mode", "")).strip()
+        )
+        self.node_error_mode_dropdown.set_selected(self.node_error_mode_index(raw_error_mode))
+        self.node_error_target_entry.set_text(
+            str(merged_config.get("error_target_node_id", "")).strip()
+            or str(merged_config.get("on_error_target", "")).strip()
+            or str(merged_config.get("error_target", "")).strip()
+        )
         self.loading_node_execution_preset = False
+        self.update_node_error_controls_visibility()
         self.sync_node_execution_preset_buttons(node_type, integration)
         self.update_node_execution_hint(node_type, integration)
 
@@ -4338,10 +4398,18 @@ class CanvasView(Gtk.Box):
         node_label = self.node_type_chip_text(node_type)
         target = str(integration).strip().lower()
         integration_label = f" • {target}" if target else ""
+        error_mode = self.selected_node_error_mode()
+        if error_mode == "goto":
+            error_target = self.node_error_target_entry.get_text().strip()
+            error_label = f"on-error goto:{error_target or 'unset'}"
+        elif error_mode == "continue":
+            error_label = "on-error continue"
+        else:
+            error_label = "on-error fail"
         self.node_execution_hint_label.set_text(
             f"{mode} profile for {node_label}{integration_label} "
             f"(recommended: {suggested_preset.title()}): retry {retry_value}, "
-            f"backoff {backoff_value}ms, timeout {timeout_value:.1f}s."
+            f"backoff {backoff_value}ms, timeout {timeout_value:.1f}s, {error_label}."
         )
         self.sync_node_execution_preset_buttons(node_type, integration)
 
@@ -4357,6 +4425,27 @@ class CanvasView(Gtk.Box):
     def on_node_execution_value_changed(self, _spin: Gtk.SpinButton):
         if self.loading_node_execution_preset:
             return
+        node = self.get_selected_node()
+        if not node:
+            return
+        integration = ""
+        if self.node_type_key(node.node_type) in {"action", "template"}:
+            integration = self.selected_action_integration()
+        self.update_node_execution_hint(node.node_type, integration)
+
+    def on_node_error_mode_changed(self, *_args):
+        if self.loading_node_execution_preset:
+            return
+        self.update_node_error_controls_visibility()
+        node = self.get_selected_node()
+        if not node:
+            return
+        integration = ""
+        if self.node_type_key(node.node_type) in {"action", "template"}:
+            integration = self.selected_action_integration()
+        self.update_node_execution_hint(node.node_type, integration)
+
+    def on_node_error_target_changed(self, _entry: Gtk.Entry):
         node = self.get_selected_node()
         if not node:
             return
@@ -5945,6 +6034,18 @@ class CanvasView(Gtk.Box):
             updated_config["retry_max"] = str(int(defaults["retry_max"]))
         if backoff_value == int(defaults["retry_backoff_ms"]):
             updated_config["retry_backoff_ms"] = str(int(defaults["retry_backoff_ms"]))
+
+        error_mode = self.selected_node_error_mode()
+        if error_mode == "fail":
+            updated_config["on_error"] = ""
+            updated_config["error_target_node_id"] = ""
+            return
+
+        updated_config["on_error"] = error_mode
+        if error_mode == "goto":
+            updated_config["error_target_node_id"] = self.node_error_target_entry.get_text().strip()
+        else:
+            updated_config["error_target_node_id"] = ""
 
     def to_screen(self, logical_value: float) -> int:
         return int(round(float(logical_value) * self.zoom_factor))
@@ -10462,6 +10563,9 @@ class CanvasView(Gtk.Box):
         self.action_command_entry.set_text("")
         self.action_timeout_spin.set_value(0.0)
         self.apply_node_execution_defaults_for_context("Action", "standard", announce=False)
+        self.node_error_mode_dropdown.set_selected(0)
+        self.node_error_target_entry.set_text("")
+        self.update_node_error_controls_visibility()
         self.node_execution_hint_label.set_text("")
         self.action_profile_label.set_text(self.action_profile_summary("standard"))
         self.latest_action_missing_fields = []
