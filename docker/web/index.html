@@ -2309,7 +2309,97 @@
       ) || null;
     }
 
-    function updateGraphEditorIntegrationRequirements(integrationKey) {
+    function applyGraphEditorActionPlaceholders(integrationKey) {
+      const integration = normalizeActionIntegration(integrationKey);
+      const endpointEl = byId("graphEditorActionEndpoint");
+      const apiKeyEl = byId("graphEditorActionApiKey");
+      const chatIdEl = byId("graphEditorActionChatId");
+      const accountSidEl = byId("graphEditorActionAccountSid");
+      const authTokenEl = byId("graphEditorActionAuthToken");
+      const toEl = byId("graphEditorActionTo");
+      const fromEl = byId("graphEditorActionFrom");
+      const subjectEl = byId("graphEditorActionSubject");
+      const domainEl = byId("graphEditorActionDomain");
+      const messageEl = byId("graphEditorActionMessage");
+      const headersEl = byId("graphEditorActionHeaders");
+      const locationEl = byId("graphEditorActionLocation");
+      const pathEl = byId("graphEditorActionPath");
+      const commandEl = byId("graphEditorActionCommand");
+      const botChainEl = byId("graphEditorActionBotChain");
+      const botEl = byId("graphEditorActionBot");
+
+      if (endpointEl) endpointEl.placeholder = "https://api.example.com/...";
+      if (apiKeyEl) apiKeyEl.placeholder = "token or key";
+      if (chatIdEl) chatIdEl.placeholder = "chat id / channel id";
+      if (accountSidEl) accountSidEl.placeholder = "ACxxxxxxxxxxxxxxxx";
+      if (authTokenEl) authTokenEl.placeholder = "service auth token";
+      if (toEl) toEl.placeholder = "Recipient / destination";
+      if (fromEl) fromEl.placeholder = "Sender / source";
+      if (subjectEl) subjectEl.placeholder = "Workflow update";
+      if (domainEl) domainEl.placeholder = "mg.yourdomain.com";
+      if (messageEl) messageEl.placeholder = "Workflow update: ${last_output}";
+      if (headersEl) headersEl.placeholder = "{\"X-Custom-Header\":\"value\"}";
+      if (locationEl) locationEl.placeholder = "Austin,US";
+      if (pathEl) pathEl.placeholder = "/tmp/6x-workflow.log";
+      if (commandEl) commandEl.placeholder = "echo \"$INPUT_CONTEXT\"";
+      if (botChainEl) botChainEl.placeholder = "Planner > Writer > Reviewer";
+      if (botEl) botEl.placeholder = "Fallback bot name (optional)";
+
+      if (integration === "slack_webhook" && endpointEl) {
+        endpointEl.placeholder = "https://hooks.slack.com/services/...";
+      } else if (integration === "discord_webhook" && endpointEl) {
+        endpointEl.placeholder = "https://discord.com/api/webhooks/...";
+      } else if (integration === "teams_webhook" && endpointEl) {
+        endpointEl.placeholder = "https://outlook.office.com/webhook/...";
+      } else if (integration === "google_apps_script" && endpointEl) {
+        endpointEl.placeholder = "https://script.google.com/macros/s/REPLACE/exec";
+      } else if (integration === "telegram_bot") {
+        if (apiKeyEl) apiKeyEl.placeholder = "Telegram bot token";
+        if (chatIdEl) chatIdEl.placeholder = "Telegram chat id  •  123456789";
+      } else if (integration === "twilio_sms") {
+        if (accountSidEl) accountSidEl.placeholder = "ACxxxxxxxxxxxxxxxx";
+        if (authTokenEl) authTokenEl.placeholder = "Twilio auth token";
+        if (fromEl) fromEl.placeholder = "+15550001111";
+        if (toEl) toEl.placeholder = "+15550002222";
+        if (messageEl) messageEl.placeholder = "SMS content";
+      } else if (integration === "gmail_send") {
+        if (apiKeyEl) apiKeyEl.placeholder = "Gmail OAuth bearer token";
+        if (toEl) toEl.placeholder = "you@example.com";
+        if (subjectEl) subjectEl.placeholder = "Workflow update";
+      } else if (integration === "resend_email") {
+        if (apiKeyEl) apiKeyEl.placeholder = "re_...";
+        if (fromEl) fromEl.placeholder = "alerts@yourdomain.com";
+        if (toEl) toEl.placeholder = "you@example.com";
+        if (subjectEl) subjectEl.placeholder = "Workflow update";
+      } else if (integration === "mailgun_email") {
+        if (apiKeyEl) apiKeyEl.placeholder = "Mailgun API key";
+        if (domainEl) domainEl.placeholder = "mg.yourdomain.com";
+        if (fromEl) fromEl.placeholder = "alerts@yourdomain.com";
+        if (toEl) toEl.placeholder = "you@example.com";
+        if (subjectEl) subjectEl.placeholder = "Workflow update";
+      } else if (integration === "openweather_current") {
+        if (apiKeyEl) apiKeyEl.placeholder = "OpenWeather API key";
+        if (locationEl) locationEl.placeholder = "Austin,US";
+      } else if (integration === "file_append") {
+        if (pathEl) pathEl.placeholder = "/tmp/6x-workflow.log";
+      } else if (integration === "sqlite_sql") {
+        if (pathEl) pathEl.placeholder = "/tmp/6x_protocol.db";
+        if (commandEl) commandEl.placeholder = "SELECT * FROM runs LIMIT 10";
+      } else if (["postgres_sql", "mysql_sql"].includes(integration) && commandEl) {
+        commandEl.placeholder = "SELECT * FROM table LIMIT 10";
+      } else if (integration === "redis_command") {
+        if (endpointEl) endpointEl.placeholder = "redis://localhost:6379/0";
+        if (commandEl) commandEl.placeholder = "PING";
+      } else if (integration === "s3_cli" && commandEl) {
+        commandEl.placeholder = "s3 ls";
+      } else if (integration === "handoff") {
+        if (botChainEl) botChainEl.placeholder = "Planner > Writer > Reviewer";
+        if (botEl) botEl.placeholder = "Single fallback bot (optional)";
+        if (messageEl) messageEl.placeholder = "${last_output}";
+      }
+    }
+
+    function updateGraphEditorIntegrationRequirements(integrationKey, configOverride = null) {
       const requirementsEl = byId("graphEditorIntegrationRequirements");
       if (!requirementsEl) return;
       const integration = integrationCatalogItem(integrationKey);
@@ -2324,7 +2414,19 @@
         requirementsEl.textContent = "No required fields listed in integration catalog.";
         return;
       }
-      requirementsEl.textContent = `Required fields: ${required.join(", ")}`;
+      const normalizedIntegration = normalizeActionIntegration(integrationKey);
+      let config = configOverride && typeof configOverride === "object"
+        ? { ...configOverride }
+        : null;
+      if (!config) {
+        config = copyGraphEditorActionFieldsToConfig({ integration: normalizedIntegration });
+      }
+      const missing = required.filter((fieldKey) => !actionConfigFieldValue(config, fieldKey));
+      if (!missing.length) {
+        requirementsEl.textContent = `Required fields satisfied: ${required.join(", ")}`;
+        return;
+      }
+      requirementsEl.textContent = `Required fields (${required.length}): ${required.join(", ")} • Missing: ${missing.join(", ")}`;
     }
 
     function nodeExecutionPresetValues(nodeType, integration, presetKey, triggerMode = "manual") {
@@ -2441,6 +2543,7 @@
 
     function setGraphEditorActionFieldVisibility(integrationKey) {
       const integration = normalizeActionIntegration(integrationKey);
+      applyGraphEditorActionPlaceholders(integration);
       const showRouting = integrationRequiresEndpoint.has(integration) || integrationRequiresMethod.has(integration);
       const showAuth = integrationRequiresAuth.has(integration) || integrationUsesChatId.has(integration);
       const showPayload = integrationRequiresMessage.has(integration) || integrationRequiresLocation.has(integration);
@@ -2901,7 +3004,7 @@
         refreshGraphExecutionPresetControl(type, actionIntegration, triggerMode);
       }
       setGraphEditorVisibilityForType(type);
-      updateGraphEditorIntegrationRequirements(actionIntegration);
+      updateGraphEditorIntegrationRequirements(actionIntegration, config);
       setGraphEditorActionFieldVisibility(actionIntegration);
       refreshGraphNodeBehaviorHelper(
         type,
@@ -3884,6 +3987,8 @@
           byId("graphEditorIntegration").value || "standard",
           mode
         );
+        const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
+        updateGraphEditorIntegrationRequirements(integration);
       });
       byId("graphEditorExecutionPreset").addEventListener("change", () => {
         const preset = String(byId("graphEditorExecutionPreset").value || "balanced").trim().toLowerCase();
@@ -3900,6 +4005,36 @@
           const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
           const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
           refreshGraphExecutionPresetControl(type, integration, triggerMode);
+        });
+      }
+      const actionFieldIds = [
+        "graphEditorActionEndpoint",
+        "graphEditorActionApiKey",
+        "graphEditorActionChatId",
+        "graphEditorActionAccountSid",
+        "graphEditorActionAuthToken",
+        "graphEditorActionTo",
+        "graphEditorActionFrom",
+        "graphEditorActionSubject",
+        "graphEditorActionDomain",
+        "graphEditorActionHeaders",
+        "graphEditorActionMessage",
+        "graphEditorActionLocation",
+        "graphEditorActionPath",
+        "graphEditorActionCommand",
+        "graphEditorActionBotChain",
+        "graphEditorActionBot",
+        "graphEditorActionMethod",
+      ];
+      for (const fieldId of actionFieldIds) {
+        const element = byId(fieldId);
+        if (!element) continue;
+        const eventName = element.tagName === "SELECT" ? "change" : "input";
+        element.addEventListener(eventName, () => {
+          const type = normalizeNodeType(byId("graphEditorType").value || "action");
+          if (type !== "action") return;
+          const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
+          updateGraphEditorIntegrationRequirements(integration);
         });
       }
       byId("graphApplyNodeDefaults").addEventListener("click", applyGraphNodeEditorDefaults);
