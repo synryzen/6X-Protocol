@@ -124,6 +124,105 @@ p {
   gap: 12px;
 }
 
+.status-grid,
+.roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.status-card,
+.roadmap-card {
+  border: 1px solid rgba(141, 189, 255, 0.28);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(14, 28, 51, 0.78);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.status-percent {
+  color: #96e3ff;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.progress {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(17, 32, 57, 0.9);
+  border: 1px solid rgba(110, 166, 255, 0.28);
+  overflow: hidden;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #59b4ff 0%, #67f3b3 100%);
+}
+
+.status-list,
+.roadmap-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.status-list li,
+.roadmap-list li {
+  margin: 0;
+}
+
+.status-note {
+  margin-top: 10px;
+  font-size: 0.92rem;
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(141, 189, 255, 0.38);
+  background: rgba(17, 35, 62, 0.86);
+  color: #dcedff;
+  padding: 5px 9px;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
+.pill.done {
+  border-color: rgba(84, 229, 167, 0.5);
+  background: rgba(11, 72, 55, 0.62);
+  color: #ccffe8;
+}
+
+.pill.active {
+  border-color: rgba(105, 183, 255, 0.64);
+  background: rgba(31, 76, 128, 0.62);
+}
+
+.pill.next {
+  border-color: rgba(255, 191, 109, 0.56);
+  background: rgba(113, 68, 17, 0.6);
+  color: #ffe2be;
+}
+
 .hero-card,
 .feature {
   border: 1px solid rgba(141, 189, 255, 0.28);

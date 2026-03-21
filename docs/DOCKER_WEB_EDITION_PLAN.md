@@ -1,63 +1,101 @@
-# Docker And Web Edition Plan
+# Docker + Web Edition Build Plan
 
-## Objective
-Add a cross-platform self-hosted path (Linux/macOS/Windows) without replacing the Linux-native desktop app.
+## Last Verified Status
+- Date: **March 21, 2026**
+- Overall completion toward first public self-hosted web beta: **~72%**
+- Automated smoke status: **passing** via `./scripts/test_docker_web.sh`
 
-## Product Strategy
-1. Keep native Linux desktop edition as the local-first UX.
-2. Build a shared runtime/server layer.
-3. Add a web UI that consumes server APIs.
-4. Ship official Docker Compose deployment for the web edition.
+## Product Layout
+1. **6X-Protocol Desktop** (Linux-native local-first app)
+2. **6X-Protocol Server** (shared runtime/API layer)
+3. **6X-Protocol Web** (browser client)
+4. **Docker Deployment** (self-hosted stack)
 
-## Why This Approach
-- One deployable stack for multiple operating systems.
-- Consistent runtime behavior.
-- Easier team deployment and support.
-- Better long-term foundation for optional commercial offerings.
+This path keeps the Linux desktop strong while expanding to cross-platform access through server + web.
 
-## Scope Boundaries
-- Recommended: server + API + web frontend + worker(s) + database in containers.
-- Not recommended as primary path: running GTK desktop UI through VNC/noVNC.
+## Architecture Direction
+### Layer 1: Core Engine (shared)
+- Workflow/node models
+- Validation
+- Execution contracts
+- Retry/backoff/timeout rules
+- Serialization/import/export
 
-## Target Container Topology
-- `6xp-api`: workflow API + orchestration endpoints.
-- `6xp-worker`: workflow execution and queue processing.
-- `6xp-web`: browser UI.
-- `postgres`: persistence.
-- `redis`: queue/cache.
+### Layer 2: Runtime Services
+- API + orchestration
+- Queue/runner behavior
+- Connectors + secrets abstraction
+- Logging and run history models
 
-## Security Baseline
-- Secrets via env vars or mounted secret files.
-- No secrets in repo.
-- Non-root containers where practical.
-- Health checks and restart policies.
+### Layer 3: Clients
+- GTK Linux desktop client
+- Web client
 
-## Milestones
-### M1: Runtime extraction
-- Define clean service boundaries.
-- Isolate execution engine interfaces.
+## Container Topology (Current)
+- `6xp-api` — FastAPI workflows/runs/settings + run controls
+- `6xp-worker` — runtime worker process
+- `6xp-web` — web preview panel
+- `postgres` — persistence dependency
+- `redis` — queue/cache dependency
 
-### M2: API surface
-- Workflow CRUD, runs/history, settings, integration tests.
-- Auth model decision (single-user local vs team mode).
+## Milestone Board
+### M1: Runtime extraction and execution parity
+- [x] Graph-aware traversal using edges/legacy links
+- [x] Condition branch routing (`true`/`false` + fallback)
+- [x] Retry/backoff/timeout controls
+- [x] Retry-from-failed-node replay support
+- [x] Parallel ready-node fan-out with join/branch pruning
 
-### M3: Web UI foundation
-- Dashboard, workflows, canvas, runs, settings parity baseline.
+### M2: API surface for web parity
+- [x] Workflow CRUD endpoints
+- [x] Runs CRUD and run-control endpoints
+- [x] Settings load/save endpoints
+- [ ] Integrations CRUD/test parity endpoints
+- [ ] Rich execution timeline/query APIs
 
-### M4: Compose release
-- Official `docker-compose.web.yml`.
-- Setup docs and sample `.env`.
+### M3: Web client foundation
+- [x] Browser-accessible preview dashboard in Docker
+- [ ] Workflow list/editor parity
+- [ ] Runs timeline parity
+- [ ] Settings parity
+- [ ] Production web canvas builder
 
-### M5: Ops hardening
-- Backups, migrations, health dashboards, observability endpoints.
+### M4: Compose quality and docs
+- [x] Official `docker-compose.web.yml`
+- [x] `.env.example`
+- [x] Docker smoke test script
+- [x] Health checks and restart policies
+- [ ] Release-grade image versioning strategy
 
-## Current Status
-- Active scaffold stage.
-- Compose now includes a real FastAPI scaffold API, worker process scaffold, and web placeholder.
-- API scaffold now includes persistence-backed routes for workflows, runs, and settings.
-- Run control scaffolding now includes `start`, `cancel`, and `retry` endpoints with state transitions.
-- Run scaffold now applies node-type-aware execution and per-run/per-node timeout/retry/backoff controls.
-- Runtime traversal now uses workflow graph edges (including legacy links) with condition branch routing.
-- Runtime now supports parallel ready-node execution with basic join semantics and branch pruning.
-- End-to-end Docker smoke validation now passes against the full scaffold stack (`scripts/test_docker_web.sh`).
-- See `docker/README.md` and `docker/docker-compose.web.yml`.
+### M5: Hardening and team-readiness
+- [ ] DB migration/versioning baseline
+- [ ] Auth layer baseline
+- [ ] Secret management hardening
+- [ ] Backup/restore + observability endpoints
+
+## What Is Done Right Now
+- Docker compose stack starts and runs (`api`, `worker`, `web`, `postgres`, `redis`).
+- End-to-end smoke validation passes:
+  - create workflow
+  - start run
+  - cancel run
+  - retry run
+  - retry from failed node
+  - timeout/retry policy behavior
+  - graph branching validation
+- Server execution model now handles node-type behavior + policy controls per run/node.
+
+## Remaining To Reach First Public Web Beta
+1. Replace web preview dashboard with production web UI modules.
+2. Add migration/versioned persistence workflow.
+3. Add auth and secrets baseline.
+4. Add integration endpoint parity with desktop capabilities.
+
+## Recommended Positioning
+- **Desktop mode:** local-first Linux native experience.
+- **Self-hosted web mode:** cross-platform (Linux/macOS/Windows) via Docker.
+
+## References
+- Docker quick start: [`docker/README.md`](../docker/README.md)
+- Compose file: [`docker/docker-compose.web.yml`](../docker/docker-compose.web.yml)
+- Smoke test script: [`scripts/test_docker_web.sh`](../scripts/test_docker_web.sh)

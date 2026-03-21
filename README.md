@@ -109,15 +109,22 @@ See:
 - PR path label rules: `.github/labeler.yml`
 - Automation workflows: `.github/workflows/labels.yml`, `.github/workflows/triage.yml`
 
-## Docker / Web Edition (Planning)
-- Planning doc: [`docs/DOCKER_WEB_EDITION_PLAN.md`](docs/DOCKER_WEB_EDITION_PLAN.md)
-- Starter scaffold: [`docker/README.md`](docker/README.md)
-- Compose scaffold: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
-- API scaffold: `docker/api` (FastAPI health + workflows/runs/settings endpoints)
-- Run controls scaffolded: `start`, `cancel`, `retry` state transitions
-- Execution policies scaffolded: run/node timeout + retry + backoff
-- Graph-aware execution scaffolded: edge traversal + condition branch routing
-- Parallel DAG execution scaffolded: ready-node fan-out + join with skipped-branch pruning
+## Docker / Web Edition (Active Preview)
+- Status and milestone board: [`docs/DOCKER_WEB_EDITION_PLAN.md`](docs/DOCKER_WEB_EDITION_PLAN.md)
+- Docker quick start: [`docker/README.md`](docker/README.md)
+- Compose stack: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
+- Live API runtime: `docker/api` (FastAPI CRUD for workflows/runs/settings + run controls)
+- Run controls implemented: `start`, `cancel`, `retry` with state transitions
+- Execution behavior implemented: timeout/retry/backoff and graph-aware branch routing
+- Parallel DAG behavior implemented: ready-node fan-out + join with skipped-branch pruning
+- Smoke test validated (March 21, 2026): `./scripts/test_docker_web.sh`
+
+Estimated completion for a first public self-hosted web beta: **~72%**
+
+Remaining high-value items:
+- Replace placeholder web panel with production web app views (workflow list/canvas/runs/settings).
+- Add DB migration strategy and tighten persistence model.
+- Add auth + secrets hardening baseline for team/hosted paths.
 
 ## Package Build Commands
 Build local installer artifacts:

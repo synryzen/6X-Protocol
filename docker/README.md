@@ -1,9 +1,9 @@
-# Docker Scaffold (Web Edition)
+# Docker Web Edition (Active Preview)
 
-This directory contains the scaffold for a future web/self-hosted deployment path.
+This directory contains the active self-hosted web preview stack for 6X-Protocol.
 
 ## Important
-- This is an early scaffold, not a production release.
+- This is an active preview, not yet a production release.
 - The current primary product remains the Linux-native desktop app.
 
 ## Files
@@ -12,7 +12,7 @@ This directory contains the scaffold for a future web/self-hosted deployment pat
 - `api/`: FastAPI scaffold (`/healthz`, `/readyz`, `/api/v1/meta`).
 - `web/`: lightweight web access dashboard served by Nginx.
 
-## Quick Start (Scaffold Mode)
+## Quick Start (Preview Mode)
 ```bash
 cd docker
 cp .env.example .env
@@ -20,11 +20,11 @@ docker compose -f docker-compose.web.yml up -d
 ```
 
 This builds and runs:
-- FastAPI scaffold API on `http://localhost:8787`
-- Worker scaffold process
-- Web access dashboard on `http://localhost:3000`
+- FastAPI runtime API on `http://localhost:8787`
+- Worker runtime process
+- Web preview dashboard on `http://localhost:3000`
 - Postgres and Redis
-- Shared scaffold JSON data volume (`api_data`)
+- Shared JSON data volume (`api_data`)
 
 If Docker daemon access is denied for your user:
 ```bash
@@ -60,7 +60,7 @@ You can also run it directly:
 sg docker -c './scripts/test_docker_web.sh'
 ```
 
-Core scaffold routes:
+Current API routes:
 - `GET /api/v1/overview`
 - `GET/POST/PUT/DELETE /api/v1/workflows`
 - `PATCH /api/v1/workflows/{id}/graph`
@@ -98,8 +98,8 @@ Execution routing behavior:
 - Join semantics wait for all active inbound paths; pruned branches are marked `skipped`.
 - Optional graph setting: `graph.settings.max_parallel` (1-8, default 2).
 
-## Next Implementation Steps
-1. Expand API routes for workflows, runs, integrations, and settings.
-2. Add DB migrations and auth model.
-3. Replace scaffold `web` dashboard with full production frontend build/runtime.
-4. Add backup, logging, and observability baseline.
+## Remaining Milestones
+1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
+2. Add DB migration/versioning workflow and stronger persistence boundaries.
+3. Add authentication and secrets hardening baseline.
+4. Add backup, observability, and deployment hardening.

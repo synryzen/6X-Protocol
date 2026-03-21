@@ -57,6 +57,99 @@
     </section>
 
     <section class="panel">
+      <h2>Product Layout</h2>
+      <div class="status-grid">
+        <article class="status-card">
+          <div class="status-top">
+            <h3>6X-Protocol Desktop</h3>
+            <span class="status-percent">Active</span>
+          </div>
+          <ul class="status-list">
+            <li>Linux-native local-first app with premium canvas builder.</li>
+            <li>Best for offline workflows and native Linux UX.</li>
+            <li>No Docker required for desktop mode.</li>
+          </ul>
+        </article>
+        <article class="status-card">
+          <div class="status-top">
+            <h3>6X-Protocol Server</h3>
+            <span class="status-percent">In Build</span>
+          </div>
+          <ul class="status-list">
+            <li>FastAPI runtime for workflow CRUD, runs, settings, and run controls.</li>
+            <li>Graph execution includes retry/backoff/timeout + branch routing.</li>
+            <li>Foundation for shared runtime between desktop and web.</li>
+          </ul>
+        </article>
+        <article class="status-card">
+          <div class="status-top">
+            <h3>6X-Protocol Web</h3>
+            <span class="status-percent">Preview</span>
+          </div>
+          <ul class="status-list">
+            <li>Docker-served dashboard for API health and quick run operations.</li>
+            <li>Early web access panel is live for scaffold validation.</li>
+            <li>Full production web canvas is next major UI milestone.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Live Build Status (March 21, 2026)</h2>
+      <div class="status-grid">
+        <article class="status-card">
+          <div class="status-top">
+            <h3>Desktop Track</h3>
+            <span class="status-percent">88%</span>
+          </div>
+          <div class="progress"><span style="width:88%"></span></div>
+          <ul class="status-list">
+            <li>Canvas interactions, inspector UX, node preflight, and theming are active.</li>
+            <li>Integrations, bots, runs, settings, and AI tests are implemented in desktop app.</li>
+            <li>Remaining: deeper node UX polish + final packaging/docs QA.</li>
+          </ul>
+        </article>
+        <article class="status-card">
+          <div class="status-top">
+            <h3>Docker / Server Track</h3>
+            <span class="status-percent">72%</span>
+          </div>
+          <div class="progress"><span style="width:72%"></span></div>
+          <ul class="status-list">
+            <li>Compose stack running: API, worker, web, Postgres, Redis.</li>
+            <li>Smoke test passes end-to-end (`./scripts/test_docker_web.sh`).</li>
+            <li>Remaining: production web frontend, DB migrations, auth, hardening.</li>
+          </ul>
+        </article>
+        <article class="status-card">
+          <div class="status-top">
+            <h3>GitHub Ops Track</h3>
+            <span class="status-percent">84%</span>
+          </div>
+          <div class="progress"><span style="width:84%"></span></div>
+          <ul class="status-list">
+            <li>Pages deploy workflow, release packaging workflow, contribution docs are live.</li>
+            <li>Marketing pages for Matthew’s apps are published in this site.</li>
+            <li>Remaining: final launch checklist + release narrative alignment.</li>
+          </ul>
+        </article>
+      </div>
+      <p class="muted status-note">
+        Docker is no longer “planning only.” It is in active preview with verified compose startup,
+        API routes, run-control endpoints, and graph execution behavior.
+      </p>
+      <div class="pill-row">
+        <span class="pill done">Desktop: Active Product</span>
+        <span class="pill done">Compose Stack: Running</span>
+        <span class="pill done">Run Controls: start / cancel / retry</span>
+        <span class="pill active">Server Runtime: Expanding</span>
+        <span class="pill next">Web Canvas: Next</span>
+        <span class="pill next">Auth + Migrations: Next</span>
+      </div>
+    </section>
+
+    <section class="panel">
       <h2>What’s Included</h2>
       <div class="feature-grid">
         <article class="feature">
@@ -123,15 +216,45 @@ flatpak run com.sixxprotocol.studio</code></pre>
 
     <section class="panel split">
       <div>
-        <h2>Docker Web Access (Preview)</h2>
+        <h2>Docker Web Edition (Active Preview)</h2>
         <p>
-          Run the web edition scaffold locally with Docker Compose and open a browser dashboard
-          for workflows, runs, and settings.
+          Run the self-hosted stack locally with Docker Compose and access the server/web preview in your browser.
+          This track is actively shipping and validated with automated smoke tests.
         </p>
       </div>
       <div class="cta-stack">
         <a class="btn btn-primary" href="https://github.com/synryzen/6X-Protocol/blob/main/docker/README.md" target="_blank" rel="noreferrer">Docker Quick Start</a>
-        <a class="btn btn-ghost" href="https://github.com/synryzen/6X-Protocol/blob/main/docs/DOCKER_WEB_EDITION_PLAN.md" target="_blank" rel="noreferrer">Web Edition Plan</a>
+        <a class="btn btn-ghost" href="https://github.com/synryzen/6X-Protocol/blob/main/docs/DOCKER_WEB_EDITION_PLAN.md" target="_blank" rel="noreferrer">Status + Milestones</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Delivery Board (Now / Next / Later)</h2>
+      <div class="roadmap-grid">
+        <article class="roadmap-card">
+          <h3>Now</h3>
+          <ul class="roadmap-list">
+            <li>Desktop canvas UX reliability and inspector clarity.</li>
+            <li>Docker server execution behavior parity with desktop run model.</li>
+            <li>GitHub Pages and release docs sync with real build status.</li>
+          </ul>
+        </article>
+        <article class="roadmap-card">
+          <h3>Next</h3>
+          <ul class="roadmap-list">
+            <li>Web UI expansion: workflows view, run timeline, settings parity.</li>
+            <li>Server hardening: migrations, auth groundwork, backup flow.</li>
+            <li>Connector behavior parity and node-level test UX in web client.</li>
+          </ul>
+        </article>
+        <article class="roadmap-card">
+          <h3>Later</h3>
+          <ul class="roadmap-list">
+            <li>Team workspaces, approvals, audit log, and policy gates.</li>
+            <li>Remote runners / scale-out worker model.</li>
+            <li>Managed hosted edition on top of self-hosted core.</li>
+          </ul>
+        </article>
       </div>
     </section>
 
