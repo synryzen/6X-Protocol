@@ -8343,9 +8343,12 @@ class CanvasView(Gtk.Box):
     def started_near_output_port(self, x: float, y: float) -> bool:
         width = float(self.card_screen_width())
         height = float(self.card_screen_height())
-        center_x = width - 18.0
-        center_y = height - 18.0
-        radius = 22.0
+        # Keep this hit area tight so normal node drags are not misclassified as link drags.
+        center_x = width - 16.0
+        center_y = height - 16.0
+        radius = 11.0
+        if x < (width - 34.0) or y < (height - 34.0):
+            return False
         dx = float(x) - center_x
         dy = float(y) - center_y
         return (dx * dx) + (dy * dy) <= (radius * radius)
