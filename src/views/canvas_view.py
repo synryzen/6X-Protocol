@@ -212,6 +212,7 @@ class CanvasView(Gtk.Box):
         self.loading_node_execution_preset = False
         self.node_drag_active = False
         self.node_drag_moved = False
+        self.node_drag_driver: str | None = None
         self.stage_drag_node_id: str | None = None
         self.stage_drag_origin: dict[str, float] = {}
         self.suppress_next_node_click = False
@@ -1949,6 +1950,7 @@ class CanvasView(Gtk.Box):
         self.drag_group_origins = {}
         self.node_drag_active = False
         self.node_drag_moved = False
+        self.node_drag_driver = None
         self.drag_history_captured = False
         self.drag_guide_x = None
         self.drag_guide_y = None
@@ -2045,9 +2047,10 @@ class CanvasView(Gtk.Box):
             return
         hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
         if hit_node and not bool(state & selection_modifiers):
-            local_x = float(pointer_x - self.to_screen(hit_node.x))
-            local_y = float(pointer_y - self.to_screen(hit_node.y))
-            if self.is_output_handle_grab(local_x, local_y):
+            node_x, node_y, _node_w, _node_h = self.node_screen_geometry(hit_node)
+            local_x = float(pointer_x - node_x)
+            local_y = float(pointer_y - node_y)
+            if self.is_output_handle_grab(local_x, local_y, hit_node.id):
                 self.begin_output_link_drag(
                     hit_node.id,
                     pointer_x=pointer_x,
@@ -2061,6 +2064,7 @@ class CanvasView(Gtk.Box):
                 hit_node.id,
                 pointer_stage_x=pointer_x,
                 pointer_stage_y=pointer_y,
+                drag_driver="stage",
             )
             self.suppress_stage_click_once = True
             gesture.set_state(Gtk.EventSequenceState.CLAIMED)
@@ -2082,7 +2086,13 @@ class CanvasView(Gtk.Box):
 
     def on_stage_select_drag_update(self, _gesture: Gtk.GestureDrag, offset_x: float, offset_y: float):
         if self.stage_drag_node_id:
-            self.on_node_drag_update(_gesture, offset_x, offset_y, self.stage_drag_node_id)
+            self.on_node_drag_update(
+                _gesture,
+                offset_x,
+                offset_y,
+                self.stage_drag_node_id,
+                drag_driver="stage",
+            )
             return
         if self.port_drag_active and self.link_preview_source_id:
             stage_point = self.gesture_stage_point(_gesture)
@@ -2133,7 +2143,13 @@ class CanvasView(Gtk.Box):
             stage_drag_node_id = self.stage_drag_node_id
             self.stage_drag_node_id = None
             self.stage_drag_origin = {}
-            self.on_node_drag_end(_gesture, _offset_x, _offset_y, stage_drag_node_id)
+            self.on_node_drag_end(
+                _gesture,
+                _offset_x,
+                _offset_y,
+                stage_drag_node_id,
+                drag_driver="stage",
+            )
             return
 
         self.stage_drag_node_id = None
@@ -9035,6 +9051,15 @@ class CanvasView(Gtk.Box):
     def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
+        if (
+            self.node_drag_active
+            and self.node_drag_driver == "stage"
+            and self.stage_drag_node_id == node_id
+            and self.drag_origin.get("node_id") == node_id
+        ):
+            # Stage fallback already owns this gesture sequence.
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            return
         if self.node_drag_active:
             # Defensive recovery from interrupted gesture sequences.
             self.reset_node_drag_state()
@@ -9060,7 +9085,7 @@ class CanvasView(Gtk.Box):
         if not node:
             return
         stage_pointer = self.gesture_stage_point(gesture)
-        if self.is_output_handle_grab(float(start_x), float(start_y)):
+        if self.is_output_handle_grab(float(start_x), float(start_y), node_id):
             if stage_pointer:
                 pointer_stage_x, pointer_stage_y = stage_pointer
             else:
@@ -9116,6 +9141,7 @@ class CanvasView(Gtk.Box):
             pointer_stage_y=pointer_stage_y,
             previous_selected=previous_selected,
             previous_selection_set=previous_selection_set,
+            drag_driver="node",
         )
 
     def start_node_drag(
@@ -9126,6 +9152,7 @@ class CanvasView(Gtk.Box):
         pointer_stage_y: float,
         previous_selected: str | None = None,
         previous_selection_set: set[str] | None = None,
+        drag_driver: str = "node",
     ):
         node = self.find_node(node_id)
         if not node:
@@ -9137,6 +9164,7 @@ class CanvasView(Gtk.Box):
         else:
             self.set_selection(set(self.selected_node_ids), primary_id=node_id)
         self.node_drag_active = True
+        self.node_drag_driver = str(drag_driver or "node").strip().lower() or "node"
         self.node_drag_moved = False
         self.drag_origin = {
             "node_id": node_id,
@@ -9236,7 +9264,14 @@ class CanvasView(Gtk.Box):
         if primary_node:
             self.node_position_label.set_text(f"Position: {primary_node.x}, {primary_node.y}")
 
-    def on_node_drag_update(self, _gesture, offset_x: float, offset_y: float, node_id: str):
+    def on_node_drag_update(
+        self,
+        _gesture,
+        offset_x: float,
+        offset_y: float,
+        node_id: str,
+        drag_driver: str | None = None,
+    ):
         if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:
             anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
             anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
@@ -9257,6 +9292,10 @@ class CanvasView(Gtk.Box):
 
         if self.node_drag_active and not self.drag_origin:
             self.reset_node_drag_state()
+            return
+
+        event_driver = str(drag_driver or "node").strip().lower() or "node"
+        if self.node_drag_driver and event_driver != self.node_drag_driver:
             return
 
         if self.drag_origin.get("node_id") != node_id:
@@ -9294,7 +9333,14 @@ class CanvasView(Gtk.Box):
             live_snap_enabled=bool(state & Gdk.ModifierType.CONTROL_MASK),
         )
 
-    def on_node_drag_end(self, _gesture, _offset_x, _offset_y, node_id: str):
+    def on_node_drag_end(
+        self,
+        _gesture,
+        _offset_x,
+        _offset_y,
+        node_id: str,
+        drag_driver: str | None = None,
+    ):
         if self.port_drag_active and not self.drag_origin and self.link_preview_source_id == node_id:
             end_x = int(self.link_preview_end_x)
             end_y = int(self.link_preview_end_y)
@@ -9310,6 +9356,10 @@ class CanvasView(Gtk.Box):
             self.port_drag_origin = {}
             return
 
+        event_driver = str(drag_driver or "node").strip().lower() or "node"
+        if self.node_drag_driver and event_driver != self.node_drag_driver:
+            return
+
         if self.drag_origin.get("node_id") != node_id:
             # Defensive reset when GTK reports a drag-end without a matching origin.
             self.drag_origin = {}
@@ -9317,6 +9367,7 @@ class CanvasView(Gtk.Box):
             self.node_drag_active = False
             self.node_drag_moved = False
             self.drag_history_captured = False
+            self.node_drag_driver = None
             self.drag_guide_x = None
             self.drag_guide_y = None
             self.set_node_drag_cursor("grab")
@@ -9328,6 +9379,7 @@ class CanvasView(Gtk.Box):
         self.node_drag_active = False
         self.node_drag_moved = False
         self.drag_history_captured = False
+        self.node_drag_driver = None
         self.drag_guide_x = None
         self.drag_guide_y = None
         self.link_layer.queue_draw()
@@ -10427,32 +10479,64 @@ class CanvasView(Gtk.Box):
         cr.arc(x + corner, y + corner, corner, math.pi, 3 * math.pi / 2)
         cr.close_path()
 
+    def node_screen_geometry(self, node: CanvasNode) -> tuple[float, float, float, float]:
+        fallback_x = float(self.to_screen(node.x))
+        fallback_y = float(self.to_screen(node.y))
+        fallback_w = float(self.card_screen_width())
+        fallback_h = float(self.card_screen_height())
+        widget = self.node_widgets.get(node.id)
+        if not widget:
+            return fallback_x, fallback_y, fallback_w, fallback_h
+        try:
+            translated = widget.translate_coordinates(self.fixed, 0.0, 0.0)
+        except Exception:
+            translated = None
+        if not translated or not translated[0]:
+            return fallback_x, fallback_y, fallback_w, fallback_h
+        width = float(widget.get_allocated_width() or int(fallback_w))
+        height = float(widget.get_allocated_height() or int(fallback_h))
+        return float(translated[1]), float(translated[2]), max(8.0, width), max(8.0, height)
+
     def node_input_anchor(self, node: CanvasNode) -> tuple[int, int]:
-        y_offset = max(12, min(18, self.card_screen_height() // 6))
+        node_x, node_y, _node_w, node_h = self.node_screen_geometry(node)
+        y_offset = max(12.0, min(18.0, float(node_h) / 6.0))
         return (
-            self.to_screen(node.x) + 4,
-            self.to_screen(node.y) + self.card_screen_height() - y_offset,
+            int(round(node_x + 4.0)),
+            int(round(node_y + float(node_h) - y_offset)),
         )
 
     def node_output_anchor(self, node: CanvasNode) -> tuple[int, int]:
-        y_offset = max(12, min(18, self.card_screen_height() // 6))
+        node_x, node_y, node_w, node_h = self.node_screen_geometry(node)
+        y_offset = max(12.0, min(18.0, float(node_h) / 6.0))
         return (
-            self.to_screen(node.x) + self.card_screen_width() - 4,
-            self.to_screen(node.y) + self.card_screen_height() - y_offset,
+            int(round(node_x + float(node_w) - 4.0)),
+            int(round(node_y + float(node_h) - y_offset)),
         )
 
-    def node_output_handle_local_anchor(self) -> tuple[float, float]:
-        y_offset = max(12, min(18, self.card_screen_height() // 6))
+    def node_output_handle_local_anchor(self, node_id: str | None = None) -> tuple[float, float]:
+        node_width = float(self.card_screen_width())
+        node_height = float(self.card_screen_height())
+        if node_id:
+            widget = self.node_widgets.get(node_id)
+            if widget:
+                node_width = float(widget.get_allocated_width() or int(node_width))
+                node_height = float(widget.get_allocated_height() or int(node_height))
+        y_offset = max(12.0, min(18.0, float(node_height) / 6.0))
         return (
-            float(self.card_screen_width() - 4),
-            float(self.card_screen_height() - y_offset),
+            float(node_width - 4.0),
+            float(node_height - y_offset),
         )
 
-    def is_output_handle_grab(self, local_x: float, local_y: float) -> bool:
-        anchor_x, anchor_y = self.node_output_handle_local_anchor()
+    def is_output_handle_grab(
+        self,
+        local_x: float,
+        local_y: float,
+        node_id: str | None = None,
+    ) -> bool:
+        anchor_x, anchor_y = self.node_output_handle_local_anchor(node_id)
         dx = float(local_x) - anchor_x
         dy = float(local_y) - anchor_y
-        radius = max(18.0, min(32.0, float(self.card_screen_width()) * 0.18))
+        radius = max(14.0, min(28.0, anchor_x * 0.18))
         return (dx * dx) + (dy * dy) <= (radius * radius)
 
     def find_node(self, node_id: str) -> CanvasNode | None:
@@ -10495,10 +10579,7 @@ class CanvasView(Gtk.Box):
         for node in reversed(self.nodes):
             if exclude_node_id and node.id == exclude_node_id:
                 continue
-            node_x = self.to_screen(node.x)
-            node_y = self.to_screen(node.y)
-            node_width = self.card_screen_width()
-            node_height = self.card_screen_height()
+            node_x, node_y, node_width, node_height = self.node_screen_geometry(node)
             if node_x <= x <= (node_x + node_width) and node_y <= y <= (node_y + node_height):
                 return node
         return None
