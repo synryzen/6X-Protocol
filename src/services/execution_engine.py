@@ -32,6 +32,13 @@ class ApprovalRequiredError(RuntimeError):
 
 
 class ExecutionEngine:
+    TRIGGER_MODE_EXECUTION_PROFILES = {
+        "manual": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0},
+        "schedule_interval": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 20.0},
+        "cron": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 20.0},
+        "webhook": {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0},
+        "file_watch": {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0},
+    }
     ACTION_FAST_INTEGRATIONS = {
         "slack_webhook",
         "discord_webhook",
@@ -1934,12 +1941,57 @@ class ExecutionEngine:
             return "condition"
         return normalized
 
+    def _normalize_trigger_mode(self, mode: str) -> str:
+        normalized = str(mode or "").strip().lower()
+        aliases = {
+            "schedule": "schedule_interval",
+            "interval": "schedule_interval",
+            "webhook_event": "webhook",
+            "file": "file_watch",
+            "watch": "file_watch",
+        }
+        resolved = aliases.get(normalized, normalized)
+        if resolved in self.TRIGGER_MODE_EXECUTION_PROFILES:
+            return resolved
+        return "manual"
+
+    def _trigger_mode_for_defaults(self, node: CanvasNode) -> str:
+        mode = self._normalize_trigger_mode(node.config.get("trigger_mode", ""))
+        if mode != "manual":
+            return mode
+
+        detail_text = str(node.detail or "").strip()
+        detail_lower = detail_text.lower()
+        directives = self._parse_directives(detail_text)
+
+        mode_from_directive = self._normalize_trigger_mode(
+            directives.get("trigger_mode", directives.get("trigger", ""))
+        )
+        if mode_from_directive != "manual":
+            return mode_from_directive
+
+        if detail_lower.startswith("schedule:"):
+            return "schedule_interval"
+        if detail_lower.startswith("webhook:"):
+            return "webhook"
+        if detail_lower.startswith("file_watch:"):
+            return "file_watch"
+        if detail_lower.startswith("cron:"):
+            return "cron"
+        return "manual"
+
     def _node_execution_defaults(self, node: CanvasNode) -> Dict[str, float]:
         node_kind = self._node_kind(node.node_type)
         integration = str(node.config.get("integration", "")).strip().lower()
 
         if node_kind == "trigger":
-            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0}
+            trigger_mode = self._trigger_mode_for_defaults(node)
+            return dict(
+                self.TRIGGER_MODE_EXECUTION_PROFILES.get(
+                    trigger_mode,
+                    self.TRIGGER_MODE_EXECUTION_PROFILES["manual"],
+                )
+            )
         if node_kind == "condition":
             return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 8.0}
         if node_kind == "ai":

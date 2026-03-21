@@ -990,6 +990,31 @@ class DockerRunControllerTests(unittest.TestCase):
         self.assertIn("redis_command", str(completed.get("summary", "")))
         self.assertIn("requires command", str(completed.get("summary", "")))
 
+    def test_trigger_execution_defaults_follow_mode_profiles(self):
+        node = {
+            "id": "t_webhook_defaults",
+            "name": "Webhook Trigger",
+            "type": "trigger",
+            "config": {"trigger_mode": "webhook"},
+        }
+        self.assertEqual(
+            {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0},
+            self.controller._node_execution_defaults(node),
+        )
+
+    def test_trigger_execution_defaults_infer_mode_from_detail(self):
+        node = {
+            "id": "t_schedule_defaults",
+            "name": "Schedule Trigger",
+            "type": "trigger",
+            "detail": "schedule:30",
+            "config": {},
+        }
+        self.assertEqual(
+            {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 20.0},
+            self.controller._node_execution_defaults(node),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

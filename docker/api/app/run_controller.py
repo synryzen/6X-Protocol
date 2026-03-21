@@ -38,6 +38,13 @@ class RunCancelledError(RuntimeError):
 
 
 class RunController:
+    TRIGGER_MODE_EXECUTION_PROFILES = {
+        "manual": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0},
+        "schedule_interval": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 20.0},
+        "cron": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 20.0},
+        "webhook": {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0},
+        "file_watch": {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0},
+    }
     ACTION_FAST_INTEGRATIONS = {
         "slack_webhook",
         "discord_webhook",
@@ -1710,7 +1717,17 @@ class RunController:
         ).strip().lower()
 
         if node_kind == "trigger":
-            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0}
+            trigger_mode, _ = self._resolve_trigger_context(
+                node=node,
+                config=config,
+                metadata=metadata,
+            )
+            return dict(
+                self.TRIGGER_MODE_EXECUTION_PROFILES.get(
+                    trigger_mode,
+                    self.TRIGGER_MODE_EXECUTION_PROFILES["manual"],
+                )
+            )
         if node_kind == "condition":
             return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 8.0}
         if node_kind == "ai":

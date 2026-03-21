@@ -1,5 +1,6 @@
 import unittest
 
+from src.models.canvas_node import CanvasNode
 from src.models.workflow import Workflow
 from src.services.execution_engine import ExecutionEngine
 
@@ -162,6 +163,44 @@ class ExecutionEngineErrorPolicyTests(unittest.TestCase):
         self.assertEqual("failed", run.status)
         self.assertEqual("a1", run.last_failed_node_id)
         self.assertIn("missing_node", run.summary)
+
+    def test_trigger_execution_defaults_follow_trigger_mode_profiles(self):
+        cases = [
+            ("manual", {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0}),
+            ("schedule_interval", {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 20.0}),
+            ("cron", {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 20.0}),
+            ("webhook", {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0}),
+            ("file_watch", {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0}),
+        ]
+        for mode, expected in cases:
+            with self.subTest(mode=mode):
+                node = CanvasNode(
+                    id=f"t_{mode}",
+                    name=f"Trigger {mode}",
+                    node_type="trigger",
+                    detail=f"trigger:{mode}",
+                    summary="",
+                    x=0,
+                    y=0,
+                    config={"trigger_mode": mode},
+                )
+                self.assertEqual(expected, self.engine._node_execution_defaults(node))
+
+    def test_trigger_execution_defaults_infer_mode_from_detail(self):
+        node = CanvasNode(
+            id="t_webhook",
+            name="Webhook Trigger",
+            node_type="trigger",
+            detail="webhook:/incoming/orders",
+            summary="",
+            x=0,
+            y=0,
+            config={},
+        )
+        self.assertEqual(
+            {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0},
+            self.engine._node_execution_defaults(node),
+        )
 
 
 if __name__ == "__main__":

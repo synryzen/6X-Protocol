@@ -13,6 +13,9 @@ All notable changes to this project are documented here.
   context can auto-tune retry/backoff/timeout behavior.
 - New nodes now persist baseline execution defaults at creation time so run
   behavior is deterministic before first manual edit.
+- Execution runtime defaults are now aligned with canvas trigger profiles in
+  both desktop and Docker/web engines (manual/interval/cron/webhook/file-watch)
+  so retry/backoff/timeout behavior is consistent across UI and API runs.
 - Docker/web runtime status synchronized with latest smoke validation:
   end-to-end compose test now confirms run start/cancel/retry flows, retry-from-
   failed-node replay, timeout/retry/backoff behavior, routing timeline filters,
