@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Canvas drag/link stability now enforces a single drag owner per gesture
+  sequence (stage fallback vs node controller), preventing competing handlers
+  from fighting and causing node shake or frozen drags.
+- Canvas node hit-testing and connector anchors now use live widget geometry
+  instead of fixed card constants, improving click/drag/select/link accuracy
+  across theme density/layout changes.
 - Canvas node interaction reliability hardened again:
   stage/node gesture arbitration tightened, node hit fallback now keeps inspector
   selection in sync, and output port drag hit-targets are easier to catch for
