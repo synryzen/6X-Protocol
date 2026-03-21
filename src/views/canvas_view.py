@@ -194,6 +194,7 @@ class CanvasView(Gtk.Box):
         self.node_execution_preset_buttons: dict[str, Gtk.ToggleButton] = {}
         self.loading_node_execution_preset = False
         self.node_drag_active = False
+        self.node_drag_moved = False
         self.stage_drag_node_id: str | None = None
         self.suppress_next_node_click = False
         self.zoom_factor = 1.0
@@ -1922,6 +1923,7 @@ class CanvasView(Gtk.Box):
         self.drag_origin = {}
         self.drag_group_origins = {}
         self.node_drag_active = False
+        self.node_drag_moved = False
         self.drag_history_captured = False
         self.drag_guide_x = None
         self.drag_guide_y = None
@@ -8205,7 +8207,7 @@ class CanvasView(Gtk.Box):
         drag = Gtk.GestureDrag()
         drag.set_button(Gdk.BUTTON_PRIMARY)
         drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
-        drag.set_exclusive(True)
+        drag.set_exclusive(False)
         drag.connect("drag-begin", self.on_node_drag_begin, node.id)
         drag.connect("drag-update", self.on_node_drag_update, node.id)
         drag.connect("drag-end", self.on_node_drag_end, node.id)
@@ -8455,7 +8457,6 @@ class CanvasView(Gtk.Box):
 
     def on_node_pressed(self, gesture: Gtk.GestureClick, _n_press, _x, _y, node_id: str):
         self.grab_focus()
-        self.suppress_stage_click_once = True
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active and not self.drag_origin:
@@ -8818,6 +8819,7 @@ class CanvasView(Gtk.Box):
                 pointer_stage_x = float(self.to_screen(node.x))
                 pointer_stage_y = float(self.to_screen(node.y))
         self.node_drag_active = True
+        self.node_drag_moved = False
         self.drag_origin = {
             "node_id": node_id,
             "x": node.x,
@@ -8830,8 +8832,7 @@ class CanvasView(Gtk.Box):
             for item in self.nodes
             if item.id in self.selected_node_ids
         }
-        self.push_undo_snapshot()
-        self.drag_history_captured = True
+        self.drag_history_captured = False
         self.drag_guide_x = None
         self.drag_guide_y = None
         self.suppress_stage_click_once = True
@@ -8911,6 +8912,10 @@ class CanvasView(Gtk.Box):
 
         delta_x = int(snapped_x - start_x)
         delta_y = int(snapped_y - start_y)
+        if (delta_x != 0 or delta_y != 0) and not self.drag_history_captured:
+            self.push_undo_snapshot()
+            self.drag_history_captured = True
+            self.node_drag_moved = True
         max_x = max(0, self.STAGE_WIDTH - self.CARD_WIDTH)
         max_y = max(0, self.STAGE_HEIGHT - self.CARD_HEIGHT)
         for drag_node_id, (origin_x, origin_y) in self.drag_group_origins.items():
@@ -8954,27 +8959,46 @@ class CanvasView(Gtk.Box):
             self.drag_origin = {}
             self.drag_group_origins = {}
             self.node_drag_active = False
+            self.node_drag_moved = False
             self.drag_history_captured = False
             self.drag_guide_x = None
             self.drag_guide_y = None
             self.set_node_drag_cursor("grab")
             return
 
+        moved = self.node_drag_moved
         self.drag_origin = {}
         self.drag_group_origins = {}
         self.node_drag_active = False
+        self.node_drag_moved = False
         self.drag_history_captured = False
         self.drag_guide_x = None
         self.drag_guide_y = None
         self.link_layer.queue_draw()
         self.set_node_drag_cursor("grab")
-        self.suppress_next_node_click = True
-        GLib.timeout_add(80, self.release_suppressed_click)
         node = self.find_node(node_id)
+        if moved:
+            self.suppress_next_node_click = True
+            GLib.timeout_add(80, self.release_suppressed_click)
+            if node:
+                self.update_inspector(node)
+            self.maybe_auto_save("Node moved and auto-saved.")
+            self.inline_validate_graph()
+            return
+
+        # Treat non-moving drags as click-like selection so inspector updates are reliable.
         if node:
+            previous_selected = self.selected_node_id
+            previous_selection_set = set(self.selected_node_ids)
+            self.set_single_selection(node_id)
+            self.apply_selection_set_visual_state(
+                previous_selection_set,
+                self.selected_node_ids,
+                previous_selected,
+                self.selected_node_id,
+            )
             self.update_inspector(node)
-        self.maybe_auto_save("Node moved and auto-saved.")
-        self.inline_validate_graph()
+            self.update_control_state()
 
     def release_suppressed_click(self):
         self.suppress_next_node_click = False
