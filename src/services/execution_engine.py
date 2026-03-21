@@ -378,25 +378,109 @@ class ExecutionEngine:
                     )
                     return finish("cancelled", "Run cancelled by user.", steps)
                 error_message = f"Node '{current_node.name}' failed: {error}"
-                steps.append(error_message)
-                timeline.append(
-                    self._timeline_event(
-                        current_node.id,
-                        current_node.name,
+                error_policy = self._resolve_node_error_policy(current_node)
+                error_mode = str(error_policy.get("mode", "fail")).strip().lower()
+
+                if error_mode in {"continue", "goto"}:
+                    if error_mode == "goto":
+                        forced_next_id = str(
+                            error_policy.get("target_node_id", "")
+                        ).strip()
+                        if not forced_next_id:
+                            message = (
+                                f"{error_message} Error strategy requested goto but no target was set."
+                            )
+                            steps.append(message)
+                            timeline.append(
+                                self._timeline_event(
+                                    current_node.id,
+                                    current_node.name,
+                                    "failed",
+                                    message,
+                                    attempt=1,
+                                    duration_ms=0,
+                                    context=context,
+                                )
+                            )
+                            return finish(
+                                "failed",
+                                message,
+                                steps,
+                                last_failed_node_id=current_node.id,
+                                last_failed_node_name=current_node.name,
+                            )
+                        if forced_next_id not in node_map:
+                            message = (
+                                f"{error_message} Error strategy target '{forced_next_id}' was not found."
+                            )
+                            steps.append(message)
+                            timeline.append(
+                                self._timeline_event(
+                                    current_node.id,
+                                    current_node.name,
+                                    "failed",
+                                    message,
+                                    attempt=1,
+                                    duration_ms=0,
+                                    context=context,
+                                )
+                            )
+                            return finish(
+                                "failed",
+                                message,
+                                steps,
+                                last_failed_node_id=current_node.id,
+                                last_failed_node_name=current_node.name,
+                            )
+                        continue_message = (
+                            f"{error_message} Continuing via on_error='goto:{forced_next_id}'."
+                        )
+                    else:
+                        forced_next_id = self._default_next_node_id(current_node.id, outgoing_map)
+                        if forced_next_id:
+                            continue_message = (
+                                f"{error_message} Continuing via on_error='continue'."
+                            )
+                        else:
+                            continue_message = (
+                                f"{error_message} on_error='continue' had no downstream edge; run will stop gracefully."
+                            )
+                    steps.append(continue_message)
+                    context["last_status"] = "failed"
+                    context["last_error"] = str(error)
+                    timeline.append(
+                        self._timeline_event(
+                            current_node.id,
+                            current_node.name,
+                            "warning",
+                            continue_message,
+                            attempt=1,
+                            duration_ms=0,
+                            context=context,
+                        )
+                    )
+                else:
+                    steps.append(error_message)
+                    context["last_status"] = "failed"
+                    context["last_error"] = str(error)
+                    timeline.append(
+                        self._timeline_event(
+                            current_node.id,
+                            current_node.name,
+                            "failed",
+                            error_message,
+                            attempt=1,
+                            duration_ms=0,
+                            context=context,
+                        )
+                    )
+                    return finish(
                         "failed",
                         error_message,
-                        attempt=1,
-                        duration_ms=0,
-                        context=context,
+                        steps,
+                        last_failed_node_id=current_node.id,
+                        last_failed_node_name=current_node.name,
                     )
-                )
-                return finish(
-                    "failed",
-                    error_message,
-                    steps,
-                    last_failed_node_id=current_node.id,
-                    last_failed_node_name=current_node.name,
-                )
 
             if cancel_check and cancel_check():
                 message = "Run cancelled by user."
@@ -1718,6 +1802,23 @@ class ExecutionEngine:
 
         return nodes[0] if nodes else None
 
+    def _default_next_node_id(
+        self,
+        source_node_id: str,
+        outgoing_map: Dict[str, List[CanvasEdge]],
+    ) -> str:
+        outgoing = outgoing_map.get(source_node_id, [])
+        if not outgoing:
+            return ""
+        preferred = [
+            edge
+            for edge in outgoing
+            if str(edge.condition).strip().lower() in {"", "next", "default"}
+        ]
+        if preferred:
+            return str(preferred[0].target_node_id).strip()
+        return str(outgoing[0].target_node_id).strip()
+
     def _parse_directives(self, text: str) -> Dict[str, str]:
         directives: Dict[str, str] = {}
 
@@ -1729,6 +1830,49 @@ class ExecutionEngine:
             directives[key.strip().lower()] = value.strip()
 
         return directives
+
+    def _resolve_node_error_policy(self, node: CanvasNode) -> Dict[str, str]:
+        directives = self._parse_directives(node.detail)
+        config = node.config if isinstance(node.config, dict) else {}
+
+        raw_mode = (
+            str(config.get("on_error", "")).strip()
+            or str(config.get("error_mode", "")).strip()
+            or str(directives.get("on_error", "")).strip()
+            or str(directives.get("error_mode", "")).strip()
+        )
+        target_node_id = (
+            str(config.get("error_target_node_id", "")).strip()
+            or str(config.get("on_error_target", "")).strip()
+            or str(config.get("error_target", "")).strip()
+            or str(directives.get("error_target_node_id", "")).strip()
+            or str(directives.get("on_error_target", "")).strip()
+            or str(directives.get("error_target", "")).strip()
+        )
+
+        normalized = str(raw_mode).strip().lower()
+        if ":" in normalized:
+            prefix, value = normalized.split(":", 1)
+            prefix = prefix.strip()
+            value = value.strip()
+            if prefix in {"goto", "route", "target"}:
+                normalized = "goto"
+                if value and not target_node_id:
+                    target_node_id = value
+            else:
+                normalized = prefix
+
+        if normalized in {"continue", "next", "skip"}:
+            mode = "continue"
+        elif normalized in {"goto", "route", "target"}:
+            mode = "goto"
+        else:
+            mode = "fail"
+
+        return {
+            "mode": mode,
+            "target_node_id": target_node_id,
+        }
 
     def _resolve_node_execution_policy(
         self,
