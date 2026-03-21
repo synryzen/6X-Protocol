@@ -8,6 +8,11 @@ All notable changes to this project are documented here.
   stage/node gesture arbitration tightened, node hit fallback now keeps inspector
   selection in sync, and output port drag hit-targets are easier to catch for
   wire linking.
+- Canvas gesture stability received another reliability pass:
+  stage Shift-select drag no longer competes with normal node drag/link
+  gestures, clicked-node fallback now always refreshes inspector state, spawn
+  placement avoids overlap via ring/grid probing, and output-port wire drags use
+  live pointer tracking for more consistent release-to-connect behavior.
 - Canvas node settings now apply context-aware execution defaults:
   trigger mode profiles (manual/interval/cron/webhook/watch) and action template
   context can auto-tune retry/backoff/timeout behavior.
