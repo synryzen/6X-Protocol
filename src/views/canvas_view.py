@@ -2007,18 +2007,21 @@ class CanvasView(Gtk.Box):
 
     def on_stage_select_drag_begin(self, gesture: Gtk.GestureDrag, start_x: float, start_y: float):
         self.stage_drag_node_id = None
+        stage_point = self.gesture_stage_point(gesture)
+        pointer_x = float(stage_point[0]) if stage_point else float(start_x)
+        pointer_y = float(stage_point[1]) if stage_point else float(start_y)
         state = gesture.get_current_event_state()
         selection_modifiers = Gdk.ModifierType.SHIFT_MASK
-        hit_node = self.find_node_at_point(int(start_x), int(start_y))
+        hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
 
         # If drag starts over a node and we're not box-selecting, prefer node gestures.
         # But if gesture arbitration misses on some environments, fall back to stage-driven
         # node drag so click-hold-move remains reliable.
         if hit_node and not bool(state & Gdk.ModifierType.SHIFT_MASK):
-            node_screen_x = self.to_screen(hit_node.x)
-            node_screen_y = self.to_screen(hit_node.y)
-            local_x = float(start_x) - float(node_screen_x)
-            local_y = float(start_y) - float(node_screen_y)
+            node_screen_x = float(self.to_screen(hit_node.x))
+            node_screen_y = float(self.to_screen(hit_node.y))
+            local_x = pointer_x - node_screen_x
+            local_y = pointer_y - node_screen_y
             if self.is_output_handle_grab(local_x, local_y):
                 # Keep output-port drag reserved for wire-link behavior.
                 gesture.set_state(Gtk.EventSequenceState.DENIED)
@@ -2052,8 +2055,8 @@ class CanvasView(Gtk.Box):
                 "node_id": hit_node.id,
                 "x": hit_node.x,
                 "y": hit_node.y,
-                "pointer_stage_x": float(start_x),
-                "pointer_stage_y": float(start_y),
+                "pointer_stage_x": pointer_x,
+                "pointer_stage_y": pointer_y,
             }
             self.drag_group_origins = {
                 item.id: (item.x, item.y)
@@ -2065,7 +2068,7 @@ class CanvasView(Gtk.Box):
             self.drag_guide_y = None
             self.suppress_stage_click_once = True
             self.stage_drag_node_id = hit_node.id
-            self.stage_drag_origin = {"x": float(start_x), "y": float(start_y)}
+            self.stage_drag_origin = {"x": pointer_x, "y": pointer_y}
             self.set_node_drag_cursor("grabbing")
             gesture.set_state(Gtk.EventSequenceState.CLAIMED)
             return
@@ -2084,10 +2087,10 @@ class CanvasView(Gtk.Box):
             return
         additive = bool(state & selection_modifiers)
         self.selection_rect_active = True
-        self.selection_rect_start_x = float(start_x)
-        self.selection_rect_start_y = float(start_y)
-        self.selection_rect_end_x = float(start_x)
-        self.selection_rect_end_y = float(start_y)
+        self.selection_rect_start_x = pointer_x
+        self.selection_rect_start_y = pointer_y
+        self.selection_rect_end_x = pointer_x
+        self.selection_rect_end_y = pointer_y
         self.selection_additive = additive
         self.selection_base_ids = set(self.selected_node_ids) if additive else set()
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
@@ -8656,7 +8659,11 @@ class CanvasView(Gtk.Box):
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active:
-            self.reset_node_drag_state()
+            # Let drag-end own state cleanup. Resetting here can interrupt active drags.
+            if self.drag_origin.get("node_id") == node_id:
+                return
+            if not self.drag_origin:
+                self.reset_node_drag_state()
         if self.suppress_next_node_click:
             self.suppress_next_node_click = False
             return
@@ -8748,8 +8755,21 @@ class CanvasView(Gtk.Box):
             return
         hit_node = self.find_node_at_point(int(x), int(y))
         if hit_node:
-            # Node widgets own node selection/link/drag interactions. Ignore stage fallback
-            # when the release occurs over a node so stage gestures do not race node gestures.
+            # Fallback: if node-level click did not run (gesture ownership race), keep
+            # inspector/selection consistent by selecting the clicked node here.
+            if self.selected_node_id != hit_node.id or hit_node.id not in self.selected_node_ids:
+                previous_selected = self.selected_node_id
+                previous_selection_set = set(self.selected_node_ids)
+                self.set_single_selection(hit_node.id)
+                self.apply_selection_set_visual_state(
+                    previous_selection_set,
+                    self.selected_node_ids,
+                    previous_selected,
+                    self.selected_node_id,
+                )
+                self.update_inspector(hit_node)
+                self.update_control_state()
+                self.link_layer.queue_draw()
             return
 
         if not self.get_selected_node() and not self.pending_link_source_id:
