@@ -8251,6 +8251,7 @@ class CanvasView(Gtk.Box):
         output_port: Gtk.Widget,
     ):
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        self.suppress_stage_click_once = True
         self.port_drag_just_finished = False
         success, stage_x, stage_y = output_port.translate_coordinates(
             self.fixed,
@@ -8450,6 +8451,7 @@ class CanvasView(Gtk.Box):
 
     def on_node_pressed(self, gesture: Gtk.GestureClick, _n_press, _x, _y, node_id: str):
         self.grab_focus()
+        self.suppress_stage_click_once = True
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active and not self.drag_origin:
