@@ -1,6 +1,4 @@
-import json
 from dataclasses import dataclass, field
-import re
 from typing import Dict, List, Optional
 
 from src.models.canvas_edge import CanvasEdge
@@ -75,7 +73,6 @@ class ValidationResult:
 
 class WorkflowValidationService:
     VALID_EDGE_CONDITIONS = {"", "next", "true", "false"}
-    VALID_ON_ERROR_MODES = {"fail", "continue", "goto"}
     REQUIRED_FIELD_ALIASES = {
         "url": ["webhook_url", "script_url", "connection_url"],
         "webhook_url": ["url"],
@@ -90,98 +87,6 @@ class WorkflowValidationService:
         "message": ["payload", "text", "content", "approval_message"],
         "text": ["message", "payload", "content"],
         "content": ["message", "payload", "text"],
-    }
-    VALID_TRIGGER_MODES = {"manual", "schedule_interval", "webhook", "file_watch", "cron"}
-    VALID_HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
-    URL_REQUIRED_INTEGRATIONS = {
-        "http_post",
-        "http_request",
-        "slack_webhook",
-        "discord_webhook",
-        "teams_webhook",
-        "google_apps_script",
-        "google_calendar_api",
-        "outlook_graph",
-        "notion_api",
-        "airtable_api",
-        "hubspot_api",
-        "stripe_api",
-        "github_rest",
-        "gitlab_api",
-        "jira_api",
-        "asana_api",
-        "clickup_api",
-        "trello_api",
-        "monday_api",
-        "zendesk_api",
-        "pipedrive_api",
-        "salesforce_api",
-        "google_drive_api",
-        "dropbox_api",
-        "shopify_api",
-        "webflow_api",
-        "supabase_api",
-        "openrouter_api",
-        "resend_email",
-        "mailgun_email",
-    }
-    HEADERS_JSON_INTEGRATIONS = {
-        "http_request",
-        "notion_api",
-        "airtable_api",
-        "hubspot_api",
-        "stripe_api",
-        "github_rest",
-        "gitlab_api",
-        "google_calendar_api",
-        "outlook_graph",
-        "jira_api",
-        "asana_api",
-        "clickup_api",
-        "trello_api",
-        "monday_api",
-        "zendesk_api",
-        "pipedrive_api",
-        "salesforce_api",
-        "google_drive_api",
-        "dropbox_api",
-        "shopify_api",
-        "webflow_api",
-        "supabase_api",
-        "openrouter_api",
-    }
-    JSON_PAYLOAD_INTEGRATIONS = {
-        "http_request",
-        "http_post",
-        "google_apps_script",
-        "google_sheets",
-        "google_calendar_api",
-        "notion_api",
-        "airtable_api",
-        "hubspot_api",
-        "stripe_api",
-        "github_rest",
-        "gitlab_api",
-        "linear_api",
-        "outlook_graph",
-        "jira_api",
-        "asana_api",
-        "clickup_api",
-        "trello_api",
-        "monday_api",
-        "zendesk_api",
-        "pipedrive_api",
-        "salesforce_api",
-        "google_drive_api",
-        "dropbox_api",
-        "shopify_api",
-        "webflow_api",
-        "supabase_api",
-        "openrouter_api",
-        "telegram_bot",
-        "twilio_sms",
-        "resend_email",
-        "mailgun_email",
     }
 
     def __init__(
@@ -277,8 +182,6 @@ class WorkflowValidationService:
             incoming_count[target] += 1
             outgoing_count[source] += 1
 
-        self._validate_node_error_policies(node_map, outgoing_count, result)
-
         start_nodes = [node_id for node_id, count in incoming_count.items() if count == 0]
         if not start_nodes:
             result.add_error("Graph has no start node (all nodes have incoming edges).")
@@ -310,7 +213,7 @@ class WorkflowValidationService:
         config.update(directives)
         node_name = node.name.strip() or node.id or "Unnamed"
 
-        if node_kind in {"action", "template"}:
+        if node_kind == "action":
             integration_key = str(config.get("integration", "standard")).strip().lower() or "standard"
             integration = self.integration_registry.get_integration(integration_key)
             if not integration:
@@ -336,14 +239,6 @@ class WorkflowValidationService:
                             f"Action node '{node_name}' is missing required field '{key}'.",
                             node_id=node.id,
                         )
-            self._validate_action_contract_fields(
-                node=node,
-                node_name=node_name,
-                integration_key=integration_key,
-                config=config,
-                app_settings=app_settings,
-                result=result,
-            )
 
         if node_kind == "ai":
             prompt = str(config.get("prompt", "")).strip() or node.summary.strip()
@@ -391,432 +286,6 @@ class WorkflowValidationService:
                     node_id=node.id,
                 )
 
-        if node_kind == "trigger":
-            self._validate_trigger_contract_fields(
-                node=node,
-                node_name=node_name,
-                config=config,
-                result=result,
-            )
-
-    def _validate_action_contract_fields(
-        self,
-        *,
-        node: CanvasNode,
-        node_name: str,
-        integration_key: str,
-        config: Dict[str, str],
-        app_settings: Dict[str, str],
-        result: ValidationResult,
-    ):
-        timeout_raw = str(config.get("timeout_sec", "")).strip()
-        if timeout_raw:
-            try:
-                timeout_value = float(timeout_raw)
-                if timeout_value < 0.0:
-                    result.add_error(
-                        f"Action node '{node_name}' timeout_sec must be >= 0.",
-                        node_id=node.id,
-                    )
-                elif timeout_value > 600.0:
-                    result.add_warning(
-                        f"Action node '{node_name}' timeout_sec is very high ({timeout_value}).",
-                        node_id=node.id,
-                    )
-            except ValueError:
-                result.add_error(
-                    f"Action node '{node_name}' timeout_sec is not a number.",
-                    node_id=node.id,
-                )
-
-        retry_raw = str(config.get("retry_max", "")).strip()
-        if retry_raw:
-            try:
-                retry_value = int(retry_raw)
-                if retry_value < 0:
-                    result.add_error(
-                        f"Action node '{node_name}' retry_max must be >= 0.",
-                        node_id=node.id,
-                    )
-                elif retry_value > 8:
-                    result.add_warning(
-                        f"Action node '{node_name}' retry_max is very high ({retry_value}).",
-                        node_id=node.id,
-                    )
-            except ValueError:
-                result.add_error(
-                    f"Action node '{node_name}' retry_max must be a whole number.",
-                    node_id=node.id,
-                )
-
-        backoff_raw = str(config.get("retry_backoff_ms", "")).strip()
-        if backoff_raw:
-            try:
-                backoff_value = int(backoff_raw)
-                if backoff_value < 0:
-                    result.add_error(
-                        f"Action node '{node_name}' retry_backoff_ms must be >= 0.",
-                        node_id=node.id,
-                    )
-            except ValueError:
-                result.add_error(
-                    f"Action node '{node_name}' retry_backoff_ms must be a whole number.",
-                    node_id=node.id,
-                )
-
-        if integration_key in self.URL_REQUIRED_INTEGRATIONS:
-            url_value = self._required_field_value(
-                config,
-                "url",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            if url_value and not self._looks_like_url(url_value):
-                result.add_error(
-                    f"Action node '{node_name}' has invalid URL '{url_value}'.",
-                    node_id=node.id,
-                )
-
-        if integration_key in {"http_request", "http_post"}:
-            method_value = str(config.get("method", "POST")).strip().upper()
-            if method_value and method_value not in self.VALID_HTTP_METHODS:
-                result.add_error(
-                    f"Action node '{node_name}' has invalid HTTP method '{method_value}'.",
-                    node_id=node.id,
-                )
-
-        headers_raw = str(config.get("headers", "")).strip()
-        if headers_raw and integration_key in self.HEADERS_JSON_INTEGRATIONS:
-            try:
-                parsed_headers = json.loads(headers_raw)
-                if not isinstance(parsed_headers, dict):
-                    result.add_error(
-                        f"Action node '{node_name}' headers must be a JSON object.",
-                        node_id=node.id,
-                    )
-            except Exception:
-                result.add_error(
-                    f"Action node '{node_name}' headers must be valid JSON.",
-                    node_id=node.id,
-                )
-
-        payload_raw = str(config.get("payload", "")).strip()
-        if payload_raw and integration_key in self.JSON_PAYLOAD_INTEGRATIONS:
-            try:
-                json.loads(payload_raw)
-            except Exception:
-                result.add_error(
-                    f"Action node '{node_name}' payload must be valid JSON for integration '{integration_key}'.",
-                    node_id=node.id,
-                )
-
-        if integration_key in {"postgres_sql", "mysql_sql"}:
-            connection_url = self._required_field_value(
-                config,
-                "connection_url",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            if connection_url:
-                lowered = connection_url.lower()
-                if integration_key == "postgres_sql" and not lowered.startswith(
-                    ("postgres://", "postgresql://")
-                ):
-                    result.add_error(
-                        f"Action node '{node_name}' connection_url must start with postgres:// or postgresql://.",
-                        node_id=node.id,
-                    )
-                if integration_key == "mysql_sql" and not lowered.startswith(("mysql://", "mysql2://")):
-                    result.add_error(
-                        f"Action node '{node_name}' connection_url must start with mysql:// or mysql2://.",
-                        node_id=node.id,
-                    )
-
-        if integration_key == "redis_command":
-            connection_url = self._required_field_value(
-                config,
-                "connection_url",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            if connection_url and not connection_url.lower().startswith(("redis://", "rediss://")):
-                result.add_error(
-                    f"Action node '{node_name}' redis connection_url must start with redis:// or rediss://.",
-                    node_id=node.id,
-                )
-            command_value = self._required_field_value(
-                config,
-                "command",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            if command_value.lower().startswith("redis-cli"):
-                result.add_warning(
-                    f"Action node '{node_name}' command should omit 'redis-cli' prefix.",
-                    node_id=node.id,
-                )
-
-        if integration_key == "s3_cli":
-            command_value = self._required_field_value(
-                config,
-                "command",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            lowered = command_value.lower()
-            if lowered and not (lowered.startswith("aws ") or lowered.startswith("s3 ")):
-                result.add_warning(
-                    f"Action node '{node_name}' command should start with 's3' or 'aws s3'.",
-                    node_id=node.id,
-                )
-
-        if integration_key in {"postgres_sql", "mysql_sql", "sqlite_sql"}:
-            sql_value = self._required_field_value(
-                config,
-                "sql",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            if sql_value and len(sql_value.strip()) < 6:
-                result.add_warning(
-                    f"Action node '{node_name}' SQL query appears very short.",
-                    node_id=node.id,
-                )
-        if integration_key == "sqlite_sql":
-            path_value = self._required_field_value(
-                config,
-                "path",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            if path_value and not path_value.lower().endswith((".db", ".sqlite", ".sqlite3")):
-                result.add_warning(
-                    f"Action node '{node_name}' SQLite path should usually end with .db/.sqlite.",
-                    node_id=node.id,
-                )
-
-        if integration_key in {"gmail_send", "resend_email", "mailgun_email"}:
-            to_value = self._required_field_value(
-                config,
-                "to",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            if to_value and not self._looks_like_email(to_value):
-                result.add_error(
-                    f"Action node '{node_name}' has invalid recipient email '{to_value}'.",
-                    node_id=node.id,
-                )
-            from_value = self._required_field_value(
-                config,
-                "from",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            if from_value and from_value != "me" and not self._looks_like_email(from_value):
-                result.add_error(
-                    f"Action node '{node_name}' has invalid sender email '{from_value}'.",
-                    node_id=node.id,
-                )
-
-        if integration_key == "twilio_sms":
-            from_value = self._required_field_value(
-                config,
-                "from",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            to_value = self._required_field_value(
-                config,
-                "to",
-                integration_key=integration_key,
-                app_settings=app_settings,
-            )
-            if from_value and not self._looks_like_phone(from_value):
-                result.add_error(
-                    f"Action node '{node_name}' has invalid Twilio from number '{from_value}'.",
-                    node_id=node.id,
-                )
-            if to_value and not self._looks_like_phone(to_value):
-                result.add_error(
-                    f"Action node '{node_name}' has invalid Twilio to number '{to_value}'.",
-                    node_id=node.id,
-                )
-
-    def _validate_trigger_contract_fields(
-        self,
-        *,
-        node: CanvasNode,
-        node_name: str,
-        config: Dict[str, str],
-        result: ValidationResult,
-    ):
-        trigger_mode = str(config.get("trigger_mode", "")).strip().lower() or "manual"
-        trigger_value = str(config.get("trigger_value", "")).strip()
-
-        if trigger_mode not in self.VALID_TRIGGER_MODES:
-            result.add_error(
-                f"Trigger node '{node_name}' has unsupported trigger mode '{trigger_mode}'.",
-                node_id=node.id,
-            )
-            return
-
-        if trigger_mode == "schedule_interval":
-            if not trigger_value:
-                result.add_error(
-                    f"Trigger node '{node_name}' requires trigger_value seconds for schedule_interval.",
-                    node_id=node.id,
-                )
-            else:
-                try:
-                    interval_value = float(trigger_value)
-                    if interval_value <= 0:
-                        result.add_error(
-                            f"Trigger node '{node_name}' interval must be > 0 seconds.",
-                            node_id=node.id,
-                        )
-                except ValueError:
-                    result.add_error(
-                        f"Trigger node '{node_name}' interval '{trigger_value}' is not numeric.",
-                        node_id=node.id,
-                    )
-
-        if trigger_mode == "cron":
-            if not trigger_value:
-                result.add_error(
-                    f"Trigger node '{node_name}' requires trigger_value cron expression.",
-                    node_id=node.id,
-                )
-            elif not self._looks_like_cron(trigger_value):
-                result.add_error(
-                    f"Trigger node '{node_name}' has invalid cron expression '{trigger_value}'.",
-                    node_id=node.id,
-                )
-
-        if trigger_mode in {"webhook", "file_watch"} and not trigger_value:
-            result.add_warning(
-                f"Trigger node '{node_name}' has no trigger_value for mode '{trigger_mode}'. Default will be used.",
-                node_id=node.id,
-            )
-
-    def _validate_node_error_policies(
-        self,
-        node_map: Dict[str, CanvasNode],
-        outgoing_count: Dict[str, int],
-        result: ValidationResult,
-    ):
-        for node_id, node in node_map.items():
-            merged_config = self._parse_directives(node.detail)
-            merged_config.update(dict(node.config))
-            node_name = node.name.strip() or node_id or "Unnamed"
-            policy = self._resolve_node_error_policy(merged_config, node.detail)
-            mode = str(policy.get("mode", "fail")).strip().lower()
-            target = str(policy.get("target_node_id", "")).strip()
-            raw_mode = str(policy.get("raw_mode", "")).strip()
-            invalid_mode = bool(policy.get("invalid_mode", False))
-
-            if invalid_mode:
-                result.add_error(
-                    (
-                        f"Node '{node_name}' has unsupported on_error mode "
-                        f"'{raw_mode}'. Use fail, continue, or goto:<node_id>."
-                    ),
-                    node_id=node_id,
-                )
-                continue
-
-            if mode == "goto":
-                if not target:
-                    result.add_error(
-                        f"Node '{node_name}' uses on_error='goto' but has no target node ID.",
-                        node_id=node_id,
-                    )
-                    continue
-                if target == node_id:
-                    result.add_error(
-                        f"Node '{node_name}' uses on_error='goto:{target}' which targets itself.",
-                        node_id=node_id,
-                    )
-                    continue
-                if target not in node_map:
-                    result.add_error(
-                        (
-                            f"Node '{node_name}' uses on_error='goto:{target}' "
-                            "but the target node does not exist."
-                        ),
-                        node_id=node_id,
-                    )
-                    continue
-
-            if mode == "continue" and outgoing_count.get(node_id, 0) == 0:
-                result.add_warning(
-                    (
-                        f"Node '{node_name}' uses on_error='continue' but has no outgoing edge. "
-                        "It will still end the run if it fails."
-                    ),
-                    node_id=node_id,
-                )
-
-            if mode == "fail" and target:
-                result.add_warning(
-                    (
-                        f"Node '{node_name}' defines an on_error target '{target}' "
-                        "but mode is 'fail', so the target is ignored."
-                    ),
-                    node_id=node_id,
-                )
-
-    def _resolve_node_error_policy(self, config: Dict[str, str], detail_text: str) -> Dict[str, object]:
-        directives = self._parse_directives(detail_text)
-        raw_mode = (
-            str(config.get("on_error", "")).strip()
-            or str(config.get("error_mode", "")).strip()
-            or str(directives.get("on_error", "")).strip()
-            or str(directives.get("error_mode", "")).strip()
-        )
-        target_node_id = (
-            str(config.get("error_target_node_id", "")).strip()
-            or str(config.get("on_error_target", "")).strip()
-            or str(config.get("error_target", "")).strip()
-            or str(directives.get("error_target_node_id", "")).strip()
-            or str(directives.get("on_error_target", "")).strip()
-            or str(directives.get("error_target", "")).strip()
-        )
-
-        normalized = str(raw_mode).strip().lower()
-        invalid_mode = False
-        if ":" in normalized:
-            prefix, suffix = normalized.split(":", 1)
-            prefix = prefix.strip()
-            suffix = suffix.strip()
-            if prefix in {"goto", "route", "target"}:
-                normalized = "goto"
-                if suffix and not target_node_id:
-                    target_node_id = suffix
-            elif prefix in {"continue", "next", "skip", "fail", "stop", "error"}:
-                normalized = prefix
-            elif prefix:
-                invalid_mode = True
-                normalized = prefix
-
-        if normalized in {"", "fail", "stop", "error"}:
-            mode = "fail"
-        elif normalized in {"continue", "next", "skip"}:
-            mode = "continue"
-        elif normalized in {"goto", "route", "target"}:
-            mode = "goto"
-        else:
-            mode = "fail"
-            if normalized:
-                invalid_mode = True
-
-        return {
-            "mode": mode,
-            "target_node_id": target_node_id,
-            "raw_mode": raw_mode,
-            "invalid_mode": invalid_mode,
-        }
-
     def _node_type_key(self, node_type: str) -> str:
         normalized = str(node_type).strip().lower()
         if normalized.startswith("trigger"):
@@ -856,7 +325,9 @@ class WorkflowValidationService:
                 continue
             source = str(
                 item.get("source_node_id")
+
                 or item.get("source")
+
                 or item.get("source_id")
                 or item.get("from")
                 or ""
@@ -915,17 +386,6 @@ class WorkflowValidationService:
             value = str(config.get(candidate, "")).strip()
             if value:
                 return value
-        if key in {"spreadsheet_id", "range"}:
-            payload_raw = str(config.get("payload", "")).strip()
-            if payload_raw:
-                try:
-                    payload = json.loads(payload_raw)
-                except Exception:
-                    payload = None
-                if isinstance(payload, dict):
-                    payload_value = str(payload.get(key, "")).strip()
-                    if payload_value:
-                        return payload_value
         settings = app_settings if isinstance(app_settings, dict) else {}
         if settings and integration_key:
             for setting_key in self._setting_keys_for_required_field(
@@ -984,12 +444,6 @@ class WorkflowValidationService:
             "pipedrive_api": {"api_key": ["pipedrive_api_key"], "url": ["pipedrive_api_url"]},
             "salesforce_api": {"api_key": ["salesforce_api_key"], "url": ["salesforce_api_url"]},
             "gitlab_api": {"api_key": ["gitlab_api_key"], "url": ["gitlab_api_url"]},
-            "google_drive_api": {"api_key": ["google_drive_api_key"], "url": ["google_drive_api_url"]},
-            "dropbox_api": {"api_key": ["dropbox_api_key"], "url": ["dropbox_api_url"]},
-            "shopify_api": {"api_key": ["shopify_api_key"], "url": ["shopify_api_url"]},
-            "webflow_api": {"api_key": ["webflow_api_key"], "url": ["webflow_api_url"]},
-            "supabase_api": {"api_key": ["supabase_api_key"], "url": ["supabase_api_url"]},
-            "openrouter_api": {"api_key": ["openrouter_api_key"], "url": ["openrouter_api_url"]},
             "twilio_sms": {
                 "account_sid": ["twilio_account_sid"],
                 "auth_token": ["twilio_auth_token"],
@@ -1011,28 +465,3 @@ class WorkflowValidationService:
         if field == "url":
             return integration_mapping.get("webhook_url", []) + integration_mapping.get("script_url", [])
         return []
-
-    def _looks_like_url(self, value: str) -> bool:
-        text = str(value).strip()
-        if not text:
-            return False
-        return text.startswith("http://") or text.startswith("https://")
-
-    def _looks_like_email(self, value: str) -> bool:
-        text = str(value).strip()
-        if not text:
-            return False
-        return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", text))
-
-    def _looks_like_phone(self, value: str) -> bool:
-        text = str(value).strip()
-        if not text:
-            return False
-        return bool(re.match(r"^\+?[0-9][0-9\-\s]{6,}$", text))
-
-    def _looks_like_cron(self, value: str) -> bool:
-        text = str(value).strip()
-        if not text:
-            return False
-        tokens = [item for item in text.split(" ") if item.strip()]
-        return len(tokens) in {5, 6}

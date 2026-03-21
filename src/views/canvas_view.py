@@ -8216,15 +8216,6 @@ class CanvasView(Gtk.Box):
         click.connect("released", self.on_node_clicked, node.id)
         frame.add_controller(click)
 
-        drag = Gtk.GestureDrag()
-        drag.set_button(Gdk.BUTTON_PRIMARY)
-        drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
-        drag.set_exclusive(True)
-        drag.connect("drag-begin", self.on_node_drag_begin, node.id)
-        drag.connect("drag-update", self.on_node_drag_update, node.id)
-        drag.connect("drag-end", self.on_node_drag_end, node.id)
-        frame.add_controller(drag)
-
         return frame
 
     def attach_port_hover_controller(self, port: Gtk.Widget, node_id: str, kind: str):
@@ -8592,6 +8583,13 @@ class CanvasView(Gtk.Box):
             self.port_drag_active = False
             self.port_drag_origin = {}
             return
+        if self.link_preview_source_id or self.pending_link_source_id:
+            source_id = self.link_preview_source_id or self.pending_link_source_id
+            target = self.valid_link_target_at(int(x), int(y), source_id)
+            if target:
+                input_x, input_y = self.node_input_anchor(target)
+                self.finalize_link_preview_at(int(input_x), int(input_y))
+                return
         if self.suppress_stage_click_once:
             self.suppress_stage_click_once = False
             return
@@ -8745,9 +8743,6 @@ class CanvasView(Gtk.Box):
             self.reset_port_drag_state()
         if self.node_drag_active:
             # Defensive recovery from interrupted gesture sequences.
-            current_drag_id = str(self.drag_origin.get("node_id", "")).strip()
-            if current_drag_id == str(node_id).strip() and self.drag_origin:
-                return
             self.reset_node_drag_state()
 
         # Dragging should always move nodes. If link mode is active, cancel it first.
