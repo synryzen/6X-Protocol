@@ -7180,12 +7180,14 @@ class CanvasView(Gtk.Box):
 
         click = Gtk.GestureClick()
         click.set_button(0)
+        click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         click.connect("released", self.on_node_clicked, node.id)
         frame.add_controller(click)
 
         drag = Gtk.GestureDrag()
         drag.set_button(0)
-        drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
+        drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        drag.set_exclusive(True)
         drag.connect("drag-begin", self.on_node_drag_begin, node.id)
         drag.connect("drag-update", self.on_node_drag_update, node.id)
         drag.connect("drag-end", self.on_node_drag_end, node.id)
@@ -7509,7 +7511,7 @@ class CanvasView(Gtk.Box):
         if link_created:
             self.set_status(f"Linked '{source_name}' -> '{node.name}'.")
 
-    def on_canvas_stage_clicked(self, _gesture, _n_press, x: float, y: float):
+    def on_canvas_stage_clicked(self, gesture, _n_press, x: float, y: float):
         self.grab_focus()
         if self.port_drag_active:
             self.finalize_link_preview_at(int(x), int(y))
@@ -7519,9 +7521,46 @@ class CanvasView(Gtk.Box):
         if self.suppress_stage_click_once:
             self.suppress_stage_click_once = False
             return
-        if self.find_node_at_point(int(x), int(y)):
+        hit_node = self.find_node_at_point(int(x), int(y))
+        if hit_node:
+            # Fallback: if node-level click handler was preempted by gesture arena ordering,
+            # still select the node and surface its inspector controls.
+            state = gesture.get_current_event_state()
+            additive = bool(
+                state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
+            )
+            previous_selected = self.selected_node_id
+            previous_selection_set = set(self.selected_node_ids)
+            if additive:
+                updated = set(self.selected_node_ids)
+                if hit_node.id in updated:
+                    updated.remove(hit_node.id)
+                    new_primary = self.selected_node_id
+                    if new_primary == hit_node.id:
+                        new_primary = next(iter(updated), None) if updated else None
+                    self.set_selection(updated, primary_id=new_primary)
+                else:
+                    updated.add(hit_node.id)
+                    self.set_selection(updated, primary_id=hit_node.id)
+            else:
+                self.set_single_selection(hit_node.id)
+            self.apply_selection_set_visual_state(
+                previous_selection_set,
+                self.selected_node_ids,
+                previous_selected,
+                self.selected_node_id,
+            )
+            selected_node = self.get_selected_node()
+            if selected_node:
+                self.update_inspector(selected_node)
+            else:
+                self.clear_inspector()
+            self.update_control_state()
             return
-        if not self.selected_node_ids and not self.pending_link_source_id:
+
+        if not self.get_selected_node() and not self.pending_link_source_id:
+            self.clear_inspector()
+            self.update_control_state()
             return
 
         previous_selected = self.selected_node_id
