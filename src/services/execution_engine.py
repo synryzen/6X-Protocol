@@ -80,6 +80,7 @@ class ExecutionEngine:
         "mailgun_email",
     }
     ACTION_HEAVY_INTEGRATIONS = {
+        "handoff",
         "shell_command",
         "file_append",
         "postgres_sql",

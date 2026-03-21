@@ -86,6 +86,7 @@ class RunController:
         "mailgun_email",
     }
     ACTION_HEAVY_INTEGRATIONS = {
+        "handoff",
         "shell_command",
         "file_append",
         "postgres_sql",
@@ -734,6 +735,28 @@ class RunController:
             config.get("message", config.get("detail", context.get("last_output", "")))
         ).strip()
         timeout_value = self._http_timeout(timeout_sec, config)
+
+        if normalized == "handoff":
+            chain = self._parse_bot_chain(config.get("bot_chain", ""))
+            if not chain:
+                single_bot = str(config.get("bot", "")).strip()
+                if single_bot:
+                    chain = [single_bot]
+            if not chain:
+                raise NodeExecutionError(
+                    "Integration 'handoff' requires bot_chain (e.g. Bot A > Bot B) or bot."
+                )
+            base_message = output_text or str(context.get("last_output", "")).strip()
+            if not base_message:
+                base_message = "Workflow action executed."
+            handoff_output = base_message
+            for bot_name in chain:
+                handoff_output = f"[{bot_name}] {handoff_output}"
+            preview = self._truncate_text(handoff_output, 140)
+            return (
+                f"Bot handoff completed across {len(chain)} bot(s).",
+                f"integration:{normalized} | chain:{' > '.join(chain)} | {preview}",
+            )
 
         if normalized in {"http_request", "http_post"}:
             method = str(config.get("method", "POST" if normalized == "http_post" else "GET")).strip().upper()
@@ -1437,6 +1460,14 @@ class RunController:
         except Exception:
             return {}
         return {}
+
+    def _parse_bot_chain(self, value: Any) -> list[str]:
+        text = str(value or "").strip()
+        if not text:
+            return []
+        normalized = text.replace("->", ">").replace("|", ">")
+        parts = [item.strip() for item in normalized.split(">")]
+        return [item for item in parts if item]
 
     def _parse_directives(self, text: str) -> dict[str, str]:
         directives: dict[str, str] = {}

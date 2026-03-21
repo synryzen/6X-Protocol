@@ -22,6 +22,12 @@ All notable changes to this project are documented here.
   pointer events on certain GTK setups.
 - New non-trigger nodes now include auto-link source fallback logic so module
   add operations keep serial wiring even if the primary selected source is stale.
+- Docker/web runtime action execution now includes explicit `handoff` behavior:
+  bot-chain directives are parsed (`Bot A > Bot B`) and the output context is
+  transformed through each handoff step for deterministic preview/testing.
+- Node execution default profiles now classify `handoff` as a heavy integration
+  (higher timeout/backoff profile) consistently across canvas suggestions,
+  desktop runtime execution policy resolution, and Docker/web runtime policy.
 - Canvas node settings now apply context-aware execution defaults:
   trigger mode profiles (manual/interval/cron/webhook/watch) and action template
   context can auto-tune retry/backoff/timeout behavior.

@@ -202,6 +202,22 @@ class ExecutionEngineErrorPolicyTests(unittest.TestCase):
             self.engine._node_execution_defaults(node),
         )
 
+    def test_handoff_action_defaults_use_heavy_profile(self):
+        node = CanvasNode(
+            id="a_handoff",
+            name="Handoff Action",
+            node_type="action",
+            detail="integration:handoff",
+            summary="",
+            x=0,
+            y=0,
+            config={"integration": "handoff"},
+        )
+        self.assertEqual(
+            {"retry_max": 1.0, "retry_backoff_ms": 400.0, "timeout_sec": 90.0},
+            self.engine._node_execution_defaults(node),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

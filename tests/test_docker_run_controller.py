@@ -1015,6 +1015,58 @@ class DockerRunControllerTests(unittest.TestCase):
             self.controller._node_execution_defaults(node),
         )
 
+    def test_handoff_integration_executes_chain_and_uses_heavy_defaults(self):
+        node = {
+            "id": "a_handoff_defaults",
+            "name": "Handoff Node",
+            "type": "action",
+            "config": {"integration": "handoff"},
+        }
+        self.assertEqual(
+            {"retry_max": 1.0, "retry_backoff_ms": 400.0, "timeout_sec": 90.0},
+            self.controller._node_execution_defaults(node),
+        )
+
+        workflow = {
+            "id": "wf_handoff",
+            "name": "Handoff Flow",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Handoff",
+                        "type": "action",
+                        "config": {
+                            "integration": "handoff",
+                            "bot_chain": "Planner > Writer",
+                            "message": "Draft release notes",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+        self.assertEqual(["t1", "a1"], self._success_node_order(completed))
+
+        action_success = [
+            item
+            for item in completed.get("node_results", [])
+            if str(item.get("node_id", "")).strip() == "a1"
+            and str(item.get("status", "")).strip().lower() == "success"
+        ]
+        self.assertTrue(action_success, "Expected handoff action success event.")
+        preview = str(action_success[-1].get("output_preview", ""))
+        self.assertIn("integration:handoff", preview)
+        self.assertIn("chain:Planner > Writer", preview)
+
 
 if __name__ == "__main__":
     unittest.main()
