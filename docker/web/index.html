@@ -270,11 +270,98 @@
       margin-top: 6px;
     }
 
+    .graph-builder {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      background: rgba(8, 19, 36, 0.76);
+    }
+
+    .graph-toolbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .graph-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .graph-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .graph-list {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: auto;
+      min-height: 96px;
+      max-height: 150px;
+      background: rgba(5, 14, 28, 0.84);
+    }
+
+    .graph-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(122, 155, 207, 0.2);
+      font-size: 12px;
+    }
+
+    .graph-row:last-child {
+      border-bottom: 0;
+    }
+
+    .graph-pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(131, 186, 255, 0.55);
+      background: rgba(26, 57, 101, 0.5);
+      font-size: 11px;
+      margin-right: 6px;
+    }
+
+    .graph-status {
+      border: 1px dashed rgba(131, 186, 255, 0.55);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(8, 19, 36, 0.52);
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .preflight-ok {
+      color: #9ce8c1;
+    }
+
+    .preflight-warn {
+      color: #ffd486;
+    }
+
+    .preflight-err {
+      color: #ff9ea0;
+    }
+
     @media (max-width: 980px) {
       body { padding: 12px; }
       .topbar { grid-template-columns: 1fr; }
       .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .main { grid-template-columns: 1fr; }
+      .graph-grid { grid-template-columns: 1fr; }
+      .graph-toolbar { grid-template-columns: 1fr; }
+      .graph-actions { justify-content: flex-start; }
     }
   </style>
 </head>
@@ -305,9 +392,83 @@
         <h2>Operations</h2>
         <div class="actions" style="justify-content:flex-start;">
           <button id="createSample" class="btn good">Create Sample Workflow</button>
-          <button id="startLatest" class="btn primary">Start Latest Workflow</button>
+          <button id="startLatest" class="btn primary">Start Selected Workflow</button>
           <button id="cancelActive" class="btn danger">Cancel Active Run</button>
           <button id="retryLatest" class="btn warn">Retry Latest Run</button>
+        </div>
+        <div class="graph-builder">
+          <h2 class="mini-title">Workflow Graph Builder (Web Preview)</h2>
+          <div class="graph-toolbar">
+            <div class="row">
+              <label class="label" for="workflowSelect">Editing Workflow</label>
+              <select class="select" id="workflowSelect"></select>
+            </div>
+            <div class="graph-actions">
+              <button id="loadGraph" class="btn">Load Graph</button>
+              <button id="saveGraph" class="btn primary">Save Graph</button>
+              <button id="runPreflight" class="btn">Preflight</button>
+            </div>
+          </div>
+          <div class="graph-grid">
+            <div class="settings">
+              <h2 class="mini-title">Add Node</h2>
+              <div class="grid2">
+                <div class="row">
+                  <label class="label" for="graphNodeType">Node Type</label>
+                  <select class="select" id="graphNodeType">
+                    <option value="trigger">Trigger</option>
+                    <option value="action">Action</option>
+                    <option value="ai">AI</option>
+                    <option value="condition">Condition</option>
+                  </select>
+                </div>
+                <div class="row">
+                  <label class="label" for="graphNodeName">Node Name</label>
+                  <input id="graphNodeName" class="input" type="text" placeholder="New Node" />
+                </div>
+              </div>
+              <div class="actions" style="justify-content:flex-start;">
+                <button id="addGraphNode" class="btn good">Add Node</button>
+              </div>
+            </div>
+            <div class="settings">
+              <h2 class="mini-title">Add Link</h2>
+              <div class="grid2">
+                <div class="row">
+                  <label class="label" for="graphEdgeSource">Source</label>
+                  <select class="select" id="graphEdgeSource"></select>
+                </div>
+                <div class="row">
+                  <label class="label" for="graphEdgeTarget">Target</label>
+                  <select class="select" id="graphEdgeTarget"></select>
+                </div>
+              </div>
+              <div class="grid2">
+                <div class="row">
+                  <label class="label" for="graphEdgeCondition">Condition</label>
+                  <select class="select" id="graphEdgeCondition">
+                    <option value="next">next</option>
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                </div>
+                <div class="actions" style="justify-content:flex-start;align-items:flex-end;">
+                  <button id="addGraphEdge" class="btn">Add Link</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="graph-grid">
+            <div>
+              <h2 style="font-size:13px;margin:0 0 6px;">Nodes</h2>
+              <div class="graph-list" id="graphNodeList"></div>
+            </div>
+            <div>
+              <h2 style="font-size:13px;margin:0 0 6px;">Links</h2>
+              <div class="graph-list" id="graphEdgeList"></div>
+            </div>
+          </div>
+          <div id="graphPreflightStatus" class="graph-status">No graph loaded yet.</div>
         </div>
         <div class="grid2">
           <div>
@@ -418,6 +579,9 @@
       apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
       workflows: [],
       runs: [],
+      selectedWorkflowId: "",
+      graphDraft: { version: 1, nodes: [], edges: [] },
+      graphDirty: false,
       integrationCatalog: [],
       integrationProfiles: [],
       selectedIntegrationProfileId: "",
@@ -475,7 +639,8 @@
           const name = escapeHtml(workflow.name || "Untitled workflow");
           const status = escapeHtml(workflow.status || "draft");
           const updated = escapeHtml(workflow.updated_at || "");
-          return `<div class="item"><strong>${name}</strong><span class="small">${status} • ${id.slice(0, 8)} • ${updated}</span></div>`;
+          const active = String(workflow.id || "") === state.selectedWorkflowId ? "active" : "";
+          return `<div class="item ${active}" data-workflow-id="${id}"><strong>${name}</strong><span class="small">${status} • ${id.slice(0, 8)} • ${updated}</span></div>`;
         })
         .join("");
     }
@@ -503,6 +668,454 @@
       byId("metricRuns").textContent = String(state.runs.length);
       byId("metricActiveRuns").textContent = String(active);
       byId("metricFailedRuns").textContent = String(failed);
+    }
+
+    function workflowById(workflowId) {
+      const id = String(workflowId || "").trim();
+      if (!id) return null;
+      return state.workflows.find((item) => String(item.id || "") === id) || null;
+    }
+
+    function selectedWorkflow() {
+      if (state.selectedWorkflowId) {
+        const selected = workflowById(state.selectedWorkflowId);
+        if (selected) return selected;
+      }
+      return state.workflows[0] || null;
+    }
+
+    function normalizeNodeType(value) {
+      const lowered = String(value || "").trim().toLowerCase();
+      if (lowered.startsWith("trigger")) return "trigger";
+      if (lowered.startsWith("action")) return "action";
+      if (lowered.startsWith("condition")) return "condition";
+      if (lowered.startsWith("ai")) return "ai";
+      return "action";
+    }
+
+    function nodeTypeLabel(value) {
+      const key = normalizeNodeType(value);
+      if (key === "trigger") return "Trigger";
+      if (key === "action") return "Action";
+      if (key === "condition") return "Condition";
+      if (key === "ai") return "AI";
+      return "Action";
+    }
+
+    function normalizeGraphNode(item, index) {
+      const raw = item && typeof item === "object" ? item : {};
+      const type = normalizeNodeType(raw.type || raw.node_type || "action");
+      const fallbackId = `n${index + 1}`;
+      const id = String(raw.id || fallbackId).trim() || fallbackId;
+      const defaultName = `${nodeTypeLabel(type)} ${index + 1}`;
+      const name = String(raw.name || defaultName).trim() || defaultName;
+      const detail = String(raw.detail || "").trim();
+      const summary = String(raw.summary || "").trim();
+      const config = raw.config && typeof raw.config === "object" ? raw.config : {};
+      const x = Number.isFinite(Number(raw.x)) ? Number(raw.x) : (120 + (index % 4) * 180);
+      const y = Number.isFinite(Number(raw.y)) ? Number(raw.y) : (120 + Math.floor(index / 4) * 120);
+      return { id, name, type, detail, summary, x, y, config };
+    }
+
+    function normalizeGraphEdge(item) {
+      const raw = item && typeof item === "object" ? item : {};
+      const source = String(raw.source || raw.source_node_id || raw.from || "").trim();
+      const target = String(raw.target || raw.target_node_id || raw.to || "").trim();
+      const typeRaw = String(raw.type || raw.condition || raw.link_type || "next").trim().toLowerCase();
+      const type = typeRaw === "true" || typeRaw === "false" ? typeRaw : "next";
+      if (!source || !target) return null;
+      return { source, target, type };
+    }
+
+    function ensureWorkflowSelection() {
+      if (state.selectedWorkflowId && workflowById(state.selectedWorkflowId)) return;
+      state.selectedWorkflowId = state.workflows.length ? String(state.workflows[0].id || "") : "";
+    }
+
+    function renderWorkflowSelect() {
+      const select = byId("workflowSelect");
+      if (!select) return;
+      ensureWorkflowSelection();
+      if (!state.workflows.length) {
+        select.innerHTML = `<option value="">No workflows</option>`;
+        select.value = "";
+        return;
+      }
+      select.innerHTML = state.workflows
+        .map((workflow) => {
+          const id = escapeHtml(workflow.id || "");
+          const name = escapeHtml(workflow.name || "Untitled workflow");
+          return `<option value="${id}">${name}</option>`;
+        })
+        .join("");
+      if (state.selectedWorkflowId) {
+        select.value = state.selectedWorkflowId;
+      }
+    }
+
+    function graphDraftPayload() {
+      return {
+        version: 1,
+        nodes: state.graphDraft.nodes.map((node) => ({
+          id: node.id,
+          name: node.name,
+          type: node.type,
+          detail: node.detail || "",
+          summary: node.summary || "",
+          x: Number.isFinite(Number(node.x)) ? Number(node.x) : 0,
+          y: Number.isFinite(Number(node.y)) ? Number(node.y) : 0,
+          config: node.config && typeof node.config === "object" ? node.config : {},
+        })),
+        edges: state.graphDraft.edges.map((edge) => ({
+          source: edge.source,
+          target: edge.target,
+          type: edge.type || "next",
+        })),
+      };
+    }
+
+    function runGraphPreflight() {
+      const errors = [];
+      const warnings = [];
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      const edges = Array.isArray(state.graphDraft.edges) ? state.graphDraft.edges : [];
+
+      if (!nodes.length) {
+        warnings.push("Graph has no nodes yet.");
+        return { errors, warnings };
+      }
+
+      const nodeIds = new Set();
+      const incoming = {};
+      const outgoing = {};
+      const nodeMap = {};
+
+      for (const node of nodes) {
+        const id = String(node.id || "").trim();
+        if (!id) {
+          errors.push("A node is missing an id.");
+          continue;
+        }
+        if (nodeIds.has(id)) {
+          errors.push(`Duplicate node id '${id}'.`);
+          continue;
+        }
+        nodeIds.add(id);
+        nodeMap[id] = node;
+        incoming[id] = 0;
+        outgoing[id] = 0;
+      }
+
+      for (const edge of edges) {
+        const source = String(edge.source || "").trim();
+        const target = String(edge.target || "").trim();
+        const type = String(edge.type || "next").trim().toLowerCase();
+        if (!source || !target) {
+          errors.push("A link is missing source or target.");
+          continue;
+        }
+        if (!nodeIds.has(source)) {
+          errors.push(`Link source '${source}' does not exist.`);
+          continue;
+        }
+        if (!nodeIds.has(target)) {
+          errors.push(`Link target '${target}' does not exist.`);
+          continue;
+        }
+        if (source === target) {
+          errors.push(`Node '${source}' cannot link to itself.`);
+          continue;
+        }
+        if (!["next", "true", "false"].includes(type)) {
+          errors.push(`Unsupported link type '${type}' for '${source} -> ${target}'.`);
+          continue;
+        }
+        if (normalizeNodeType(nodeMap[target]?.type) === "trigger") {
+          errors.push(`Trigger node '${target}' cannot be used as a link target.`);
+          continue;
+        }
+        incoming[target] = (incoming[target] || 0) + 1;
+        outgoing[source] = (outgoing[source] || 0) + 1;
+      }
+
+      const startNodes = Object.keys(incoming).filter((id) => (incoming[id] || 0) === 0);
+      if (!startNodes.length) {
+        errors.push("Graph has no start node (all nodes have incoming links).");
+      }
+
+      for (const node of nodes) {
+        const id = String(node.id || "").trim();
+        const nodeType = normalizeNodeType(node.type);
+        const nodeName = String(node.name || id || "Node").trim() || id || "Node";
+        const outCount = outgoing[id] || 0;
+        if (nodeType === "condition" && outCount === 0) {
+          errors.push(`Condition node '${nodeName}' has no outgoing branches.`);
+        }
+        if (["trigger", "action", "ai"].includes(nodeType) && outCount === 0) {
+          warnings.push(`Node '${nodeName}' is terminal (no outgoing link).`);
+        }
+      }
+
+      return { errors, warnings };
+    }
+
+    function renderGraphPreflightStatus(result) {
+      const el = byId("graphPreflightStatus");
+      if (!el) return;
+      if (!result) {
+        el.innerHTML = "No graph loaded yet.";
+        return;
+      }
+      const errors = Array.isArray(result.errors) ? result.errors : [];
+      const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+      const lines = [];
+      if (!errors.length && !warnings.length) {
+        lines.push(`<div class="preflight-ok">Preflight passed. Graph is ready.</div>`);
+      } else {
+        lines.push(
+          `<div><span class="preflight-err">${errors.length} error(s)</span> • <span class="preflight-warn">${warnings.length} warning(s)</span></div>`
+        );
+      }
+      if (errors.length) {
+        lines.push(...errors.slice(0, 4).map((item) => `<div class="preflight-err">• ${escapeHtml(item)}</div>`));
+      }
+      if (warnings.length) {
+        lines.push(...warnings.slice(0, 4).map((item) => `<div class="preflight-warn">• ${escapeHtml(item)}</div>`));
+      }
+      el.innerHTML = lines.join("");
+    }
+
+    function renderGraphNodeOptions() {
+      const source = byId("graphEdgeSource");
+      const target = byId("graphEdgeTarget");
+      if (!source || !target) return;
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      if (!nodes.length) {
+        source.innerHTML = `<option value="">No nodes</option>`;
+        target.innerHTML = `<option value="">No nodes</option>`;
+        source.value = "";
+        target.value = "";
+        return;
+      }
+      const options = nodes
+        .map((node) => `<option value="${escapeHtml(node.id)}">${escapeHtml(node.name)} (${escapeHtml(node.id)})</option>`)
+        .join("");
+      source.innerHTML = options;
+      target.innerHTML = options;
+      if (source.value && nodes.some((item) => item.id === source.value)) {
+        source.value = source.value;
+      } else {
+        source.value = nodes[0].id;
+      }
+      if (target.value && nodes.some((item) => item.id === target.value)) {
+        target.value = target.value;
+      } else {
+        target.value = nodes[Math.min(1, nodes.length - 1)].id;
+      }
+    }
+
+    function renderGraphDraftLists() {
+      const nodeList = byId("graphNodeList");
+      const edgeList = byId("graphEdgeList");
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      const edges = Array.isArray(state.graphDraft.edges) ? state.graphDraft.edges : [];
+
+      if (nodeList) {
+        if (!nodes.length) {
+          nodeList.innerHTML = `<div class="item">No nodes in draft graph.</div>`;
+        } else {
+          nodeList.innerHTML = nodes
+            .map((node) => {
+              const id = escapeHtml(node.id);
+              const name = escapeHtml(node.name || node.id);
+              const type = escapeHtml(nodeTypeLabel(node.type));
+              return (
+                `<div class="graph-row">`
+                + `<div><span class="graph-pill">${type}</span><strong>${name}</strong><span class="small">${id}</span></div>`
+                + `<button class="btn danger" data-graph-remove-node="${id}">Remove</button>`
+                + `</div>`
+              );
+            })
+            .join("");
+        }
+      }
+
+      if (edgeList) {
+        if (!edges.length) {
+          edgeList.innerHTML = `<div class="item">No links in draft graph.</div>`;
+        } else {
+          edgeList.innerHTML = edges
+            .map((edge, index) => {
+              const source = escapeHtml(edge.source || "");
+              const target = escapeHtml(edge.target || "");
+              const type = escapeHtml(String(edge.type || "next"));
+              return (
+                `<div class="graph-row">`
+                + `<div><span class="graph-pill">${type}</span><strong>${source} → ${target}</strong></div>`
+                + `<button class="btn danger" data-graph-remove-edge="${index}">Remove</button>`
+                + `</div>`
+              );
+            })
+            .join("");
+        }
+      }
+
+      renderGraphNodeOptions();
+      renderGraphPreflightStatus(runGraphPreflight());
+    }
+
+    function loadGraphForSelectedWorkflow({ announce = true } = {}) {
+      const workflow = selectedWorkflow();
+      if (!workflow) {
+        state.graphDraft = { version: 1, nodes: [], edges: [] };
+        renderGraphDraftLists();
+        renderWorkflowSelect();
+        renderWorkflows();
+        if (announce) log("No workflow selected for graph builder.", "warn");
+        return;
+      }
+      state.selectedWorkflowId = String(workflow.id || "");
+      const graph = workflow.graph && typeof workflow.graph === "object" ? workflow.graph : {};
+      const rawNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+      const rawEdges = Array.isArray(graph.edges) ? graph.edges : [];
+      const rawLinks = Array.isArray(graph.links) ? graph.links : [];
+
+      state.graphDraft = {
+        version: 1,
+        nodes: rawNodes.map((item, index) => normalizeGraphNode(item, index)),
+        edges: [...rawEdges, ...rawLinks]
+          .map((item) => normalizeGraphEdge(item))
+          .filter((item) => Boolean(item)),
+      };
+      state.graphDirty = false;
+      renderWorkflowSelect();
+      renderWorkflows();
+      renderGraphDraftLists();
+      if (announce) log(`Graph loaded: ${workflow.name}`, "info");
+    }
+
+    function makeGraphNodeId() {
+      const existing = new Set((state.graphDraft.nodes || []).map((node) => String(node.id || "")));
+      for (let n = 1; n < 9999; n += 1) {
+        const candidate = `n${n}`;
+        if (!existing.has(candidate)) return candidate;
+      }
+      return `n${Date.now()}`;
+    }
+
+    function addGraphNode() {
+      const type = normalizeNodeType(byId("graphNodeType").value || "action");
+      const typedCount = state.graphDraft.nodes.filter((node) => normalizeNodeType(node.type) === type).length + 1;
+      const fallbackName = `${nodeTypeLabel(type)} ${typedCount}`;
+      const customName = byId("graphNodeName").value.trim();
+      const name = customName || fallbackName;
+      const id = makeGraphNodeId();
+      const idx = state.graphDraft.nodes.length;
+      const detailByType = {
+        trigger: "trigger:manual",
+        action: "integration:standard",
+        ai: "prompt:Process workflow context.",
+        condition: "contains:success",
+      };
+      const configByType = {
+        trigger: { trigger_mode: "manual", trigger_value: "" },
+        action: { integration: "standard", method: "POST" },
+        ai: { provider: "local" },
+        condition: { expression: "contains:success" },
+      };
+      const node = {
+        id,
+        name,
+        type,
+        detail: detailByType[type] || "",
+        summary: "",
+        x: 120 + (idx % 4) * 180,
+        y: 120 + Math.floor(idx / 4) * 120,
+        config: configByType[type] || {},
+      };
+      state.graphDraft.nodes.push(node);
+      state.graphDirty = true;
+      byId("graphNodeName").value = "";
+      renderGraphDraftLists();
+      log(`Node added: ${name} (${id})`, "info");
+    }
+
+    function addGraphEdge() {
+      const source = String(byId("graphEdgeSource").value || "").trim();
+      const target = String(byId("graphEdgeTarget").value || "").trim();
+      const type = String(byId("graphEdgeCondition").value || "next").trim().toLowerCase() || "next";
+      if (!source || !target) {
+        log("Select both source and target nodes.", "warn");
+        return;
+      }
+      if (source === target) {
+        log("A node cannot link to itself.", "warn");
+        return;
+      }
+      const duplicate = state.graphDraft.edges.some(
+        (edge) => String(edge.source) === source
+          && String(edge.target) === target
+          && String(edge.type || "next") === type
+      );
+      if (duplicate) {
+        log("That link already exists.", "warn");
+        return;
+      }
+      state.graphDraft.edges.push({ source, target, type });
+      state.graphDirty = true;
+      renderGraphDraftLists();
+      log(`Link added: ${source} -> ${target} (${type})`, "info");
+    }
+
+    function removeGraphNode(nodeId) {
+      const id = String(nodeId || "").trim();
+      if (!id) return;
+      const beforeNodes = state.graphDraft.nodes.length;
+      state.graphDraft.nodes = state.graphDraft.nodes.filter((node) => String(node.id || "") !== id);
+      state.graphDraft.edges = state.graphDraft.edges.filter(
+        (edge) => String(edge.source || "") !== id && String(edge.target || "") !== id
+      );
+      if (state.graphDraft.nodes.length !== beforeNodes) {
+        state.graphDirty = true;
+        renderGraphDraftLists();
+        log(`Node removed: ${id}`, "info");
+      }
+    }
+
+    function removeGraphEdge(indexRaw) {
+      const index = Number(indexRaw);
+      if (!Number.isInteger(index) || index < 0 || index >= state.graphDraft.edges.length) return;
+      const edge = state.graphDraft.edges[index];
+      state.graphDraft.edges.splice(index, 1);
+      state.graphDirty = true;
+      renderGraphDraftLists();
+      log(`Link removed: ${edge.source} -> ${edge.target}`, "info");
+    }
+
+    async function saveSelectedWorkflowGraph() {
+      const workflow = selectedWorkflow();
+      if (!workflow) {
+        log("No workflow selected to save graph.", "warn");
+        return;
+      }
+      const result = runGraphPreflight();
+      renderGraphPreflightStatus(result);
+      if (result.errors.length) {
+        log("Preflight has errors. Fix graph issues before saving.", "error");
+        return;
+      }
+      const payload = graphDraftPayload();
+      try {
+        await api(`/api/v1/workflows/${workflow.id}/graph`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        state.graphDirty = false;
+        log(`Graph saved to workflow: ${workflow.name}`, "info");
+        await refreshWorkflows();
+      } catch (error) {
+        log(`Save graph failed: ${error.message}`, "error");
+      }
     }
 
     function selectedIntegrationCatalogKey() {
@@ -664,7 +1277,12 @@
       try {
         const response = await api("/api/v1/workflows", { method: "GET" });
         state.workflows = Array.isArray(response.items) ? response.items : [];
+        ensureWorkflowSelection();
         renderWorkflows();
+        renderWorkflowSelect();
+        if (!state.graphDirty) {
+          loadGraphForSelectedWorkflow({ announce: false });
+        }
       } catch (error) {
         log(`Workflow refresh failed: ${error.message}`, "error");
       }
@@ -713,6 +1331,8 @@
           method: "POST",
           body: JSON.stringify(payload),
         });
+        state.selectedWorkflowId = String(created.id || "");
+        state.graphDirty = false;
         log(`Workflow created: ${created.name} (${created.id})`, "info");
         await refreshAll();
       } catch (error) {
@@ -721,8 +1341,9 @@
     }
 
     function latestWorkflowId() {
-      if (!state.workflows.length) return "";
-      return String(state.workflows[0].id || "");
+      const selected = selectedWorkflow();
+      if (!selected) return "";
+      return String(selected.id || "");
     }
 
     async function startLatestWorkflow() {
@@ -908,6 +1529,52 @@
       byId("startLatest").addEventListener("click", startLatestWorkflow);
       byId("cancelActive").addEventListener("click", cancelActiveRun);
       byId("retryLatest").addEventListener("click", retryLatestRun);
+      byId("workflowSelect").addEventListener("change", () => {
+        state.selectedWorkflowId = String(byId("workflowSelect").value || "").trim();
+        state.graphDirty = false;
+        loadGraphForSelectedWorkflow();
+      });
+      byId("loadGraph").addEventListener("click", () => {
+        state.graphDirty = false;
+        loadGraphForSelectedWorkflow();
+      });
+      byId("saveGraph").addEventListener("click", saveSelectedWorkflowGraph);
+      byId("runPreflight").addEventListener("click", () => {
+        const result = runGraphPreflight();
+        renderGraphPreflightStatus(result);
+        const level = result.errors.length ? "error" : (result.warnings.length ? "warn" : "info");
+        log(
+          `Preflight complete: ${result.errors.length} error(s), ${result.warnings.length} warning(s).`,
+          level
+        );
+      });
+      byId("addGraphNode").addEventListener("click", addGraphNode);
+      byId("addGraphEdge").addEventListener("click", addGraphEdge);
+      byId("workflowList").addEventListener("click", (event) => {
+        const target = event.target && typeof event.target.closest === "function"
+          ? event.target.closest("[data-workflow-id]")
+          : null;
+        if (!target) return;
+        const workflowId = String(target.getAttribute("data-workflow-id") || "").trim();
+        if (!workflowId) return;
+        state.selectedWorkflowId = workflowId;
+        state.graphDirty = false;
+        loadGraphForSelectedWorkflow();
+      });
+      byId("graphNodeList").addEventListener("click", (event) => {
+        const target = event.target && typeof event.target.closest === "function"
+          ? event.target.closest("[data-graph-remove-node]")
+          : null;
+        if (!target) return;
+        removeGraphNode(target.getAttribute("data-graph-remove-node"));
+      });
+      byId("graphEdgeList").addEventListener("click", (event) => {
+        const target = event.target && typeof event.target.closest === "function"
+          ? event.target.closest("[data-graph-remove-edge]")
+          : null;
+        if (!target) return;
+        removeGraphEdge(target.getAttribute("data-graph-remove-edge"));
+      });
       byId("loadSettings").addEventListener("click", loadSettings);
       byId("saveSettings").addEventListener("click", saveSettings);
       byId("newIntegrationProfile").addEventListener("click", () => {
@@ -937,6 +1604,8 @@
 
     function init() {
       byId("apiBase").value = state.apiBase;
+      renderWorkflowSelect();
+      renderGraphDraftLists();
       bindEvents();
       refreshAll();
       loadSettings();
