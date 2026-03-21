@@ -6828,3 +6828,135 @@ window.app-window.theme-light .action-required-missing {
   background: alpha(#ffe4e6, 0.95);
   color: #9f1239;
 }
+
+/* Premium studio v33: canvas node setup chips + inspector profile status */
+window.app-window .node-meta-chip {
+  border-radius: 999px;
+  min-height: 16px;
+  padding: 1px 6px;
+  font-size: 8.5px;
+  font-weight: 760;
+  letter-spacing: 0.28px;
+}
+
+window.app-window .node-meta-integration {
+  color: #dbeafe;
+  background: alpha(#1e3a8a, 0.38);
+  border: 1px solid alpha(#60a5fa, 0.52);
+}
+
+window.app-window .node-meta-trigger {
+  color: #cffafe;
+  background: alpha(#155e75, 0.36);
+  border: 1px solid alpha(#22d3ee, 0.52);
+}
+
+window.app-window .node-meta-condition {
+  color: #fef3c7;
+  background: alpha(#78350f, 0.34);
+  border: 1px solid alpha(#f59e0b, 0.52);
+}
+
+window.app-window .node-meta-ready {
+  color: #bbf7d0;
+  background: alpha(#064e3b, 0.4);
+  border: 1px solid alpha(#34d399, 0.56);
+}
+
+window.app-window .node-meta-partial {
+  color: #fde68a;
+  background: alpha(#7c2d12, 0.42);
+  border: 1px solid alpha(#f59e0b, 0.58);
+}
+
+window.app-window .node-meta-setup {
+  color: #fecdd3;
+  background: alpha(#881337, 0.44);
+  border: 1px solid alpha(#fb7185, 0.58);
+}
+
+window.app-window.theme-light .node-meta-integration {
+  color: #1d4ed8;
+  background: alpha(#dbeafe, 0.96);
+  border-color: alpha(#60a5fa, 0.52);
+}
+
+window.app-window.theme-light .node-meta-trigger {
+  color: #0f766e;
+  background: alpha(#ccfbf1, 0.98);
+  border-color: alpha(#2dd4bf, 0.52);
+}
+
+window.app-window.theme-light .node-meta-condition {
+  color: #a16207;
+  background: alpha(#fef3c7, 0.96);
+  border-color: alpha(#f59e0b, 0.5);
+}
+
+window.app-window.theme-light .node-meta-ready {
+  color: #166534;
+  background: alpha(#dcfce7, 0.97);
+  border-color: alpha(#4ade80, 0.5);
+}
+
+window.app-window.theme-light .node-meta-partial {
+  color: #9a3412;
+  background: alpha(#ffedd5, 0.96);
+  border-color: alpha(#fb923c, 0.5);
+}
+
+window.app-window.theme-light .node-meta-setup {
+  color: #9f1239;
+  background: alpha(#ffe4e6, 0.96);
+  border-color: alpha(#fb7185, 0.5);
+}
+
+window.app-window .action-profile-status {
+  border-radius: 10px;
+  border: 1px solid alpha(#64748b, 0.46);
+  padding: 4px 7px;
+}
+
+window.app-window .action-profile-neutral {
+  color: #dbeafe;
+  background: alpha(#1e3a8a, 0.24);
+  border-color: alpha(#60a5fa, 0.46);
+}
+
+window.app-window .action-profile-ready {
+  color: #bbf7d0;
+  background: alpha(#065f46, 0.24);
+  border-color: alpha(#34d399, 0.46);
+}
+
+window.app-window .action-profile-partial {
+  color: #fde68a;
+  background: alpha(#92400e, 0.24);
+  border-color: alpha(#f59e0b, 0.5);
+}
+
+window.app-window .action-profile-setup {
+  color: #fecdd3;
+  background: alpha(#9f1239, 0.26);
+  border-color: alpha(#fb7185, 0.52);
+}
+
+window.app-window.theme-light .action-profile-neutral {
+  color: #1d4ed8;
+  background: alpha(#dbeafe, 0.95);
+}
+
+window.app-window.theme-light .action-profile-ready {
+  color: #166534;
+  background: alpha(#dcfce7, 0.95);
+}
+
+window.app-window.theme-light .action-profile-partial {
+  color: #9a3412;
+  background: alpha(#ffedd5, 0.95);
+}
+
+window.app-window.theme-light .action-profile-setup {
+  color: #9f1239;
+  background: alpha(#ffe4e6, 0.95);
+}

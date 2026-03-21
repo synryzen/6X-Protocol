@@ -1347,6 +1347,7 @@ class CanvasView(Gtk.Box):
         self.action_profile_label.set_halign(Gtk.Align.START)
         self.action_profile_label.add_css_class("dim-label")
         self.action_profile_label.add_css_class("inline-status")
+        self.action_profile_label.add_css_class("action-profile-status")
 
         self.action_issue_actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.action_issue_actions_row.add_css_class("compact-action-row")
@@ -4074,6 +4075,97 @@ class CanvasView(Gtk.Box):
             f"{len(required_fields)} required field(s): {preview}"
         )
 
+    def integration_display_name(self, integration: str) -> str:
+        key = str(integration).strip().lower() or "standard"
+        item = self.integration_registry.get_integration(key) or {}
+        return str(item.get("name", "")).strip() or key.replace("_", " ").title()
+
+    def compact_chip_text(self, text: str, max_chars: int = 14) -> str:
+        value = str(text).strip()
+        if len(value) <= max_chars:
+            return value
+        if max_chars <= 2:
+            return value[:max_chars]
+        return f"{value[:max_chars - 1]}…"
+
+    def set_action_profile_status(self, text: str, tone: str = "neutral"):
+        tone_key = str(tone).strip().lower() or "neutral"
+        if tone_key not in {"neutral", "ready", "partial", "setup"}:
+            tone_key = "neutral"
+
+        class_map = {
+            "neutral": "action-profile-neutral",
+            "ready": "action-profile-ready",
+            "partial": "action-profile-partial",
+            "setup": "action-profile-setup",
+        }
+        for css_class in class_map.values():
+            self.action_profile_label.remove_css_class(css_class)
+        self.action_profile_label.add_css_class(class_map[tone_key])
+        self.action_profile_label.set_text(str(text).strip())
+
+    def action_profile_status_text(
+        self,
+        integration: str,
+        missing_fields: list[str],
+        field_issues: list[tuple[str, str, str]],
+        *,
+        node_selected: bool,
+    ) -> tuple[str, str]:
+        key = str(integration).strip().lower() or "standard"
+        name = self.integration_display_name(key)
+        execution = self.action_execution_class(key).title()
+        required_fields = self.integration_required_fields(key)
+        required_count = len(required_fields)
+        missing_count = len(missing_fields)
+        configured_count = max(0, required_count - missing_count)
+        errors = [item for item in field_issues if item[1] == "error"]
+        warnings = [item for item in field_issues if item[1] == "warning"]
+
+        if not node_selected:
+            return (
+                f"{name} • {execution} profile • Select an action node to validate setup.",
+                "neutral",
+            )
+
+        if required_count == 0 and not errors and not warnings:
+            return (f"{name} • {execution} profile • Ready (no required fields).", "ready")
+
+        if errors:
+            issue_summary = f"{len(errors)} error(s)"
+            if warnings:
+                issue_summary = f"{issue_summary}, {len(warnings)} warning(s)"
+            if missing_count >= required_count > 0:
+                return (
+                    f"{name} • {execution} profile • Setup needed ({configured_count}/{required_count} required fields filled) • {issue_summary}.",
+                    "setup",
+                )
+            return (
+                f"{name} • {execution} profile • {configured_count}/{required_count} required fields filled • {issue_summary}.",
+                "partial",
+            )
+
+        if missing_count > 0:
+            tone = "setup" if missing_count >= required_count else "partial"
+            return (
+                f"{name} • {execution} profile • {configured_count}/{required_count} required fields filled • Missing {missing_count} field(s).",
+                tone,
+            )
+
+        if warnings:
+            return (
+                f"{name} • {execution} profile • Required fields complete • {len(warnings)} warning(s) to review.",
+                "partial",
+            )
+
+        if required_count > 0:
+            return (
+                f"{name} • {execution} profile • Ready ({configured_count}/{required_count} required fields filled).",
+                "ready",
+            )
+
+        return (f"{name} • {execution} profile • Ready.", "ready")
+
     def integration_required_fields(self, integration: str) -> list[str]:
         key = str(integration).strip().lower() or "standard"
         item = self.integration_registry.get_integration(key) or {}
@@ -4627,7 +4719,18 @@ class CanvasView(Gtk.Box):
         integration = self.selected_action_integration()
         self.refresh_action_presets(integration)
         self.update_action_quick_button_state(integration)
-        self.action_profile_label.set_text(self.action_profile_summary(integration))
+        selected_node = self.get_selected_node()
+        has_action_selected = bool(
+            selected_node
+            and self.node_type_key(selected_node.node_type) in {"action", "template"}
+        )
+        profile_text, profile_tone = self.action_profile_status_text(
+            integration,
+            self.latest_action_missing_fields,
+            self.latest_action_issues,
+            node_selected=has_action_selected,
+        )
+        self.set_action_profile_status(profile_text, profile_tone)
         self.rebuild_action_required_field_chips(integration, self.latest_action_missing_fields)
 
         show_endpoint = integration in {
@@ -5044,7 +5147,6 @@ class CanvasView(Gtk.Box):
         self.sync_action_category_state(
             self.infer_action_category(template_key, integration)
         )
-        selected_node = self.get_selected_node()
         if selected_node and self.node_type_key(selected_node.node_type) in {"action", "template"}:
             self.update_node_execution_hint(selected_node.node_type, integration)
         self.update_action_requirements_status()
@@ -5425,10 +5527,16 @@ class CanvasView(Gtk.Box):
     def update_action_requirements_status(self):
         integration = self.selected_action_integration()
         summary = self.integration_requirement_summary(integration)
-        self.action_profile_label.set_text(self.action_profile_summary(integration))
         self.clear_action_field_feedback()
         selected_node = self.get_selected_node()
         if not selected_node or self.node_type_key(selected_node.node_type) not in {"action", "template"}:
+            profile_text, profile_tone = self.action_profile_status_text(
+                integration,
+                [],
+                [],
+                node_selected=False,
+            )
+            self.set_action_profile_status(profile_text, profile_tone)
             self.action_requirements_label.set_text(summary)
             self.latest_action_missing_fields = []
             self.latest_action_issues = []
@@ -5499,6 +5607,13 @@ class CanvasView(Gtk.Box):
             missing_fields,
             app_settings,
         )
+        profile_text, profile_tone = self.action_profile_status_text(
+            integration,
+            missing_fields,
+            field_issues,
+            node_selected=True,
+        )
+        self.set_action_profile_status(profile_text, profile_tone)
         self.latest_action_missing_fields = list(missing_fields)
         self.latest_action_issues = list(field_issues)
         self.latest_action_issue_field = self.first_action_issue_field(field_issues)
@@ -7856,8 +7971,9 @@ class CanvasView(Gtk.Box):
             child = next_child
 
         self.node_widgets = {}
+        app_settings = self.settings_store.load_settings()
         for node in self.nodes:
-            widget = self.create_node_card(node)
+            widget = self.create_node_card(node, app_settings=app_settings)
             self.node_widgets[node.id] = widget
             self.fixed.put(widget, self.to_screen(node.x), self.to_screen(node.y))
 
@@ -7874,7 +7990,12 @@ class CanvasView(Gtk.Box):
             except Exception:
                 continue
 
-    def create_node_card(self, node: CanvasNode) -> Gtk.Frame:
+    def create_node_card(
+        self,
+        node: CanvasNode,
+        *,
+        app_settings: dict[str, str] | None = None,
+    ) -> Gtk.Frame:
         frame = Gtk.Frame()
         frame.set_size_request(self.card_screen_width(), self.card_screen_height())
         frame.add_css_class("canvas-node-card")
@@ -7938,6 +8059,16 @@ class CanvasView(Gtk.Box):
             issue_chip.add_css_class("node-issue-chip")
             issue_chip.add_css_class("node-issue-warning")
             chip_row.append(issue_chip)
+
+        for chip_label, css_classes in self.node_card_meta_chips(
+            node,
+            app_settings=app_settings,
+        ):
+            chip = Gtk.Label(label=chip_label)
+            for css_class in css_classes:
+                chip.add_css_class(css_class)
+            chip.set_halign(Gtk.Align.START)
+            chip_row.append(chip)
 
         name_label = Gtk.Label(label=node.name)
         name_label.add_css_class("title-4")
@@ -9215,6 +9346,87 @@ class CanvasView(Gtk.Box):
         if node_key == "ai":
             return "AI"
         return "TEMPLATE"
+
+    def merged_node_config(self, node: CanvasNode) -> dict[str, str]:
+        merged = self.parse_detail_directives(node.detail)
+        merged.update(node.config)
+        normalized: dict[str, str] = {}
+        for raw_key, raw_value in merged.items():
+            key = str(raw_key).strip().lower()
+            if not key:
+                continue
+            normalized[key] = str(raw_value).strip()
+        return normalized
+
+    def action_node_setup_state(
+        self,
+        merged_config: dict[str, str],
+        app_settings: dict[str, str] | None = None,
+    ) -> tuple[str, str]:
+        integration_key = str(merged_config.get("integration", "standard")).strip().lower() or "standard"
+        required_fields = self.integration_required_fields(integration_key)
+        missing_fields = self.missing_required_action_fields(
+            merged_config,
+            app_settings=app_settings,
+        )
+        if not required_fields or not missing_fields:
+            return "ready", "READY"
+        if len(missing_fields) >= len(required_fields):
+            return "setup", "SETUP"
+        return "partial", "PARTIAL"
+
+    def node_card_meta_chips(
+        self,
+        node: CanvasNode,
+        *,
+        app_settings: dict[str, str] | None = None,
+    ) -> list[tuple[str, list[str]]]:
+        merged = self.merged_node_config(node)
+        node_key = self.node_type_key(node.node_type)
+        chips: list[tuple[str, list[str]]] = []
+
+        if node_key in {"action", "template"}:
+            integration_key = str(merged.get("integration", "standard")).strip().lower() or "standard"
+            integration_name = self.integration_display_name(integration_key)
+            chips.append(
+                (
+                    self.compact_chip_text(integration_name, max_chars=13),
+                    ["node-meta-chip", "node-meta-integration"],
+                )
+            )
+            tone, tone_label = self.action_node_setup_state(merged, app_settings=app_settings)
+            chips.append((tone_label, ["node-meta-chip", f"node-meta-{tone}"]))
+            return chips
+
+        if node_key == "trigger":
+            mode = str(merged.get("trigger_mode", "manual")).strip().lower() or "manual"
+            mode_labels = {
+                "manual": "MANUAL",
+                "schedule_interval": "SCHEDULE",
+                "webhook": "WEBHOOK",
+                "file_watch": "WATCH",
+                "cron": "CRON",
+            }
+            chips.append((mode_labels.get(mode, "TRIGGER"), ["node-meta-chip", "node-meta-trigger"]))
+            return chips
+
+        if node_key == "condition":
+            mode = str(merged.get("condition_mode", "")).strip().lower()
+            mode_label = (
+                self.compact_chip_text(mode.replace("_", " ").upper(), max_chars=12)
+                if mode
+                else "RULE"
+            )
+            chips.append((mode_label, ["node-meta-chip", "node-meta-condition"]))
+            return chips
+
+        if node_key == "ai":
+            model = str(merged.get("model", "")).strip()
+            if model:
+                chips.append(("MODEL", ["node-meta-chip", "node-meta-ready"]))
+            else:
+                chips.append(("SET MODEL", ["node-meta-chip", "node-meta-setup"]))
+        return chips
 
     def is_dark_mode(self) -> bool:
         root = self.get_root()
@@ -10661,7 +10873,13 @@ class CanvasView(Gtk.Box):
         self.node_error_target_entry.set_text("")
         self.update_node_error_controls_visibility()
         self.node_execution_hint_label.set_text("")
-        self.action_profile_label.set_text(self.action_profile_summary("standard"))
+        profile_text, profile_tone = self.action_profile_status_text(
+            "standard",
+            [],
+            [],
+            node_selected=False,
+        )
+        self.set_action_profile_status(profile_text, profile_tone)
         self.latest_action_missing_fields = []
         self.latest_action_issues = []
         self.latest_action_issue_field = None
