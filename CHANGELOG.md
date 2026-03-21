@@ -16,6 +16,10 @@ All notable changes to this project are documented here.
 - Canvas drag resilience improved further with a stage-motion fallback that
   continues active node movement using live pointer coordinates when some GTK
   environments miss intermittent node drag-update callbacks.
+- Canvas input routing now uses capture-phase stage click/drag/motion
+  controllers as a reliability backstop, so node selection, inspector sync,
+  drag-move, and output-handle wire drags still work when child widgets swallow
+  pointer events on certain GTK setups.
 - New non-trigger nodes now include auto-link source fallback logic so module
   add operations keep serial wiring even if the primary selected source is stale.
 - Canvas node settings now apply context-aware execution defaults:

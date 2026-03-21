@@ -610,18 +610,21 @@ class CanvasView(Gtk.Box):
 
         stage_click = Gtk.GestureClick()
         stage_click.set_button(Gdk.BUTTON_PRIMARY)
-        stage_click.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
+        # Capture phase keeps node selection fallback reliable even if child widgets
+        # consume primary-button events.
+        stage_click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         stage_click.set_exclusive(False)
         stage_click.connect("released", self.on_canvas_stage_clicked)
         self.fixed.add_controller(stage_click)
 
         stage_motion = Gtk.EventControllerMotion()
+        stage_motion.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         stage_motion.connect("motion", self.on_stage_pointer_motion)
         self.fixed.add_controller(stage_motion)
 
         stage_select_drag = Gtk.GestureDrag()
         stage_select_drag.set_button(Gdk.BUTTON_PRIMARY)
-        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
+        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         stage_select_drag.set_exclusive(False)
         stage_select_drag.connect("drag-begin", self.on_stage_select_drag_begin)
         stage_select_drag.connect("drag-update", self.on_stage_select_drag_update)
