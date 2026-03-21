@@ -40,6 +40,20 @@ class CanvasView(Gtk.Box):
     PROVIDER_OPTIONS = ["inherit", "local", "openai", "anthropic"]
     TRIGGER_MODE_OPTIONS = ["manual", "schedule_interval", "webhook", "file_watch", "cron"]
     CONDITION_MODE_OPTIONS = ["contains", "equals", "not_contains", "regex", "min_len", "true", "false", "raw"]
+    TRIGGER_MODE_EXECUTION_PROFILES = {
+        "manual": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0},
+        "schedule_interval": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 20.0},
+        "cron": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 20.0},
+        "webhook": {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0},
+        "file_watch": {"retry_max": 1.0, "retry_backoff_ms": 150.0, "timeout_sec": 45.0},
+    }
+    TRIGGER_MODE_DEFAULT_VALUES = {
+        "manual": "",
+        "schedule_interval": "300",
+        "cron": "*/15 * * * *",
+        "webhook": "/incoming",
+        "file_watch": "/tmp/watch-folder",
+    }
     EXECUTION_PRESETS = {
         "safe": {"retry_max": 0, "retry_backoff_ms": 0, "timeout_sec": 30.0},
         "balanced": {"retry_max": 1, "retry_backoff_ms": 250, "timeout_sec": 60.0},
@@ -168,6 +182,8 @@ class CanvasView(Gtk.Box):
         self.hovered_port_kind: str | None = None
         self.link_hover_target_id: str | None = None
         self.syncing_trigger_mode_quick = False
+        self.loading_trigger_controls = False
+        self.last_trigger_execution_mode = "manual"
         self.syncing_action_category = False
         self.loading_action_controls = False
         self.last_action_group_integration = ""
@@ -2725,13 +2741,19 @@ class CanvasView(Gtk.Box):
         selected = self.selected_action_template()
         description = str(selected.get("description", "")).strip()
         integration = str(selected.get("integration", "")).strip()
+        recommended_preset = self.suggested_node_execution_preset("Action", integration or "standard")
+        execution_hint = f" Execution: {recommended_preset.title()}."
         if description and integration:
-            self.action_template_hint_label.set_text(f"{description} Integration: {integration}.")
+            self.action_template_hint_label.set_text(
+                f"{description} Integration: {integration}.{execution_hint}"
+            )
             return
         if description:
-            self.action_template_hint_label.set_text(description)
+            self.action_template_hint_label.set_text(f"{description}{execution_hint}")
             return
-        self.action_template_hint_label.set_text("Choose an action type to preconfigure this node.")
+        self.action_template_hint_label.set_text(
+            "Choose an action type to preconfigure this node."
+        )
 
     def on_action_template_changed(self, *_args):
         self.update_action_template_hint()
@@ -2748,6 +2770,7 @@ class CanvasView(Gtk.Box):
         spec = self.action_template_specs[index]
         integration = str(spec.get("integration", "")).strip().lower() or "standard"
         defaults = spec.get("defaults", {}) if isinstance(spec.get("defaults", {}), dict) else {}
+        previous_integration = self.selected_action_integration()
 
         self.action_template_dropdown.set_selected(index)
         self.action_integration_dropdown.set_selected(self.action_integration_index(integration))
@@ -2777,6 +2800,21 @@ class CanvasView(Gtk.Box):
         timeout = str(defaults.get("timeout_sec", "")).strip()
         if timeout:
             self.action_timeout_spin.set_value(max(0.0, self.parse_float(timeout, 0.0)))
+
+        selected_node = self.get_selected_node()
+        if selected_node and self.node_type_key(selected_node.node_type) in {"action", "template"}:
+            if self.should_auto_apply_execution_defaults_on_integration_change(
+                selected_node,
+                previous_integration,
+            ):
+                self.apply_node_execution_defaults_for_context(
+                    selected_node.node_type,
+                    integration,
+                    announce=False,
+                )
+            else:
+                self.update_node_execution_hint(selected_node.node_type, integration)
+
         self.update_action_template_hint()
         if announce:
             self.set_status(f"Applied action type: {spec.get('label', template_key)}.")
@@ -4349,11 +4387,83 @@ class CanvasView(Gtk.Box):
             flow.insert(button, -1)
         flow.set_visible(True)
 
+    def normalize_trigger_mode(self, value: str) -> str:
+        normalized = str(value).strip().lower()
+        if normalized in self.TRIGGER_MODE_OPTIONS:
+            return normalized
+        return "manual"
+
+    def node_execution_context_key(
+        self,
+        node_type: str,
+        *,
+        merged_config: dict[str, str] | None = None,
+    ) -> str:
+        node_key = self.node_type_key(node_type)
+        merged = merged_config if isinstance(merged_config, dict) else {}
+
+        if node_key == "trigger":
+            configured_mode = self.normalize_trigger_mode(merged.get("trigger_mode", ""))
+            if configured_mode != "manual" or str(merged.get("trigger_mode", "")).strip():
+                return configured_mode
+            return self.selected_trigger_mode()
+
+        if node_key in {"action", "template"}:
+            configured_integration = str(merged.get("integration", "")).strip().lower()
+            if configured_integration:
+                return configured_integration
+            selected_integration = self.selected_action_integration()
+            return selected_integration or "standard"
+
+        return ""
+
+    def node_execution_defaults_config(self, node_type: str, context_key: str = "") -> dict[str, str]:
+        profile = self.node_execution_profile(node_type, context_key)
+        return {
+            "retry_max": str(int(profile.get("retry_max", 0.0))),
+            "retry_backoff_ms": str(int(profile.get("retry_backoff_ms", 0.0))),
+            "timeout_sec": f"{float(profile.get('timeout_sec', 0.0)):.1f}",
+        }
+
+    def infer_trigger_mode_from_detail(self, detail_text: str, fallback: str = "manual") -> str:
+        detail = str(detail_text).strip()
+        if detail.startswith("trigger:"):
+            return self.normalize_trigger_mode(detail.split(":", 1)[1])
+        if detail.startswith("interval:"):
+            return "schedule_interval"
+        if detail.startswith("webhook:"):
+            return "webhook"
+        if detail.startswith("file_watch:"):
+            return "file_watch"
+        if detail.startswith("cron:"):
+            return "cron"
+        return self.normalize_trigger_mode(fallback)
+
+    def infer_trigger_value_from_detail(self, detail_text: str, mode: str) -> str:
+        detail = str(detail_text).strip()
+        normalized_mode = self.normalize_trigger_mode(mode)
+        if normalized_mode == "manual":
+            return ""
+        if normalized_mode == "schedule_interval" and detail.startswith("interval:"):
+            return detail.split(":", 1)[1].strip()
+        if normalized_mode == "webhook" and detail.startswith("webhook:"):
+            return detail.split(":", 1)[1].strip()
+        if normalized_mode == "file_watch" and detail.startswith("file_watch:"):
+            return detail.split(":", 1)[1].strip()
+        if normalized_mode == "cron" and detail.startswith("cron:"):
+            return detail.split(":", 1)[1].strip()
+        return ""
+
     def node_execution_profile(self, node_type: str, integration: str = "") -> dict[str, float]:
         node_key = self.node_type_key(node_type)
         target = str(integration).strip().lower()
         if node_key == "trigger":
-            return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0}
+            return dict(
+                self.TRIGGER_MODE_EXECUTION_PROFILES.get(
+                    self.normalize_trigger_mode(target),
+                    self.TRIGGER_MODE_EXECUTION_PROFILES["manual"],
+                )
+            )
         if node_key == "condition":
             return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 8.0}
         if node_key == "ai":
@@ -4428,6 +4538,8 @@ class CanvasView(Gtk.Box):
         node_key = self.node_type_key(node_type)
         target = str(integration).strip().lower()
         if node_key in {"trigger", "condition"}:
+            if node_key == "trigger" and target in {"webhook", "file_watch"}:
+                return "standard"
             return "fast"
         if node_key == "ai":
             return "heavy"
@@ -4533,22 +4645,14 @@ class CanvasView(Gtk.Box):
                 return
             node = self.get_selected_node()
             if node:
-                integration = (
-                    self.selected_action_integration()
-                    if self.node_type_key(node.node_type) in {"action", "template"}
-                    else ""
-                )
+                integration = self.node_execution_context_key(node.node_type)
                 self.update_node_execution_hint(node.node_type, integration)
             return
 
         node = self.get_selected_node()
         if not node:
             return
-        integration = (
-            self.selected_action_integration()
-            if self.node_type_key(node.node_type) in {"action", "template"}
-            else ""
-        )
+        integration = self.node_execution_context_key(node.node_type)
         allowed = self.allowed_node_execution_presets(node.node_type, integration)
         if preset_key not in allowed:
             button.set_active(False)
@@ -4582,7 +4686,7 @@ class CanvasView(Gtk.Box):
             self.set_status("Recommended node execution defaults applied.")
 
     def load_node_execution_controls(self, merged_config: dict[str, str], node_type: str):
-        integration = str(merged_config.get("integration", "")).strip().lower()
+        integration = self.node_execution_context_key(node_type, merged_config=merged_config)
         defaults = self.node_execution_profile(node_type, integration)
         retry_max = self.parse_int(merged_config.get("retry_max", ""), int(defaults["retry_max"]))
         backoff_ms = self.parse_int(
@@ -4648,9 +4752,7 @@ class CanvasView(Gtk.Box):
         node = self.get_selected_node()
         if not node:
             return
-        integration = ""
-        if self.node_type_key(node.node_type) in {"action", "template"}:
-            integration = self.selected_action_integration()
+        integration = self.node_execution_context_key(node.node_type)
         self.apply_node_execution_defaults_for_context(node.node_type, integration, announce=True)
 
     def on_node_execution_value_changed(self, _spin: Gtk.SpinButton):
@@ -4659,9 +4761,7 @@ class CanvasView(Gtk.Box):
         node = self.get_selected_node()
         if not node:
             return
-        integration = ""
-        if self.node_type_key(node.node_type) in {"action", "template"}:
-            integration = self.selected_action_integration()
+        integration = self.node_execution_context_key(node.node_type)
         self.update_node_execution_hint(node.node_type, integration)
 
     def on_node_error_mode_changed(self, *_args):
@@ -4671,18 +4771,14 @@ class CanvasView(Gtk.Box):
         node = self.get_selected_node()
         if not node:
             return
-        integration = ""
-        if self.node_type_key(node.node_type) in {"action", "template"}:
-            integration = self.selected_action_integration()
+        integration = self.node_execution_context_key(node.node_type)
         self.update_node_execution_hint(node.node_type, integration)
 
     def on_node_error_target_changed(self, _entry: Gtk.Entry):
         node = self.get_selected_node()
         if not node:
             return
-        integration = ""
-        if self.node_type_key(node.node_type) in {"action", "template"}:
-            integration = self.selected_action_integration()
+        integration = self.node_execution_context_key(node.node_type)
         self.update_node_execution_hint(node.node_type, integration)
 
     def update_action_group_visibility(self, integration: str):
@@ -6271,7 +6367,7 @@ class CanvasView(Gtk.Box):
         updated_config: dict[str, str],
         node_type: str,
     ):
-        integration = self.selected_action_integration()
+        integration = self.node_execution_context_key(node_type, merged_config=updated_config)
         defaults = self.node_execution_profile(node_type, integration)
         retry_value = max(0, self.node_retry_spin.get_value_as_int())
         backoff_value = max(0, self.node_backoff_spin.get_value_as_int())
@@ -7187,6 +7283,31 @@ class CanvasView(Gtk.Box):
     ):
         x, y = self.resolve_node_spawn_position(x, y)
         previous_selected = self.default_auto_link_source_id(node_type)
+        merged_config = dict(config or {})
+        node_key = self.node_type_key(node_type)
+        context_key = ""
+        if node_key == "trigger":
+            configured_mode = self.normalize_trigger_mode(merged_config.get("trigger_mode", ""))
+            detail_mode = self.infer_trigger_mode_from_detail(detail, configured_mode)
+            context_key = detail_mode
+            merged_config["trigger_mode"] = detail_mode
+            detail_value = self.infer_trigger_value_from_detail(detail, detail_mode)
+            if detail_mode == "manual":
+                merged_config.setdefault("trigger_value", "")
+            else:
+                merged_config.setdefault(
+                    "trigger_value",
+                    detail_value or self.TRIGGER_MODE_DEFAULT_VALUES.get(detail_mode, ""),
+                )
+        elif node_key in {"action", "template"}:
+            context_key = str(merged_config.get("integration", "")).strip().lower() or "standard"
+            merged_config.setdefault("integration", context_key)
+            merged_config.setdefault("action_template", self.infer_action_template_key(merged_config))
+        execution_defaults = self.node_execution_defaults_config(node_type, context_key)
+        for key, value in execution_defaults.items():
+            if not str(merged_config.get(key, "")).strip():
+                merged_config[key] = value
+
         self.push_undo_snapshot()
         node = CanvasNode(
             id=str(uuid.uuid4()),
@@ -7196,7 +7317,7 @@ class CanvasView(Gtk.Box):
             summary=summary,
             x=x,
             y=y,
-            config=config or {},
+            config=merged_config,
         )
         self.nodes.append(node)
         auto_linked = False
@@ -7250,7 +7371,6 @@ class CanvasView(Gtk.Box):
                 "integration": "standard",
                 "action_template": "generic_action",
                 "method": "POST",
-                "timeout_sec": "30.0",
             },
         )
 
@@ -11267,6 +11387,33 @@ class CanvasView(Gtk.Box):
         self.sync_trigger_mode_quick_state(mode_key)
         self.trigger_mode_dropdown.set_selected(self.trigger_mode_index(mode_key))
 
+    def apply_trigger_mode_smart_defaults(self, mode: str, *, force: bool = False):
+        normalized = self.normalize_trigger_mode(mode)
+        if normalized == "schedule_interval":
+            current_interval = max(0, self.trigger_interval_spin.get_value_as_int())
+            if force or current_interval <= 0:
+                default_interval = max(
+                    5,
+                    self.parse_int(self.TRIGGER_MODE_DEFAULT_VALUES.get("schedule_interval", "300"), 300),
+                )
+                self.trigger_interval_scale.set_value(default_interval)
+                self.trigger_interval_spin.set_value(default_interval)
+            return
+        if normalized == "webhook":
+            if force or not self.trigger_webhook_entry.get_text().strip():
+                self.trigger_webhook_entry.set_text(self.TRIGGER_MODE_DEFAULT_VALUES["webhook"])
+            return
+        if normalized == "file_watch":
+            if force or not self.trigger_watch_path_entry.get_text().strip():
+                self.trigger_watch_path_entry.set_text(self.TRIGGER_MODE_DEFAULT_VALUES["file_watch"])
+            return
+        if normalized == "cron":
+            if force or not self.trigger_cron_entry.get_text().strip():
+                self.trigger_cron_entry.set_text(self.TRIGGER_MODE_DEFAULT_VALUES["cron"])
+            return
+        if normalized == "manual" and force:
+            self.trigger_value_entry.set_text("")
+
     def on_trigger_preset_clicked(self, _button: Gtk.Button, mode_key: str, mode_value: str):
         mode = str(mode_key).strip().lower()
         value = str(mode_value).strip()
@@ -11286,10 +11433,41 @@ class CanvasView(Gtk.Box):
             self.trigger_value_entry.set_text(value)
 
         self.update_trigger_controls_state()
+        selected_node = self.get_selected_node()
+        if selected_node and self.node_type_key(selected_node.node_type) == "trigger":
+            if not self.node_has_explicit_execution_overrides(selected_node.config):
+                self.apply_node_execution_defaults_for_context(
+                    selected_node.node_type,
+                    self.selected_trigger_mode(),
+                    announce=False,
+                )
+            else:
+                self.update_node_execution_hint(selected_node.node_type, self.selected_trigger_mode())
         self.set_status(f"Trigger preset applied: {mode.replace('_', ' ')}.")
 
     def on_trigger_mode_changed(self, *_args):
+        if self.loading_trigger_controls:
+            self.update_trigger_controls_state()
+            self.last_trigger_execution_mode = self.selected_trigger_mode()
+            return
+        previous_mode = self.normalize_trigger_mode(self.last_trigger_execution_mode)
         self.update_trigger_controls_state()
+        current_mode = self.selected_trigger_mode()
+        self.apply_trigger_mode_smart_defaults(current_mode, force=False)
+        selected_node = self.get_selected_node()
+        if selected_node and self.node_type_key(selected_node.node_type) == "trigger":
+            if self.should_auto_apply_execution_defaults_on_integration_change(
+                selected_node,
+                previous_mode,
+            ):
+                self.apply_node_execution_defaults_for_context(
+                    selected_node.node_type,
+                    current_mode,
+                    announce=False,
+                )
+            else:
+                self.update_node_execution_hint(selected_node.node_type, current_mode)
+        self.last_trigger_execution_mode = current_mode
 
     def selected_trigger_mode(self) -> str:
         index = self.trigger_mode_dropdown.get_selected()
@@ -11403,6 +11581,7 @@ class CanvasView(Gtk.Box):
         return issues
 
     def load_trigger_controls(self, merged_config: dict[str, str], detail_text: str):
+        self.loading_trigger_controls = True
         mode = str(merged_config.get("trigger_mode", "")).strip().lower()
         value = str(merged_config.get("trigger_value", "")).strip()
 
@@ -11425,14 +11604,22 @@ class CanvasView(Gtk.Box):
         if not mode:
             mode = "manual"
 
-        self.trigger_mode_dropdown.set_selected(self.trigger_mode_index(mode))
-        interval_seconds = max(5, self.parse_int(value, 300))
-        self.trigger_interval_scale.set_value(interval_seconds)
-        self.trigger_interval_spin.set_value(interval_seconds)
-        self.trigger_webhook_entry.set_text(value if mode == "webhook" else "")
-        self.trigger_watch_path_entry.set_text(value if mode == "file_watch" else "")
-        self.trigger_cron_entry.set_text(value if mode == "cron" else "")
-        self.trigger_value_entry.set_text(value)
+        mode = self.normalize_trigger_mode(mode)
+        self.last_trigger_execution_mode = mode
+        try:
+            self.trigger_mode_dropdown.set_selected(self.trigger_mode_index(mode))
+            interval_seconds = max(5, self.parse_int(value, 300))
+            self.trigger_interval_scale.set_value(interval_seconds)
+            self.trigger_interval_spin.set_value(interval_seconds)
+            webhook_value = value or self.TRIGGER_MODE_DEFAULT_VALUES["webhook"]
+            watch_value = value or self.TRIGGER_MODE_DEFAULT_VALUES["file_watch"]
+            cron_value = value or self.TRIGGER_MODE_DEFAULT_VALUES["cron"]
+            self.trigger_webhook_entry.set_text(webhook_value if mode == "webhook" else "")
+            self.trigger_watch_path_entry.set_text(watch_value if mode == "file_watch" else "")
+            self.trigger_cron_entry.set_text(cron_value if mode == "cron" else "")
+            self.trigger_value_entry.set_text(value or self.TRIGGER_MODE_DEFAULT_VALUES.get(mode, ""))
+        finally:
+            self.loading_trigger_controls = False
         self.update_trigger_controls_state()
 
     def current_trigger_value(self) -> str:

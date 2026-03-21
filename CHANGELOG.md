@@ -8,6 +8,11 @@ All notable changes to this project are documented here.
   stage/node gesture arbitration tightened, node hit fallback now keeps inspector
   selection in sync, and output port drag hit-targets are easier to catch for
   wire linking.
+- Canvas node settings now apply context-aware execution defaults:
+  trigger mode profiles (manual/interval/cron/webhook/watch) and action template
+  context can auto-tune retry/backoff/timeout behavior.
+- New nodes now persist baseline execution defaults at creation time so run
+  behavior is deterministic before first manual edit.
 - Docker/web runtime status synchronized with latest smoke validation:
   end-to-end compose test now confirms run start/cancel/retry flows, retry-from-
   failed-node replay, timeout/retry/backoff behavior, routing timeline filters,
