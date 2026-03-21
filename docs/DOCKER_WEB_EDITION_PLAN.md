@@ -59,6 +59,9 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Per-node behavior editor (trigger/action/AI/condition + execution defaults) in web preview
 - [x] Integration-specific action field UX (endpoint/method/auth/message/location/path/command) in web preview
 - [x] Workflow list search + selected-workflow edit/delete controls in web preview
+- [x] Workflow editor form (create/update/duplicate with status/tags) in web preview
+- [x] Run timeline event filters (status + search) in web preview
+- [x] Expanded settings controls (`local_ai_enabled`, `theme_preset`, `reduce_motion`) in web preview
 - [ ] Workflow list/editor parity
 - [ ] Runs timeline parity
 - [ ] Settings parity
@@ -95,6 +98,9 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Web preview node behavior editor now includes action templates, execution presets, trigger-mode presets, and integration required-field hints.
 - Web preview action editor now auto-shows only relevant integration fields and writes normalized config keys for each integration type.
 - Web preview workflow panel now supports search and selected-workflow metadata lifecycle actions (edit/delete).
+- Web preview workflow panel now includes a form-based editor for create/update/duplicate operations with status/tags controls.
+- Web preview runs panel now supports timeline event filtering by status and search text.
+- Web preview settings panel now supports local runtime enable toggle, theme preset selection, and reduce-motion toggle.
 
 ## Remaining To Reach First Public Web Beta
 1. Replace web preview dashboard with production web UI modules.

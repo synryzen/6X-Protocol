@@ -705,8 +705,39 @@
               <input id="workflowSearch" class="input" type="text" placeholder="name, id, status..." />
             </div>
             <div class="actions" style="justify-content:flex-start;margin-bottom:8px;">
-              <button id="editSelectedWorkflow" class="btn">Edit Selected</button>
+              <button id="editSelectedWorkflow" class="btn">Load Into Editor</button>
               <button id="deleteSelectedWorkflow" class="btn danger">Delete Selected</button>
+            </div>
+            <div class="settings" style="margin-bottom:8px;">
+              <h2 class="mini-title">Workflow Editor</h2>
+              <div class="row">
+                <label class="label" for="workflowEditName">Name</label>
+                <input id="workflowEditName" class="input" type="text" placeholder="Workflow name" />
+              </div>
+              <div class="row">
+                <label class="label" for="workflowEditDescription">Description</label>
+                <input id="workflowEditDescription" class="input" type="text" placeholder="Describe what this automation does" />
+              </div>
+              <div class="grid2">
+                <div class="row">
+                  <label class="label" for="workflowEditStatus">Status</label>
+                  <select id="workflowEditStatus" class="select">
+                    <option value="draft">draft</option>
+                    <option value="active">active</option>
+                    <option value="archived">archived</option>
+                  </select>
+                </div>
+                <div class="row">
+                  <label class="label" for="workflowEditTags">Tags (comma)</label>
+                  <input id="workflowEditTags" class="input" type="text" placeholder="ops, notifications" />
+                </div>
+              </div>
+              <div class="actions" style="justify-content:flex-start;">
+                <button id="workflowEditorNew" class="btn">New Draft</button>
+                <button id="workflowEditorSave" class="btn primary">Save Workflow</button>
+                <button id="workflowEditorDuplicate" class="btn">Duplicate Selected</button>
+              </div>
+              <div id="workflowEditorHint" class="hint-line">Load a workflow to edit it, or create a new draft.</div>
             </div>
             <div class="list" id="workflowList"></div>
           </div>
@@ -743,6 +774,23 @@
             </div>
             <div class="list" id="runList"></div>
             <div class="run-detail" id="runDetailPanel" style="margin-top:8px;">Select a run to inspect details.</div>
+            <div class="grid2" style="margin-top:8px;">
+              <div class="row">
+                <label class="label" for="runEventStatusFilter">Timeline Status</label>
+                <select class="select" id="runEventStatusFilter">
+                  <option value="">all</option>
+                  <option value="running">running</option>
+                  <option value="success">success</option>
+                  <option value="failed">failed</option>
+                  <option value="retrying">retrying</option>
+                  <option value="skipped">skipped</option>
+                </select>
+              </div>
+              <div class="row">
+                <label class="label" for="runEventSearch">Timeline Search</label>
+                <input id="runEventSearch" class="input" type="text" placeholder="node, message, status..." />
+              </div>
+            </div>
             <div class="run-timeline" id="runTimelineList" style="margin-top:8px;"></div>
           </div>
         </div>
@@ -769,6 +817,22 @@
           </div>
           <div class="grid2">
             <div class="row">
+              <label class="label" for="localAiEnabled">Local Runtime Enabled</label>
+              <select id="localAiEnabled" class="select">
+                <option value="true">true</option>
+                <option value="false">false</option>
+              </select>
+            </div>
+            <div class="row">
+              <label class="label" for="reduceMotion">Reduce Motion</label>
+              <select id="reduceMotion" class="select">
+                <option value="false">false</option>
+                <option value="true">true</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="row">
               <label class="label" for="theme">Theme</label>
               <select id="theme" class="select">
                 <option value="system">system</option>
@@ -783,6 +847,18 @@
                 <option value="compact">compact</option>
               </select>
             </div>
+          </div>
+          <div class="row">
+            <label class="label" for="themePreset">Theme Preset</label>
+            <select id="themePreset" class="select">
+              <option value="graphite">graphite</option>
+              <option value="frost">frost</option>
+              <option value="sunset">sunset</option>
+              <option value="ember">ember</option>
+              <option value="midnight">midnight</option>
+              <option value="solar">solar</option>
+              <option value="neon">neon</option>
+            </select>
           </div>
           <div class="actions" style="justify-content:flex-start;">
             <button id="loadSettings" class="btn">Load Settings</button>
@@ -1041,6 +1117,7 @@
       workflows: [],
       runs: [],
       selectedWorkflowId: "",
+      workflowEditorWorkflowId: "",
       selectedRunId: "",
       graphDraft: { version: 1, nodes: [], edges: [] },
       graphDirty: false,
@@ -1134,6 +1211,56 @@
         .join("");
     }
 
+    function parseTagCsv(value) {
+      return String(value || "")
+        .split(",")
+        .map((item) => String(item || "").trim())
+        .filter(Boolean);
+    }
+
+    function joinTags(tags) {
+      if (!Array.isArray(tags)) return "";
+      return tags.map((item) => String(item || "").trim()).filter(Boolean).join(", ");
+    }
+
+    function defaultWorkflowGraph() {
+      return { version: 1, nodes: [], edges: [] };
+    }
+
+    function clearWorkflowEditor() {
+      state.workflowEditorWorkflowId = "";
+      byId("workflowEditName").value = "";
+      byId("workflowEditDescription").value = "";
+      byId("workflowEditStatus").value = "draft";
+      byId("workflowEditTags").value = "";
+      byId("workflowEditorHint").textContent = "Creating a new workflow draft.";
+    }
+
+    function applyWorkflowToEditor(workflow) {
+      if (!workflow || typeof workflow !== "object") {
+        clearWorkflowEditor();
+        return;
+      }
+      state.workflowEditorWorkflowId = String(workflow.id || "").trim();
+      byId("workflowEditName").value = String(workflow.name || "");
+      byId("workflowEditDescription").value = String(workflow.description || "");
+      byId("workflowEditStatus").value = String(workflow.status || "draft").trim().toLowerCase() || "draft";
+      byId("workflowEditTags").value = joinTags(workflow.tags);
+      byId("workflowEditorHint").textContent =
+        `Editing workflow ${String(workflow.name || "Untitled workflow")} (${String(workflow.id || "").slice(0, 8)}).`;
+    }
+
+    function loadSelectedWorkflowIntoEditor() {
+      const workflow = selectedWorkflow();
+      if (!workflow) {
+        log("No workflow selected to load into editor.", "warn");
+        clearWorkflowEditor();
+        return;
+      }
+      applyWorkflowToEditor(workflow);
+      log(`Loaded workflow into editor: ${workflow.name}`, "info");
+    }
+
     function workflowUpdatePayload(workflow, overrides = {}) {
       const graph = workflow && workflow.graph && typeof workflow.graph === "object" ? workflow.graph : { version: 1, nodes: [], edges: [] };
       const tags = workflow && Array.isArray(workflow.tags) ? workflow.tags : [];
@@ -1146,51 +1273,80 @@
       };
     }
 
-    async function editSelectedWorkflow() {
-      const workflow = selectedWorkflow();
-      if (!workflow) {
-        log("No workflow selected to edit.", "warn");
+    async function saveWorkflowFromEditor() {
+      const name = String(byId("workflowEditName").value || "").trim();
+      const description = String(byId("workflowEditDescription").value || "").trim();
+      const status = String(byId("workflowEditStatus").value || "draft").trim().toLowerCase() || "draft";
+      const tags = parseTagCsv(byId("workflowEditTags").value);
+      if (!name) {
+        log("Workflow name is required.", "warn");
+        return;
+      }
+      if (!["draft", "active", "archived"].includes(status)) {
+        log("Workflow status must be draft, active, or archived.", "warn");
         return;
       }
 
-      const currentName = String(workflow.name || "Untitled Workflow");
-      const currentDescription = String(workflow.description || "");
-      const currentStatus = String(workflow.status || "draft").trim().toLowerCase() || "draft";
-      const allowedStatuses = new Set(["draft", "active", "archived"]);
-
-      const nextName = prompt("Workflow name", currentName);
-      if (nextName === null) return;
-      const normalizedName = String(nextName || "").trim();
-      if (!normalizedName) {
-        log("Workflow name cannot be empty.", "warn");
-        return;
-      }
-
-      const nextDescription = prompt("Workflow description", currentDescription);
-      if (nextDescription === null) return;
-
-      const nextStatusInput = prompt("Workflow status (draft|active|archived)", currentStatus);
-      if (nextStatusInput === null) return;
-      const nextStatus = String(nextStatusInput || "").trim().toLowerCase() || currentStatus;
-      if (!allowedStatuses.has(nextStatus)) {
-        log(`Invalid workflow status '${nextStatus}'. Allowed: draft, active, archived.`, "warn");
-        return;
+      const editingId = String(state.workflowEditorWorkflowId || "").trim();
+      const existing = editingId ? workflowById(editingId) : null;
+      const payload = workflowUpdatePayload(existing, {
+        name,
+        description,
+        status,
+        tags,
+      });
+      payload.tags = tags;
+      if (!existing) {
+        payload.graph = defaultWorkflowGraph();
       }
 
       try {
+        if (existing) {
+          const saved = await api(`/api/v1/workflows/${existing.id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          });
+          state.selectedWorkflowId = String(saved.id || existing.id || "");
+          state.workflowEditorWorkflowId = String(saved.id || existing.id || "");
+          log(`Workflow updated: ${saved.name || name}`, "info");
+        } else {
+          const created = await api("/api/v1/workflows", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          state.selectedWorkflowId = String(created.id || "");
+          state.workflowEditorWorkflowId = String(created.id || "");
+          log(`Workflow created: ${created.name || name}`, "info");
+        }
+        state.graphDirty = false;
+        await refreshAll();
+      } catch (error) {
+        log(`Save workflow failed: ${error.message}`, "error");
+      }
+    }
+
+    async function duplicateSelectedWorkflow() {
+      const workflow = selectedWorkflow();
+      if (!workflow) {
+        log("No workflow selected to duplicate.", "warn");
+        return;
+      }
+      try {
         const payload = workflowUpdatePayload(workflow, {
-          name: normalizedName,
-          description: String(nextDescription || "").trim(),
-          status: nextStatus,
+          name: `${String(workflow.name || "Workflow")} Copy`,
+          status: "draft",
         });
-        await api(`/api/v1/workflows/${workflow.id}`, {
-          method: "PUT",
+        const created = await api("/api/v1/workflows", {
+          method: "POST",
           body: JSON.stringify(payload),
         });
-        log(`Workflow updated: ${normalizedName}`, "info");
-        await refreshWorkflows();
+        state.selectedWorkflowId = String(created.id || "");
+        applyWorkflowToEditor(created);
+        state.graphDirty = false;
+        log(`Workflow duplicated: ${created.name}`, "info");
+        await refreshAll();
       } catch (error) {
-        log(`Update workflow failed: ${error.message}`, "error");
+        log(`Duplicate workflow failed: ${error.message}`, "error");
       }
     }
 
@@ -1212,6 +1368,9 @@
           state.graphEditorEdgeIndex = -1;
           state.graphDraft = { nodes: [], edges: [] };
           state.graphDirty = false;
+        }
+        if (state.workflowEditorWorkflowId === String(workflow.id || "")) {
+          clearWorkflowEditor();
         }
         log(`Workflow deleted: ${workflowName}`, "info");
         await refreshWorkflows();
@@ -1284,6 +1443,27 @@
       }
     }
 
+    function timelineEventMatchesFilters(event, searchText, statusFilter) {
+      const normalizedStatus = String(statusFilter || "").trim().toLowerCase();
+      const eventStatus = String(event.status || "").trim().toLowerCase();
+      if (normalizedStatus && normalizedStatus !== eventStatus) {
+        return false;
+      }
+      const needle = String(searchText || "").trim().toLowerCase();
+      if (!needle) return true;
+      const haystack = [
+        event.node_id,
+        event.node_name,
+        event.status,
+        event.message,
+        event.timestamp,
+        event.output_preview,
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .join(" ");
+      return haystack.includes(needle);
+    }
+
     function renderRunDetails() {
       const panel = byId("runDetailPanel");
       const timeline = byId("runTimelineList");
@@ -1311,10 +1491,15 @@
         `<div class="small">${summary || "No summary."}</div>`,
       ].join("");
 
+      const timelineStatusFilter = String(byId("runEventStatusFilter")?.value || "").trim().toLowerCase();
+      const timelineSearchText = String(byId("runEventSearch")?.value || "").trim();
       const eventsRaw = Array.isArray(run.node_results) ? run.node_results : [];
-      const events = eventsRaw.slice(-80).reverse();
+      const events = eventsRaw
+        .filter((event) => timelineEventMatchesFilters(event, timelineSearchText, timelineStatusFilter))
+        .slice(-80)
+        .reverse();
       if (!events.length) {
-        timeline.innerHTML = `<div class="item">No node events for this run yet.</div>`;
+        timeline.innerHTML = `<div class="item">No timeline events match current filters.</div>`;
       } else {
         timeline.innerHTML = events
           .map((event) => {
@@ -2770,6 +2955,15 @@
         const response = await api("/api/v1/workflows", { method: "GET" });
         state.workflows = Array.isArray(response.items) ? response.items : [];
         ensureWorkflowSelection();
+        if (state.workflowEditorWorkflowId) {
+          const editing = workflowById(state.workflowEditorWorkflowId);
+          if (!editing) {
+            clearWorkflowEditor();
+          } else {
+            byId("workflowEditorHint").textContent =
+              `Editing workflow ${String(editing.name || "Untitled workflow")} (${String(editing.id || "").slice(0, 8)}).`;
+          }
+        }
         renderWorkflows();
         renderWorkflowSelect();
         renderRunFilters();
@@ -2970,15 +3164,20 @@
       byId("runWorkflowFilter").value = "";
       byId("runStatusFilter").value = "";
       byId("runSearch").value = "";
+      if (byId("runEventStatusFilter")) byId("runEventStatusFilter").value = "";
+      if (byId("runEventSearch")) byId("runEventSearch").value = "";
       renderRuns();
     }
 
     function applySettingsToForm(settings) {
       byId("preferredProvider").value = settings.preferred_provider || "local";
+      byId("localAiEnabled").value = String(Boolean(settings.local_ai_enabled));
       byId("localEndpoint").value = settings.local_ai_endpoint || "";
       byId("defaultModel").value = settings.default_local_model || "";
       byId("theme").value = settings.theme || "dark";
+      byId("themePreset").value = settings.theme_preset || "graphite";
       byId("density").value = settings.ui_density || "comfortable";
+      byId("reduceMotion").value = String(Boolean(settings.reduce_motion));
     }
 
     async function loadSettings() {
@@ -2994,10 +3193,13 @@
     async function saveSettings() {
       const payload = {
         preferred_provider: byId("preferredProvider").value,
+        local_ai_enabled: String(byId("localAiEnabled").value || "true").trim().toLowerCase() === "true",
         local_ai_endpoint: byId("localEndpoint").value.trim(),
         default_local_model: byId("defaultModel").value.trim(),
         theme: byId("theme").value,
+        theme_preset: byId("themePreset").value,
         ui_density: byId("density").value,
+        reduce_motion: String(byId("reduceMotion").value || "false").trim().toLowerCase() === "true",
       };
       try {
         const saved = await api("/api/v1/settings", {
@@ -3105,9 +3307,14 @@
       byId("runWorkflowFilter").addEventListener("change", renderRuns);
       byId("runStatusFilter").addEventListener("change", renderRuns);
       byId("runSearch").addEventListener("input", renderRuns);
+      byId("runEventStatusFilter").addEventListener("change", renderRunDetails);
+      byId("runEventSearch").addEventListener("input", renderRunDetails);
       byId("workflowSearch").addEventListener("input", renderWorkflows);
-      byId("editSelectedWorkflow").addEventListener("click", editSelectedWorkflow);
+      byId("editSelectedWorkflow").addEventListener("click", loadSelectedWorkflowIntoEditor);
       byId("deleteSelectedWorkflow").addEventListener("click", deleteSelectedWorkflow);
+      byId("workflowEditorNew").addEventListener("click", clearWorkflowEditor);
+      byId("workflowEditorSave").addEventListener("click", saveWorkflowFromEditor);
+      byId("workflowEditorDuplicate").addEventListener("click", duplicateSelectedWorkflow);
       byId("workflowSelect").addEventListener("change", () => {
         state.selectedWorkflowId = String(byId("workflowSelect").value || "").trim();
         state.graphDirty = false;
@@ -3295,6 +3502,7 @@
     function init() {
       byId("apiBase").value = state.apiBase;
       renderWorkflowSelect();
+      clearWorkflowEditor();
       renderRunFilters();
       renderRunDetails();
       renderGraphDraftLists();
