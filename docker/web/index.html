@@ -611,6 +611,52 @@
               <label class="label">Integration Requirements</label>
               <div id="graphEditorIntegrationRequirements" class="hint-line">Select an action integration to view required fields.</div>
             </div>
+            <div class="graph-editor-grid" id="graphEditorActionRoutingRow">
+              <div class="row" id="graphEditorActionEndpointRow">
+                <label class="label" for="graphEditorActionEndpoint">Endpoint / URL</label>
+                <input id="graphEditorActionEndpoint" class="input" type="text" placeholder="https://api.example.com/..." />
+              </div>
+              <div class="row" id="graphEditorActionMethodRow">
+                <label class="label" for="graphEditorActionMethod">HTTP Method</label>
+                <select class="select" id="graphEditorActionMethod">
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="PATCH">PATCH</option>
+                  <option value="DELETE">DELETE</option>
+                </select>
+              </div>
+            </div>
+            <div class="graph-editor-grid" id="graphEditorActionAuthRow">
+              <div class="row" id="graphEditorActionApiKeyRow">
+                <label class="label" for="graphEditorActionApiKey">API Key / Token</label>
+                <input id="graphEditorActionApiKey" class="input" type="text" placeholder="token or key" />
+              </div>
+              <div class="row" id="graphEditorActionChatIdRow">
+                <label class="label" for="graphEditorActionChatId">Chat / Channel ID</label>
+                <input id="graphEditorActionChatId" class="input" type="text" placeholder="chat id / channel id" />
+              </div>
+            </div>
+            <div class="graph-editor-grid" id="graphEditorActionPayloadRow">
+              <div class="row" id="graphEditorActionMessageRow">
+                <label class="label" for="graphEditorActionMessage">Message / Payload</label>
+                <input id="graphEditorActionMessage" class="input" type="text" placeholder="Workflow update: ${last_output}" />
+              </div>
+              <div class="row" id="graphEditorActionLocationRow">
+                <label class="label" for="graphEditorActionLocation">Location</label>
+                <input id="graphEditorActionLocation" class="input" type="text" placeholder="Austin,US" />
+              </div>
+            </div>
+            <div class="graph-editor-grid" id="graphEditorActionSystemRow">
+              <div class="row" id="graphEditorActionPathRow">
+                <label class="label" for="graphEditorActionPath">Path / File</label>
+                <input id="graphEditorActionPath" class="input" type="text" placeholder="/tmp/6x-workflow.log" />
+              </div>
+              <div class="row" id="graphEditorActionCommandRow">
+                <label class="label" for="graphEditorActionCommand">Shell Command</label>
+                <input id="graphEditorActionCommand" class="input" type="text" placeholder="echo \"$INPUT_CONTEXT\"" />
+              </div>
+            </div>
             <div class="graph-editor-grid">
               <div class="row" id="graphEditorConditionRow">
                 <label class="label" for="graphEditorCondition">Condition Expression</label>
@@ -857,6 +903,130 @@
       { key: "shell_command", label: "Shell Command", integration: "shell_command" },
       { key: "approval_gate", label: "Approval Gate", integration: "approval_gate" },
     ];
+    const actionTemplateDefaults = {
+      generic_action: {},
+      notify_slack: { message: "Workflow update: ${last_output}" },
+      notify_discord: { message: "Workflow update: ${last_output}" },
+      notify_teams: { message: "Workflow update: ${last_output}" },
+      message_telegram: { message: "Workflow update: ${last_output}", method: "POST" },
+      message_sms: { message: "Workflow update: ${last_output}", method: "POST" },
+      message_email: { subject: "Workflow update", message: "Workflow update: ${last_output}", method: "POST" },
+      http_request: { endpoint: "https://api.example.com/endpoint", method: "GET" },
+      weather_lookup: { location: "Austin,US", method: "GET" },
+      script_google_apps: { endpoint: "https://script.google.com/macros/s/REPLACE/exec", method: "POST" },
+      file_append: { path: "/tmp/6x-workflow.log", message: "${last_output}" },
+      shell_command: { command: "echo \"$INPUT_CONTEXT\"" },
+      approval_gate: { message: "Approve this step before continuing." },
+    };
+    const integrationRequiresEndpoint = new Set([
+      "http_post",
+      "http_request",
+      "google_apps_script",
+      "slack_webhook",
+      "discord_webhook",
+      "teams_webhook",
+      "jira_api",
+      "asana_api",
+      "clickup_api",
+      "trello_api",
+      "monday_api",
+      "zendesk_api",
+      "salesforce_api",
+      "pipedrive_api",
+      "notion_api",
+      "airtable_api",
+      "hubspot_api",
+      "stripe_api",
+      "github_rest",
+      "gitlab_api",
+      "google_drive_api",
+      "dropbox_api",
+      "shopify_api",
+      "webflow_api",
+      "supabase_api",
+      "openrouter_api",
+      "linear_api",
+      "google_calendar_api",
+      "outlook_graph",
+      "resend_email",
+      "mailgun_email",
+    ]);
+    const integrationRequiresMethod = new Set([
+      "http_post",
+      "http_request",
+      "telegram_bot",
+      "google_apps_script",
+      "gmail_send",
+      "google_sheets",
+      "google_calendar_api",
+      "outlook_graph",
+      "notion_api",
+      "airtable_api",
+      "hubspot_api",
+      "stripe_api",
+      "github_rest",
+      "gitlab_api",
+      "google_drive_api",
+      "dropbox_api",
+      "shopify_api",
+      "webflow_api",
+      "supabase_api",
+      "openrouter_api",
+      "linear_api",
+      "resend_email",
+      "mailgun_email",
+    ]);
+    const integrationRequiresAuth = new Set([
+      "telegram_bot",
+      "gmail_send",
+      "google_sheets",
+      "google_calendar_api",
+      "outlook_graph",
+      "notion_api",
+      "airtable_api",
+      "hubspot_api",
+      "stripe_api",
+      "github_rest",
+      "gitlab_api",
+      "google_drive_api",
+      "dropbox_api",
+      "shopify_api",
+      "webflow_api",
+      "supabase_api",
+      "openrouter_api",
+      "linear_api",
+      "jira_api",
+      "asana_api",
+      "clickup_api",
+      "trello_api",
+      "monday_api",
+      "zendesk_api",
+      "salesforce_api",
+      "pipedrive_api",
+      "twilio_sms",
+      "resend_email",
+      "mailgun_email",
+      "postgres_sql",
+      "mysql_sql",
+      "redis_command",
+      "s3_cli",
+    ]);
+    const integrationRequiresMessage = new Set([
+      "slack_webhook",
+      "discord_webhook",
+      "teams_webhook",
+      "telegram_bot",
+      "twilio_sms",
+      "gmail_send",
+      "resend_email",
+      "mailgun_email",
+      "approval_gate",
+      "file_append",
+    ]);
+    const integrationRequiresLocation = new Set(["openweather_current"]);
+    const integrationRequiresPath = new Set(["file_append", "sqlite_sql"]);
+    const integrationRequiresCommand = new Set(["shell_command", "postgres_sql", "mysql_sql", "redis_command", "s3_cli"]);
+    const integrationUsesChatId = new Set(["telegram_bot"]);
 
     const state = {
       apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
@@ -1270,9 +1440,39 @@
         const id = String(node.id || "").trim();
         const nodeType = normalizeNodeType(node.type);
         const nodeName = String(node.name || id || "Node").trim() || id || "Node";
+        const config = node.config && typeof node.config === "object" ? node.config : {};
         const outCount = outgoing[id] || 0;
         if (nodeType === "condition" && outCount === 0) {
           errors.push(`Condition node '${nodeName}' has no outgoing branches.`);
+        }
+        if (nodeType === "trigger") {
+          const triggerMode = String(config.trigger_mode || "manual").trim().toLowerCase() || "manual";
+          const triggerValue = String(config.trigger_value || "").trim();
+          if (["schedule_interval", "webhook", "file_watch", "cron"].includes(triggerMode) && !triggerValue) {
+            warnings.push(`Trigger node '${nodeName}' uses mode '${triggerMode}' but has no trigger value.`);
+          }
+        }
+        if (nodeType === "action") {
+          const detailIntegration = String(node.detail || "").trim().toLowerCase().replace(/^integration:/, "");
+          const integration = normalizeActionIntegration(config.integration || detailIntegration || "standard");
+          const catalog = integrationCatalogItem(integration);
+          const required = catalog && Array.isArray(catalog.required_fields)
+            ? catalog.required_fields.map((item) => String(item || "").trim()).filter(Boolean)
+            : [];
+          for (const fieldKey of required) {
+            const value = actionConfigFieldValue(config, fieldKey);
+            if (!value) {
+              warnings.push(
+                `Action node '${nodeName}' is missing required field '${fieldKey}' for integration '${integration}'.`
+              );
+            }
+          }
+          if (integrationRequiresMethod.has(integration)) {
+            const method = actionConfigFieldValue(config, "method");
+            if (!method) {
+              warnings.push(`Action node '${nodeName}' should set HTTP method for '${integration}'.`);
+            }
+          }
         }
         if (["trigger", "action", "ai"].includes(nodeType) && outCount === 0) {
           warnings.push(`Node '${nodeName}' is terminal (no outgoing link).`);
@@ -1722,6 +1922,160 @@
       helper.textContent = "Choose a node to configure behavior defaults, execution policy, and integration details.";
     }
 
+    function setGraphEditorActionFieldVisibility(integrationKey) {
+      const integration = normalizeActionIntegration(integrationKey);
+      setElementVisible(
+        "graphEditorActionRoutingRow",
+        integrationRequiresEndpoint.has(integration) || integrationRequiresMethod.has(integration)
+      );
+      setElementVisible(
+        "graphEditorActionAuthRow",
+        integrationRequiresAuth.has(integration) || integrationUsesChatId.has(integration)
+      );
+      setElementVisible(
+        "graphEditorActionPayloadRow",
+        integrationRequiresMessage.has(integration) || integrationRequiresLocation.has(integration)
+      );
+      setElementVisible(
+        "graphEditorActionSystemRow",
+        integrationRequiresPath.has(integration) || integrationRequiresCommand.has(integration)
+      );
+      setElementVisible("graphEditorActionEndpointRow", integrationRequiresEndpoint.has(integration));
+      setElementVisible("graphEditorActionMethodRow", integrationRequiresMethod.has(integration));
+      setElementVisible("graphEditorActionApiKeyRow", integrationRequiresAuth.has(integration));
+      setElementVisible("graphEditorActionChatIdRow", integrationUsesChatId.has(integration));
+      setElementVisible("graphEditorActionMessageRow", integrationRequiresMessage.has(integration));
+      setElementVisible("graphEditorActionLocationRow", integrationRequiresLocation.has(integration));
+      setElementVisible("graphEditorActionPathRow", integrationRequiresPath.has(integration));
+      setElementVisible("graphEditorActionCommandRow", integrationRequiresCommand.has(integration));
+    }
+
+    function actionConfigFieldValue(config, key) {
+      const cfg = config && typeof config === "object" ? config : {};
+      const aliases = {
+        endpoint: ["url", "endpoint", "webhook_url", "script_url", "connection_url", "request_url"],
+        api_key: ["api_key", "auth_token", "token"],
+        chat_id: ["chat_id", "channel_id"],
+        message: ["message", "payload", "body", "text"],
+        location: ["location"],
+        path: ["path", "file_path", "db_path"],
+        command: ["command", "sql", "query"],
+        method: ["method"],
+      };
+      const keys = aliases[key] || [key];
+      for (const target of keys) {
+        const value = cfg[target];
+        if (value !== undefined && value !== null && String(value).trim()) {
+          return String(value).trim();
+        }
+      }
+      return "";
+    }
+
+    function fillGraphEditorActionFieldsFromConfig(config) {
+      byId("graphEditorActionEndpoint").value = actionConfigFieldValue(config, "endpoint");
+      byId("graphEditorActionApiKey").value = actionConfigFieldValue(config, "api_key");
+      byId("graphEditorActionChatId").value = actionConfigFieldValue(config, "chat_id");
+      byId("graphEditorActionMessage").value = actionConfigFieldValue(config, "message");
+      byId("graphEditorActionLocation").value = actionConfigFieldValue(config, "location");
+      byId("graphEditorActionPath").value = actionConfigFieldValue(config, "path");
+      byId("graphEditorActionCommand").value = actionConfigFieldValue(config, "command");
+      const method = actionConfigFieldValue(config, "method").toUpperCase();
+      byId("graphEditorActionMethod").value = method || "POST";
+    }
+
+    function applyGraphEditorActionTemplateDefaults(templateKey, { force = false } = {}) {
+      const template = String(templateKey || "").trim().toLowerCase() || "generic_action";
+      const defaults = actionTemplateDefaults[template] || {};
+      const writeIfAllowed = (elementId, value) => {
+        const element = byId(elementId);
+        if (!element) return;
+        const next = String(value || "").trim();
+        if (!next) return;
+        if (force || !String(element.value || "").trim()) {
+          element.value = next;
+        }
+      };
+      writeIfAllowed("graphEditorActionEndpoint", defaults.endpoint);
+      writeIfAllowed("graphEditorActionApiKey", defaults.api_key);
+      writeIfAllowed("graphEditorActionChatId", defaults.chat_id);
+      writeIfAllowed("graphEditorActionMessage", defaults.message);
+      writeIfAllowed("graphEditorActionLocation", defaults.location);
+      writeIfAllowed("graphEditorActionPath", defaults.path);
+      writeIfAllowed("graphEditorActionCommand", defaults.command);
+      if (defaults.method) {
+        byId("graphEditorActionMethod").value = String(defaults.method).trim().toUpperCase();
+      }
+    }
+
+    function copyGraphEditorActionFieldsToConfig(config) {
+      const nextConfig = config && typeof config === "object" ? config : {};
+      const integration = normalizeActionIntegration(nextConfig.integration || "standard");
+      const endpoint = String(byId("graphEditorActionEndpoint").value || "").trim();
+      const apiKey = String(byId("graphEditorActionApiKey").value || "").trim();
+      const chatId = String(byId("graphEditorActionChatId").value || "").trim();
+      const message = String(byId("graphEditorActionMessage").value || "").trim();
+      const location = String(byId("graphEditorActionLocation").value || "").trim();
+      const path = String(byId("graphEditorActionPath").value || "").trim();
+      const command = String(byId("graphEditorActionCommand").value || "").trim();
+      const method = String(byId("graphEditorActionMethod").value || "POST").trim().toUpperCase() || "POST";
+
+      const setOrDelete = (key, value) => {
+        if (String(value || "").trim()) {
+          nextConfig[key] = String(value).trim();
+        } else {
+          delete nextConfig[key];
+        }
+      };
+
+      if (integrationRequiresEndpoint.has(integration)) {
+        if (["slack_webhook", "discord_webhook", "teams_webhook"].includes(integration)) {
+          setOrDelete("webhook_url", endpoint);
+          setOrDelete("url", "");
+          setOrDelete("script_url", "");
+          setOrDelete("connection_url", "");
+        } else if (integration === "google_apps_script") {
+          setOrDelete("script_url", endpoint);
+          setOrDelete("url", "");
+          setOrDelete("webhook_url", "");
+          setOrDelete("connection_url", "");
+        } else if (["postgres_sql", "mysql_sql", "redis_command"].includes(integration)) {
+          setOrDelete("connection_url", endpoint);
+          setOrDelete("url", endpoint);
+        } else {
+          setOrDelete("url", endpoint);
+          setOrDelete("webhook_url", "");
+          setOrDelete("script_url", "");
+        }
+      }
+      if (integrationRequiresMethod.has(integration)) {
+        setOrDelete("method", method);
+      }
+      if (integrationRequiresAuth.has(integration)) {
+        setOrDelete("api_key", apiKey);
+      }
+      if (integrationUsesChatId.has(integration)) {
+        setOrDelete("chat_id", chatId);
+      }
+      if (integrationRequiresMessage.has(integration)) {
+        setOrDelete("message", message);
+      }
+      if (integrationRequiresLocation.has(integration)) {
+        setOrDelete("location", location);
+      }
+      if (integrationRequiresPath.has(integration)) {
+        setOrDelete("path", path);
+      }
+      if (integrationRequiresCommand.has(integration)) {
+        if (["postgres_sql", "mysql_sql", "sqlite_sql"].includes(integration)) {
+          setOrDelete("sql", command);
+        } else {
+          setOrDelete("command", command);
+        }
+      }
+      return nextConfig;
+    }
+
     function nodeExecutionDefaults(nodeType, integration = "standard") {
       const kind = normalizeNodeType(nodeType);
       const actionKey = normalizeActionIntegration(integration);
@@ -1745,6 +2099,7 @@
         return {
           trigger_mode: "manual",
           trigger_value: "",
+          execution_preset: "balanced",
           retry_max: policy.retry_max,
           retry_backoff_ms: policy.retry_backoff_ms,
           timeout_sec: policy.timeout_sec,
@@ -1755,6 +2110,7 @@
           provider: "local",
           model: "local/default",
           prompt: "Process node context.",
+          execution_preset: "balanced",
           retry_max: policy.retry_max,
           retry_backoff_ms: policy.retry_backoff_ms,
           timeout_sec: policy.timeout_sec,
@@ -1763,6 +2119,7 @@
       if (kind === "condition") {
         return {
           expression: "contains:success",
+          execution_preset: "balanced",
           retry_max: policy.retry_max,
           retry_backoff_ms: policy.retry_backoff_ms,
           timeout_sec: policy.timeout_sec,
@@ -1772,6 +2129,7 @@
         integration: normalizeActionIntegration(integration),
         action_template: inferActionTemplateKey({}, integration),
         method: "POST",
+        execution_preset: "balanced",
         retry_max: policy.retry_max,
         retry_backoff_ms: policy.retry_backoff_ms,
         timeout_sec: policy.timeout_sec,
@@ -1796,14 +2154,23 @@
 
     function setGraphEditorVisibilityForType(type) {
       const kind = normalizeNodeType(type);
+      const actionMode = kind === "action";
       setElementVisible("graphEditorIntegrationRow", kind === "action");
       setElementVisible("graphEditorActionTemplateRow", kind === "action");
       setElementVisible("graphEditorIntegrationRequirementsRow", kind === "action");
+      setElementVisible("graphEditorActionRoutingRow", actionMode);
+      setElementVisible("graphEditorActionAuthRow", actionMode);
+      setElementVisible("graphEditorActionPayloadRow", actionMode);
+      setElementVisible("graphEditorActionSystemRow", actionMode);
       setElementVisible("graphEditorTriggerModeRow", kind === "trigger");
       setElementVisible("graphEditorTriggerValueRow", kind === "trigger");
       setElementVisible("graphEditorConditionRow", kind === "condition");
       setElementVisible("graphEditorModelRow", kind === "ai");
       setElementVisible("graphEditorPromptRow", kind === "ai");
+      if (actionMode) {
+        const integration = normalizeActionIntegration(byId("graphEditorIntegration")?.value || "standard");
+        setGraphEditorActionFieldVisibility(integration);
+      }
     }
 
     function renderGraphIntegrationEditorOptions(selectedKey = "standard") {
@@ -1844,11 +2211,20 @@
         byId("graphEditorCondition").value = "";
         byId("graphEditorModel").value = "";
         byId("graphEditorPrompt").value = "";
+        byId("graphEditorActionEndpoint").value = "";
+        byId("graphEditorActionApiKey").value = "";
+        byId("graphEditorActionChatId").value = "";
+        byId("graphEditorActionMessage").value = "";
+        byId("graphEditorActionLocation").value = "";
+        byId("graphEditorActionPath").value = "";
+        byId("graphEditorActionCommand").value = "";
+        byId("graphEditorActionMethod").value = "POST";
         byId("graphEditorRetry").value = "0";
         byId("graphEditorBackoff").value = "0";
         byId("graphEditorTimeout").value = "0";
         setGraphEditorVisibilityForType("action");
         updateGraphEditorIntegrationRequirements("standard");
+        setGraphEditorActionFieldVisibility("standard");
         refreshGraphNodeBehaviorHelper("action", "standard", "manual");
         return;
       }
@@ -1874,6 +2250,7 @@
       byId("graphEditorCondition").value = String(config.expression || config.condition || "contains:success");
       byId("graphEditorModel").value = String(config.model || "local/default");
       byId("graphEditorPrompt").value = String(config.prompt || "");
+      fillGraphEditorActionFieldsFromConfig(config);
       const defaults = nodeExecutionDefaults(type, actionIntegration);
       byId("graphEditorRetry").value = String(
         Number.isFinite(Number(config.retry_max)) ? Number(config.retry_max) : defaults.retry_max
@@ -1884,9 +2261,15 @@
       byId("graphEditorTimeout").value = String(
         Number.isFinite(Number(config.timeout_sec)) ? Number(config.timeout_sec) : defaults.timeout_sec
       );
-      refreshGraphExecutionPresetControl(type, actionIntegration);
+      const presetRaw = String(config.execution_preset || "").trim().toLowerCase();
+      if (["safe", "balanced", "aggressive", "custom"].includes(presetRaw)) {
+        byId("graphEditorExecutionPreset").value = presetRaw;
+      } else {
+        refreshGraphExecutionPresetControl(type, actionIntegration);
+      }
       setGraphEditorVisibilityForType(type);
       updateGraphEditorIntegrationRequirements(actionIntegration);
+      setGraphEditorActionFieldVisibility(actionIntegration);
       refreshGraphNodeBehaviorHelper(
         type,
         actionIntegration,
@@ -1913,7 +2296,10 @@
       } else if (type === "condition" && !byId("graphEditorCondition").value.trim()) {
         byId("graphEditorCondition").value = "contains:success";
       } else if (type === "action") {
-        renderActionTemplateOptions(inferActionTemplateKey(node.config || {}, integration));
+        const templateKey = inferActionTemplateKey(node.config || {}, integration);
+        renderActionTemplateOptions(templateKey);
+        applyGraphEditorActionTemplateDefaults(templateKey, { force: true });
+        setGraphEditorActionFieldVisibility(integration);
       }
       updateGraphEditorIntegrationRequirements(integration);
       refreshGraphNodeBehaviorHelper(type, integration, byId("graphEditorTriggerMode").value || "manual");
@@ -1933,6 +2319,7 @@
       const retryMax = Math.max(0, Math.min(8, Number(byId("graphEditorRetry").value || 0)));
       const backoffMs = Math.max(0, Math.min(30000, Number(byId("graphEditorBackoff").value || 0)));
       const timeoutSec = Math.max(0, Math.min(120, Number(byId("graphEditorTimeout").value || 0)));
+      const executionPreset = String(byId("graphEditorExecutionPreset").value || "custom").trim().toLowerCase();
 
       node.type = nextType;
       node.name = nextName;
@@ -1952,12 +2339,14 @@
         nextConfig.action_template = String(byId("graphEditorActionTemplate").value || "generic_action")
           .trim()
           .toLowerCase() || "generic_action";
+        copyGraphEditorActionFieldsToConfig(nextConfig);
         node.detail = `integration:${integration}`;
       }
 
       nextConfig.retry_max = Number.isFinite(retryMax) ? retryMax : 0;
       nextConfig.retry_backoff_ms = Number.isFinite(backoffMs) ? backoffMs : 0;
       nextConfig.timeout_sec = Number.isFinite(timeoutSec) ? timeoutSec : 0;
+      nextConfig.execution_preset = executionPreset;
       node.config = nextConfig;
       state.graphDirty = true;
       renderGraphDraftLists();
@@ -2214,6 +2603,7 @@
           : "standard";
         renderGraphIntegrationEditorOptions(selectedIntegration);
         updateGraphEditorIntegrationRequirements(selectedIntegration || "standard");
+        setGraphEditorActionFieldVisibility(selectedIntegration || "standard");
       } catch (error) {
         log(`Integration catalog refresh failed: ${error.message}`, "error");
       }
@@ -2687,7 +3077,10 @@
           applyTriggerModeDefaults(byId("graphEditorTriggerMode").value || "manual");
         }
         if (type === "action") {
-          renderActionTemplateOptions(inferActionTemplateKey({}, integration));
+          const templateKey = inferActionTemplateKey({}, integration);
+          renderActionTemplateOptions(templateKey);
+          applyGraphEditorActionTemplateDefaults(templateKey, { force: true });
+          setGraphEditorActionFieldVisibility(integration);
         }
         refreshGraphExecutionPresetControl(type, integration);
         updateGraphEditorIntegrationRequirements(integration);
@@ -2701,10 +3094,13 @@
         const type = normalizeNodeType(byId("graphEditorType").value || "action");
         if (type !== "action") return;
         const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
-        renderActionTemplateOptions(inferActionTemplateKey({}, integration));
+        const templateKey = inferActionTemplateKey({}, integration);
+        renderActionTemplateOptions(templateKey);
+        applyGraphEditorActionTemplateDefaults(templateKey, { force: false });
         applyNodeExecutionPresetInputs(type, integration, "balanced");
         byId("graphEditorExecutionPreset").value = "balanced";
         updateGraphEditorIntegrationRequirements(integration);
+        setGraphEditorActionFieldVisibility(integration);
         refreshGraphNodeBehaviorHelper(type, integration, byId("graphEditorTriggerMode").value || "manual");
       });
       byId("graphEditorActionTemplate").addEventListener("change", () => {
@@ -2712,11 +3108,14 @@
         if (type !== "action") return;
         const template = actionTemplateByKey(byId("graphEditorActionTemplate").value || "generic_action");
         if (!template) return;
-        byId("graphEditorIntegration").value = normalizeActionIntegration(template.integration || "standard");
-        applyNodeExecutionPresetInputs(type, byId("graphEditorIntegration").value || "standard", "balanced");
+        const integration = normalizeActionIntegration(template.integration || "standard");
+        byId("graphEditorIntegration").value = integration;
+        applyGraphEditorActionTemplateDefaults(template.key, { force: true });
+        applyNodeExecutionPresetInputs(type, integration, "balanced");
         byId("graphEditorExecutionPreset").value = "balanced";
-        updateGraphEditorIntegrationRequirements(byId("graphEditorIntegration").value || "standard");
-        refreshGraphNodeBehaviorHelper(type, byId("graphEditorIntegration").value || "standard", "manual");
+        updateGraphEditorIntegrationRequirements(integration);
+        setGraphEditorActionFieldVisibility(integration);
+        refreshGraphNodeBehaviorHelper(type, integration, "manual");
       });
       byId("graphEditorTriggerMode").addEventListener("change", () => {
         const mode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
