@@ -582,7 +582,7 @@ class CanvasView(Gtk.Box):
         self.canvas_overlay.add_overlay(self.minimap_area)
 
         stage_click = Gtk.GestureClick()
-        stage_click.set_button(0)
+        stage_click.set_button(Gdk.BUTTON_PRIMARY)
         stage_click.connect("released", self.on_canvas_stage_clicked)
         self.fixed.add_controller(stage_click)
 
@@ -591,7 +591,7 @@ class CanvasView(Gtk.Box):
         self.fixed.add_controller(stage_motion)
 
         stage_select_drag = Gtk.GestureDrag()
-        stage_select_drag.set_button(0)
+        stage_select_drag.set_button(Gdk.BUTTON_PRIMARY)
         stage_select_drag.connect("drag-begin", self.on_stage_select_drag_begin)
         stage_select_drag.connect("drag-update", self.on_stage_select_drag_update)
         stage_select_drag.connect("drag-end", self.on_stage_select_drag_end)
@@ -7649,7 +7649,7 @@ class CanvasView(Gtk.Box):
         frame.set_child(content)
 
         output_drag = Gtk.GestureDrag()
-        output_drag.set_button(0)
+        output_drag.set_button(Gdk.BUTTON_PRIMARY)
         output_drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         output_drag.set_exclusive(True)
         output_drag.connect("drag-begin", self.on_output_port_drag_begin, node.id, output_port)
@@ -7658,25 +7658,25 @@ class CanvasView(Gtk.Box):
         output_port.add_controller(output_drag)
 
         output_click = Gtk.GestureClick()
-        output_click.set_button(0)
+        output_click.set_button(Gdk.BUTTON_PRIMARY)
         output_click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         output_click.connect("released", self.on_output_port_released, node.id)
         output_port.add_controller(output_click)
 
         input_click = Gtk.GestureClick()
-        input_click.set_button(0)
+        input_click.set_button(Gdk.BUTTON_PRIMARY)
         input_click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         input_click.connect("released", self.on_input_port_released, node.id)
         input_port.add_controller(input_click)
 
         click = Gtk.GestureClick()
-        click.set_button(0)
+        click.set_button(Gdk.BUTTON_PRIMARY)
         click.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         click.connect("released", self.on_node_clicked, node.id)
         frame.add_controller(click)
 
         drag = Gtk.GestureDrag()
-        drag.set_button(0)
+        drag.set_button(Gdk.BUTTON_PRIMARY)
         drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         drag.set_exclusive(True)
         drag.connect("drag-begin", self.on_node_drag_begin, node.id)
@@ -7926,6 +7926,7 @@ class CanvasView(Gtk.Box):
         )
 
     def on_node_clicked(self, gesture: Gtk.GestureClick, _n_press, _x, _y, node_id: str):
+        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         self.grab_focus()
         if self.suppress_next_node_click:
             self.suppress_next_node_click = False
