@@ -759,6 +759,102 @@ class DockerRunControllerTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_on_error_continue_allows_run_to_progress(self):
+        workflow = {
+            "id": "wf_on_error_continue",
+            "name": "On Error Continue",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Broken HTTP",
+                        "type": "action",
+                        "config": {
+                            "integration": "http_request",
+                            "method": "POST",
+                            "retry_max": 0,
+                            "simulate_delay_ms": 0,
+                            "on_error": "continue",
+                        },
+                    },
+                    {
+                        "id": "a2",
+                        "name": "Recovery",
+                        "type": "action",
+                        "config": {
+                            "integration": "standard",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                    {"source_node_id": "a1", "target_node_id": "a2", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+        self.assertIn("a2", self._success_node_order(completed))
+
+        a1_statuses = [
+            str(item.get("status", "")).strip().lower()
+            for item in completed.get("node_results", [])
+            if str(item.get("node_id", "")).strip() == "a1"
+        ]
+        self.assertIn("failed", a1_statuses)
+        self.assertIn("warning", a1_statuses)
+
+    def test_on_error_goto_routes_to_target_node(self):
+        workflow = {
+            "id": "wf_on_error_goto",
+            "name": "On Error Goto",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Broken HTTP",
+                        "type": "action",
+                        "config": {
+                            "integration": "http_request",
+                            "method": "POST",
+                            "retry_max": 0,
+                            "simulate_delay_ms": 0,
+                            "on_error": "goto:a3",
+                        },
+                    },
+                    {
+                        "id": "a2",
+                        "name": "Default Next",
+                        "type": "action",
+                        "config": {"integration": "standard", "simulate_delay_ms": 0},
+                    },
+                    {
+                        "id": "a3",
+                        "name": "Goto Target",
+                        "type": "action",
+                        "config": {"integration": "standard", "simulate_delay_ms": 0},
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                    {"source_node_id": "a1", "target_node_id": "a2", "condition": "next"},
+                    {"source_node_id": "a1", "target_node_id": "a3", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+        successful = self._success_node_order(completed)
+        self.assertIn("a3", successful)
+        self.assertNotIn("a2", successful)
+
     def test_postgres_sql_missing_fields_fails_cleanly(self):
         workflow = {
             "id": "wf_postgres_missing",

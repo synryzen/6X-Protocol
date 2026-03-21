@@ -365,26 +365,101 @@ class RunController:
                             failed_message = str(error)
 
                         if not success:
-                            node_state[node_id] = "failed"
-                            cancel_event.set()
-                            self._mark_failed(
-                                run_id,
-                                failed_message,
-                                last_failed_node_id=node_id,
-                                last_failed_node_name=node_name,
-                            )
-                            return
+                            error_policy = self._resolve_node_error_policy(node or {})
+                            error_mode = str(error_policy.get("mode", "fail")).strip().lower()
+                            error_target = str(error_policy.get("target_node_id", "")).strip()
+                            selected_targets: set[str] = set()
 
-                        node_state[node_id] = "completed"
-                        output = str(node_context.get("last_output", "")).strip()
-                        next_node_ids, branch_log = self._determine_next_node_ids(
-                            node or {},
-                            outgoing_map,
-                            node_context,
-                        )
-                        if branch_log:
-                            self._append_log_line(run_id, branch_log)
-                        selected_targets = set(next_node_ids)
+                            if error_mode == "goto":
+                                if not error_target:
+                                    node_state[node_id] = "failed"
+                                    cancel_event.set()
+                                    self._mark_failed(
+                                        run_id,
+                                        (
+                                            f"{failed_message} Error strategy requested goto but no target was set."
+                                        ),
+                                        last_failed_node_id=node_id,
+                                        last_failed_node_name=node_name,
+                                    )
+                                    return
+                                if error_target not in node_map:
+                                    node_state[node_id] = "failed"
+                                    cancel_event.set()
+                                    self._mark_failed(
+                                        run_id,
+                                        (
+                                            f"{failed_message} Error strategy target '{error_target}' was not found."
+                                        ),
+                                        last_failed_node_id=node_id,
+                                        last_failed_node_name=node_name,
+                                    )
+                                    return
+                                selected_targets = {error_target}
+                                continue_message = (
+                                    f"{failed_message} Continuing via on_error='goto:{error_target}'."
+                                )
+                            elif error_mode == "continue":
+                                fallback_target = self._default_next_target_for_error(
+                                    node_id,
+                                    outgoing_map,
+                                )
+                                if fallback_target:
+                                    selected_targets = {fallback_target}
+                                    continue_message = (
+                                        f"{failed_message} Continuing via on_error='continue'."
+                                    )
+                                else:
+                                    continue_message = (
+                                        f"{failed_message} on_error='continue' had no downstream edge; run will stop gracefully."
+                                    )
+                            else:
+                                node_state[node_id] = "failed"
+                                cancel_event.set()
+                                self._mark_failed(
+                                    run_id,
+                                    failed_message,
+                                    last_failed_node_id=node_id,
+                                    last_failed_node_name=node_name,
+                                )
+                                return
+
+                            attempt_value = 1
+                            context_attempts = node_context.get("node_attempts")
+                            if isinstance(context_attempts, dict):
+                                attempt_value = self._safe_int(context_attempts.get(node_id, 1), 1)
+                            self._append_node_event(
+                                run_id,
+                                {
+                                    "timestamp": utc_now_iso(),
+                                    "node_id": node_id,
+                                    "node_name": node_name,
+                                    "status": "warning",
+                                    "message": continue_message,
+                                    "attempt": str(max(1, attempt_value)),
+                                    "duration_ms": "0",
+                                },
+                                log_line=continue_message,
+                            )
+                            node_context["last_status"] = "failed"
+                            node_context["last_error"] = failed_message
+                            fallback_output = str(node_context.get("last_output", "")).strip()
+                            if not fallback_output:
+                                fallback_output = f"error:{self._truncate_text(failed_message, 140)}"
+                            node_context["last_output"] = fallback_output
+                            node_state[node_id] = "completed"
+                            output = fallback_output
+                        else:
+                            node_state[node_id] = "completed"
+                            output = str(node_context.get("last_output", "")).strip()
+                            next_node_ids, branch_log = self._determine_next_node_ids(
+                                node or {},
+                                outgoing_map,
+                                node_context,
+                            )
+                            if branch_log:
+                                self._append_log_line(run_id, branch_log)
+                            selected_targets = set(next_node_ids)
 
                         for edge in outgoing_map.get(node_id, []):
                             target_id = str(edge.get("target_node_id", "")).strip()
@@ -1310,6 +1385,19 @@ class RunController:
             return {}
         return {}
 
+    def _parse_directives(self, text: str) -> dict[str, str]:
+        directives: dict[str, str] = {}
+        for raw_line in str(text or "").splitlines():
+            line = raw_line.strip()
+            if not line or ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            key = key.strip().lower()
+            value = value.strip()
+            if key:
+                directives[key] = value
+        return directives
+
     def _run_command(
         self,
         args: list[str],
@@ -1413,6 +1501,72 @@ class RunController:
             "retry_backoff_ms": max(0, min(30000, backoff_ms)),
             "timeout_sec": max(0.0, min(120.0, timeout_sec)),
         }
+
+    def _resolve_node_error_policy(self, node: dict[str, Any]) -> dict[str, str]:
+        config = node.get("config", {}) if isinstance(node.get("config"), dict) else {}
+        metadata = node.get("metadata", {}) if isinstance(node.get("metadata"), dict) else {}
+        detail = str(node.get("detail", "")).strip()
+        directives = self._parse_directives(detail)
+
+        raw_mode = (
+            str(config.get("on_error", "")).strip()
+            or str(config.get("error_mode", "")).strip()
+            or str(metadata.get("on_error", "")).strip()
+            or str(metadata.get("error_mode", "")).strip()
+            or str(directives.get("on_error", "")).strip()
+            or str(directives.get("error_mode", "")).strip()
+        )
+        target_node_id = (
+            str(config.get("error_target_node_id", "")).strip()
+            or str(config.get("on_error_target", "")).strip()
+            or str(config.get("error_target", "")).strip()
+            or str(metadata.get("error_target_node_id", "")).strip()
+            or str(metadata.get("on_error_target", "")).strip()
+            or str(metadata.get("error_target", "")).strip()
+            or str(directives.get("error_target_node_id", "")).strip()
+            or str(directives.get("on_error_target", "")).strip()
+            or str(directives.get("error_target", "")).strip()
+        )
+
+        normalized = str(raw_mode).strip().lower()
+        if ":" in normalized:
+            prefix, suffix = normalized.split(":", 1)
+            prefix = prefix.strip()
+            suffix = suffix.strip()
+            if prefix in {"goto", "route", "target"}:
+                normalized = "goto"
+                if suffix and not target_node_id:
+                    target_node_id = suffix
+            else:
+                normalized = prefix
+
+        if normalized in {"continue", "next", "skip"}:
+            mode = "continue"
+        elif normalized in {"goto", "route", "target"}:
+            mode = "goto"
+        else:
+            mode = "fail"
+
+        return {
+            "mode": mode,
+            "target_node_id": target_node_id,
+        }
+
+    def _default_next_target_for_error(
+        self,
+        source_node_id: str,
+        outgoing_map: dict[str, list[dict[str, str]]],
+    ) -> str:
+        edges = outgoing_map.get(source_node_id, [])
+        if not edges:
+            return ""
+        preferred = [
+            edge
+            for edge in edges
+            if str(edge.get("condition", "")).strip().lower() in {"", "next", "default"}
+        ]
+        target = preferred[0] if preferred else edges[0]
+        return str(target.get("target_node_id", "")).strip()
 
     def _node_kind(self, node_type: str) -> str:
         normalized = str(node_type).strip().lower()
