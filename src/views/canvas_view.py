@@ -8110,6 +8110,19 @@ class CanvasView(Gtk.Box):
         if self.port_drag_active:
             # An output-port drag is already driving link preview for this sequence.
             return
+        if self.started_near_output_port(float(start_x), float(start_y)):
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            stage_pointer = self.gesture_stage_point(gesture)
+            if stage_pointer:
+                pointer_stage_x, pointer_stage_y = stage_pointer
+                self.begin_output_link_drag(
+                    node_id,
+                    pointer_x=pointer_stage_x,
+                    pointer_y=pointer_stage_y,
+                )
+            else:
+                self.begin_output_link_drag(node_id)
+            return
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         node = self.find_node(node_id)
         if not node:
@@ -8295,6 +8308,16 @@ class CanvasView(Gtk.Box):
             self.update_inspector(node)
         self.maybe_auto_save("Node moved and auto-saved.")
         self.inline_validate_graph()
+
+    def started_near_output_port(self, x: float, y: float) -> bool:
+        width = float(self.card_screen_width())
+        height = float(self.card_screen_height())
+        center_x = width - 18.0
+        center_y = height - 18.0
+        radius = 22.0
+        dx = float(x) - center_x
+        dy = float(y) - center_y
+        return (dx * dx) + (dy * dy) <= (radius * radius)
 
     def release_suppressed_click(self):
         self.suppress_next_node_click = False
