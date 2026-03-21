@@ -216,6 +216,12 @@
       margin-top: 2px;
     }
 
+    .hint-line {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
     .grid2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -571,6 +577,21 @@
               </div>
             </div>
             <div class="graph-editor-grid">
+              <div class="row" id="graphEditorActionTemplateRow">
+                <label class="label" for="graphEditorActionTemplate">Action Template</label>
+                <select class="select" id="graphEditorActionTemplate"></select>
+              </div>
+              <div class="row" id="graphEditorExecutionPresetRow">
+                <label class="label" for="graphEditorExecutionPreset">Execution Preset</label>
+                <select class="select" id="graphEditorExecutionPreset">
+                  <option value="safe">safe</option>
+                  <option value="balanced">balanced</option>
+                  <option value="aggressive">aggressive</option>
+                  <option value="custom">custom</option>
+                </select>
+              </div>
+            </div>
+            <div class="graph-editor-grid">
               <div class="row" id="graphEditorTriggerModeRow">
                 <label class="label" for="graphEditorTriggerMode">Trigger Mode</label>
                 <select class="select" id="graphEditorTriggerMode">
@@ -585,6 +606,10 @@
                 <label class="label" for="graphEditorTriggerValue">Trigger Value</label>
                 <input id="graphEditorTriggerValue" class="input" type="text" placeholder="60, /incoming, /tmp/watch, */5 * * * *" />
               </div>
+            </div>
+            <div class="row" id="graphEditorIntegrationRequirementsRow">
+              <label class="label">Integration Requirements</label>
+              <div id="graphEditorIntegrationRequirements" class="hint-line">Select an action integration to view required fields.</div>
             </div>
             <div class="graph-editor-grid">
               <div class="row" id="graphEditorConditionRow">
@@ -619,6 +644,9 @@
                 <button id="graphApplyNodeDefaults" class="btn">Apply Defaults</button>
                 <button id="graphSaveNode" class="btn good">Save Node</button>
               </div>
+            </div>
+            <div id="graphEditorNodeHelper" class="hint-line">
+              Choose a node to configure behavior defaults, execution policy, and integration details.
             </div>
           </div>
           <div id="graphPreflightStatus" class="graph-status">No graph loaded yet.</div>
@@ -807,6 +835,28 @@
       "redis_command",
       "s3_cli",
     ]);
+    const triggerModeDefaults = {
+      manual: { value: "", placeholder: "Manual trigger has no value." },
+      schedule_interval: { value: "60", placeholder: "Interval in seconds. Example: 60" },
+      webhook: { value: "/incoming", placeholder: "Webhook path. Example: /incoming" },
+      file_watch: { value: "/tmp/watch", placeholder: "Directory path to monitor." },
+      cron: { value: "*/5 * * * *", placeholder: "Cron expression. Example: */5 * * * *" },
+    };
+    const actionTemplateSpecs = [
+      { key: "generic_action", label: "Generic Action", integration: "standard" },
+      { key: "notify_slack", label: "Notify Slack", integration: "slack_webhook" },
+      { key: "notify_discord", label: "Notify Discord", integration: "discord_webhook" },
+      { key: "notify_teams", label: "Notify Teams", integration: "teams_webhook" },
+      { key: "message_telegram", label: "Message Telegram", integration: "telegram_bot" },
+      { key: "message_sms", label: "Message SMS", integration: "twilio_sms" },
+      { key: "message_email", label: "Send Email", integration: "gmail_send" },
+      { key: "http_request", label: "HTTP Request", integration: "http_request" },
+      { key: "weather_lookup", label: "Weather Lookup", integration: "openweather_current" },
+      { key: "script_google_apps", label: "Google Apps Script", integration: "google_apps_script" },
+      { key: "file_append", label: "Append File", integration: "file_append" },
+      { key: "shell_command", label: "Shell Command", integration: "shell_command" },
+      { key: "approval_gate", label: "Approval Gate", integration: "approval_gate" },
+    ];
 
     const state = {
       apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
@@ -1516,6 +1566,162 @@
       return String(value || "").trim().toLowerCase() || "standard";
     }
 
+    function actionTemplateByKey(templateKey) {
+      const key = String(templateKey || "").trim().toLowerCase();
+      return actionTemplateSpecs.find((item) => String(item.key || "").trim().toLowerCase() === key) || null;
+    }
+
+    function inferActionTemplateKey(config, integration) {
+      const explicit = String((config && config.action_template) || "").trim().toLowerCase();
+      if (explicit && actionTemplateByKey(explicit)) return explicit;
+      const target = normalizeActionIntegration(integration);
+      const match = actionTemplateSpecs.find(
+        (item) => normalizeActionIntegration(item.integration) === target
+      );
+      return match ? String(match.key || "generic_action") : "generic_action";
+    }
+
+    function renderActionTemplateOptions(selectedKey = "generic_action") {
+      const select = byId("graphEditorActionTemplate");
+      if (!select) return;
+      const normalizedSelected = String(selectedKey || "").trim().toLowerCase() || "generic_action";
+      select.innerHTML = actionTemplateSpecs
+        .map((item) => {
+          const key = escapeHtml(String(item.key || "generic_action"));
+          const label = escapeHtml(String(item.label || key));
+          return `<option value="${key}">${label}</option>`;
+        })
+        .join("");
+      const hasSelected = actionTemplateSpecs.some(
+        (item) => String(item.key || "").trim().toLowerCase() === normalizedSelected
+      );
+      select.value = hasSelected ? normalizedSelected : "generic_action";
+    }
+
+    function integrationCatalogItem(integrationKey) {
+      const key = normalizeActionIntegration(integrationKey);
+      return state.integrationCatalog.find(
+        (item) => normalizeActionIntegration(item.key) === key
+      ) || null;
+    }
+
+    function updateGraphEditorIntegrationRequirements(integrationKey) {
+      const requirementsEl = byId("graphEditorIntegrationRequirements");
+      if (!requirementsEl) return;
+      const integration = integrationCatalogItem(integrationKey);
+      if (!integration) {
+        requirementsEl.textContent = "No specific required fields for this integration.";
+        return;
+      }
+      const required = Array.isArray(integration.required_fields)
+        ? integration.required_fields.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+      if (!required.length) {
+        requirementsEl.textContent = "No required fields listed in integration catalog.";
+        return;
+      }
+      requirementsEl.textContent = `Required fields: ${required.join(", ")}`;
+    }
+
+    function nodeExecutionPresetValues(nodeType, integration, presetKey) {
+      const kind = normalizeNodeType(nodeType);
+      const base = nodeExecutionDefaults(kind, integration);
+      const preset = String(presetKey || "balanced").trim().toLowerCase();
+      if (preset === "safe") {
+        if (kind === "ai") return { retry_max: 0, retry_backoff_ms: 150, timeout_sec: 90 };
+        if (kind === "action") return { retry_max: 0, retry_backoff_ms: 150, timeout_sec: 30 };
+        if (kind === "condition") return { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 8 };
+        if (kind === "trigger") return { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 15 };
+      }
+      if (preset === "aggressive") {
+        if (kind === "ai") return { retry_max: 2, retry_backoff_ms: 600, timeout_sec: 210 };
+        if (kind === "action") return { retry_max: 2, retry_backoff_ms: 450, timeout_sec: 90 };
+        if (kind === "condition") return { retry_max: 1, retry_backoff_ms: 150, timeout_sec: 14 };
+        if (kind === "trigger") return { retry_max: 1, retry_backoff_ms: 150, timeout_sec: 20 };
+      }
+      return base;
+    }
+
+    function detectNodeExecutionPreset(nodeType, integration, retryMax, backoffMs, timeoutSec) {
+      const retry = Number(retryMax);
+      const backoff = Number(backoffMs);
+      const timeout = Number(timeoutSec);
+      if (!Number.isFinite(retry) || !Number.isFinite(backoff) || !Number.isFinite(timeout)) {
+        return "custom";
+      }
+      const presets = ["safe", "balanced", "aggressive"];
+      for (const preset of presets) {
+        const values = nodeExecutionPresetValues(nodeType, integration, preset);
+        if (
+          Number(values.retry_max) === Number(retry)
+          && Number(values.retry_backoff_ms) === Number(backoff)
+          && Math.abs(Number(values.timeout_sec) - Number(timeout)) < 0.01
+        ) {
+          return preset;
+        }
+      }
+      return "custom";
+    }
+
+    function applyNodeExecutionPresetInputs(nodeType, integration, presetKey) {
+      const values = nodeExecutionPresetValues(nodeType, integration, presetKey);
+      byId("graphEditorRetry").value = String(values.retry_max);
+      byId("graphEditorBackoff").value = String(values.retry_backoff_ms);
+      byId("graphEditorTimeout").value = String(values.timeout_sec);
+    }
+
+    function refreshGraphExecutionPresetControl(nodeType, integration) {
+      const presetSelect = byId("graphEditorExecutionPreset");
+      if (!presetSelect) return;
+      const currentPreset = detectNodeExecutionPreset(
+        nodeType,
+        integration,
+        byId("graphEditorRetry").value,
+        byId("graphEditorBackoff").value,
+        byId("graphEditorTimeout").value
+      );
+      presetSelect.value = currentPreset;
+    }
+
+    function applyTriggerModeDefaults(mode, { forceValue = false } = {}) {
+      const normalized = String(mode || "manual").trim().toLowerCase() || "manual";
+      const target = triggerModeDefaults[normalized] || triggerModeDefaults.manual;
+      const valueInput = byId("graphEditorTriggerValue");
+      if (!valueInput) return;
+      valueInput.placeholder = String(target.placeholder || "");
+      if (forceValue || !String(valueInput.value || "").trim()) {
+        valueInput.value = String(target.value || "");
+      }
+    }
+
+    function refreshGraphNodeBehaviorHelper(nodeType, integrationKey, triggerMode) {
+      const helper = byId("graphEditorNodeHelper");
+      if (!helper) return;
+      const kind = normalizeNodeType(nodeType);
+      if (kind === "trigger") {
+        const mode = String(triggerMode || "manual").trim().toLowerCase();
+        const target = triggerModeDefaults[mode] || triggerModeDefaults.manual;
+        helper.textContent = `Trigger mode '${mode}' configured. ${target.placeholder}`;
+        return;
+      }
+      if (kind === "action") {
+        const integration = normalizeActionIntegration(integrationKey);
+        const catalog = integrationCatalogItem(integration);
+        const name = catalog ? String(catalog.name || integration) : integration;
+        helper.textContent = `Action integration '${name}' selected. Apply node defaults to reset execution policy.`;
+        return;
+      }
+      if (kind === "ai") {
+        helper.textContent = "AI nodes support per-node model and prompt plus retry/backoff/timeout tuning.";
+        return;
+      }
+      if (kind === "condition") {
+        helper.textContent = "Condition expressions support contains:, equals:, always_true, and always_false patterns.";
+        return;
+      }
+      helper.textContent = "Choose a node to configure behavior defaults, execution policy, and integration details.";
+    }
+
     function nodeExecutionDefaults(nodeType, integration = "standard") {
       const kind = normalizeNodeType(nodeType);
       const actionKey = normalizeActionIntegration(integration);
@@ -1564,6 +1770,7 @@
       }
       return {
         integration: normalizeActionIntegration(integration),
+        action_template: inferActionTemplateKey({}, integration),
         method: "POST",
         retry_max: policy.retry_max,
         retry_backoff_ms: policy.retry_backoff_ms,
@@ -1590,6 +1797,8 @@
     function setGraphEditorVisibilityForType(type) {
       const kind = normalizeNodeType(type);
       setElementVisible("graphEditorIntegrationRow", kind === "action");
+      setElementVisible("graphEditorActionTemplateRow", kind === "action");
+      setElementVisible("graphEditorIntegrationRequirementsRow", kind === "action");
       setElementVisible("graphEditorTriggerModeRow", kind === "trigger");
       setElementVisible("graphEditorTriggerValueRow", kind === "trigger");
       setElementVisible("graphEditorConditionRow", kind === "condition");
@@ -1628,6 +1837,8 @@
         byId("graphEditorName").value = "";
         byId("graphEditorType").value = "action";
         renderGraphIntegrationEditorOptions("standard");
+        renderActionTemplateOptions("generic_action");
+        byId("graphEditorExecutionPreset").value = "balanced";
         byId("graphEditorTriggerMode").value = "manual";
         byId("graphEditorTriggerValue").value = "";
         byId("graphEditorCondition").value = "";
@@ -1637,6 +1848,8 @@
         byId("graphEditorBackoff").value = "0";
         byId("graphEditorTimeout").value = "0";
         setGraphEditorVisibilityForType("action");
+        updateGraphEditorIntegrationRequirements("standard");
+        refreshGraphNodeBehaviorHelper("action", "standard", "manual");
         return;
       }
       nodeSelect.innerHTML = nodes
@@ -1654,8 +1867,10 @@
         config.integration || config.action_type || detailIntegration || "standard"
       );
       renderGraphIntegrationEditorOptions(actionIntegration);
+      renderActionTemplateOptions(inferActionTemplateKey(config, actionIntegration));
       byId("graphEditorTriggerMode").value = String(config.trigger_mode || "manual").trim() || "manual";
       byId("graphEditorTriggerValue").value = String(config.trigger_value || "");
+      applyTriggerModeDefaults(byId("graphEditorTriggerMode").value || "manual");
       byId("graphEditorCondition").value = String(config.expression || config.condition || "contains:success");
       byId("graphEditorModel").value = String(config.model || "local/default");
       byId("graphEditorPrompt").value = String(config.prompt || "");
@@ -1669,7 +1884,14 @@
       byId("graphEditorTimeout").value = String(
         Number.isFinite(Number(config.timeout_sec)) ? Number(config.timeout_sec) : defaults.timeout_sec
       );
+      refreshGraphExecutionPresetControl(type, actionIntegration);
       setGraphEditorVisibilityForType(type);
+      updateGraphEditorIntegrationRequirements(actionIntegration);
+      refreshGraphNodeBehaviorHelper(
+        type,
+        actionIntegration,
+        byId("graphEditorTriggerMode").value || "manual"
+      );
     }
 
     function applyGraphNodeEditorDefaults() {
@@ -1680,19 +1902,21 @@
       }
       const type = normalizeNodeType(byId("graphEditorType").value || node.type);
       const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
-      const defaults = nodeExecutionDefaults(type, integration);
-      byId("graphEditorRetry").value = String(defaults.retry_max);
-      byId("graphEditorBackoff").value = String(defaults.retry_backoff_ms);
-      byId("graphEditorTimeout").value = String(defaults.timeout_sec);
+      applyNodeExecutionPresetInputs(type, integration, "balanced");
+      byId("graphEditorExecutionPreset").value = "balanced";
       if (type === "trigger") {
         byId("graphEditorTriggerMode").value = "manual";
-        byId("graphEditorTriggerValue").value = "";
+        applyTriggerModeDefaults("manual", { forceValue: true });
       } else if (type === "ai") {
         if (!byId("graphEditorModel").value.trim()) byId("graphEditorModel").value = "local/default";
         if (!byId("graphEditorPrompt").value.trim()) byId("graphEditorPrompt").value = "Process node context.";
       } else if (type === "condition" && !byId("graphEditorCondition").value.trim()) {
         byId("graphEditorCondition").value = "contains:success";
+      } else if (type === "action") {
+        renderActionTemplateOptions(inferActionTemplateKey(node.config || {}, integration));
       }
+      updateGraphEditorIntegrationRequirements(integration);
+      refreshGraphNodeBehaviorHelper(type, integration, byId("graphEditorTriggerMode").value || "manual");
       log(`Defaults applied to '${node.name}'.`, "info");
     }
 
@@ -1725,6 +1949,9 @@
         node.detail = `prompt:${nextConfig.prompt.slice(0, 64)}`;
       } else {
         nextConfig.integration = integration;
+        nextConfig.action_template = String(byId("graphEditorActionTemplate").value || "generic_action")
+          .trim()
+          .toLowerCase() || "generic_action";
         node.detail = `integration:${integration}`;
       }
 
@@ -1735,6 +1962,7 @@
       state.graphDirty = true;
       renderGraphDraftLists();
       renderGraphNodeEditor();
+      refreshGraphNodeBehaviorHelper(nextType, integration, nextConfig.trigger_mode || "manual");
       log(`Node saved: ${node.name}`, "info");
     }
 
@@ -1985,6 +2213,7 @@
           ? String(byId("graphEditorIntegration").value || "").trim()
           : "standard";
         renderGraphIntegrationEditorOptions(selectedIntegration);
+        updateGraphEditorIntegrationRequirements(selectedIntegration || "standard");
       } catch (error) {
         log(`Integration catalog refresh failed: ${error.message}`, "error");
       }
@@ -2452,16 +2681,67 @@
       });
       byId("graphEditorType").addEventListener("change", () => {
         const type = normalizeNodeType(byId("graphEditorType").value || "action");
+        const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
         setGraphEditorVisibilityForType(type);
+        if (type === "trigger") {
+          applyTriggerModeDefaults(byId("graphEditorTriggerMode").value || "manual");
+        }
+        if (type === "action") {
+          renderActionTemplateOptions(inferActionTemplateKey({}, integration));
+        }
+        refreshGraphExecutionPresetControl(type, integration);
+        updateGraphEditorIntegrationRequirements(integration);
+        refreshGraphNodeBehaviorHelper(
+          type,
+          integration,
+          byId("graphEditorTriggerMode").value || "manual"
+        );
       });
       byId("graphEditorIntegration").addEventListener("change", () => {
         const type = normalizeNodeType(byId("graphEditorType").value || "action");
         if (type !== "action") return;
-        const defaults = nodeExecutionDefaults(type, byId("graphEditorIntegration").value || "standard");
-        byId("graphEditorRetry").value = String(defaults.retry_max);
-        byId("graphEditorBackoff").value = String(defaults.retry_backoff_ms);
-        byId("graphEditorTimeout").value = String(defaults.timeout_sec);
+        const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
+        renderActionTemplateOptions(inferActionTemplateKey({}, integration));
+        applyNodeExecutionPresetInputs(type, integration, "balanced");
+        byId("graphEditorExecutionPreset").value = "balanced";
+        updateGraphEditorIntegrationRequirements(integration);
+        refreshGraphNodeBehaviorHelper(type, integration, byId("graphEditorTriggerMode").value || "manual");
       });
+      byId("graphEditorActionTemplate").addEventListener("change", () => {
+        const type = normalizeNodeType(byId("graphEditorType").value || "action");
+        if (type !== "action") return;
+        const template = actionTemplateByKey(byId("graphEditorActionTemplate").value || "generic_action");
+        if (!template) return;
+        byId("graphEditorIntegration").value = normalizeActionIntegration(template.integration || "standard");
+        applyNodeExecutionPresetInputs(type, byId("graphEditorIntegration").value || "standard", "balanced");
+        byId("graphEditorExecutionPreset").value = "balanced";
+        updateGraphEditorIntegrationRequirements(byId("graphEditorIntegration").value || "standard");
+        refreshGraphNodeBehaviorHelper(type, byId("graphEditorIntegration").value || "standard", "manual");
+      });
+      byId("graphEditorTriggerMode").addEventListener("change", () => {
+        const mode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
+        applyTriggerModeDefaults(mode);
+        refreshGraphNodeBehaviorHelper(
+          "trigger",
+          byId("graphEditorIntegration").value || "standard",
+          mode
+        );
+      });
+      byId("graphEditorExecutionPreset").addEventListener("change", () => {
+        const preset = String(byId("graphEditorExecutionPreset").value || "balanced").trim().toLowerCase();
+        if (preset === "custom") return;
+        const type = normalizeNodeType(byId("graphEditorType").value || "action");
+        const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
+        applyNodeExecutionPresetInputs(type, integration, preset);
+      });
+      const executionInputIds = ["graphEditorRetry", "graphEditorBackoff", "graphEditorTimeout"];
+      for (const inputId of executionInputIds) {
+        byId(inputId).addEventListener("input", () => {
+          const type = normalizeNodeType(byId("graphEditorType").value || "action");
+          const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
+          refreshGraphExecutionPresetControl(type, integration);
+        });
+      }
       byId("graphApplyNodeDefaults").addEventListener("click", applyGraphNodeEditorDefaults);
       byId("graphSaveNode").addEventListener("click", saveGraphNodeEditor);
       byId("loadSettings").addEventListener("click", loadSettings);

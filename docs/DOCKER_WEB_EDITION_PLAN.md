@@ -90,6 +90,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Web preview now includes integration profile save/test controls wired to API.
 - Web preview now includes graph draft editing + node behavior controls to configure integration/trigger/AI/condition details before save.
 - Web preview now includes run query filters + selected-run timeline inspection and selected-run control actions.
+- Web preview node behavior editor now includes action templates, execution presets, trigger-mode presets, and integration required-field hints.
 
 ## Remaining To Reach First Public Web Beta
 1. Replace web preview dashboard with production web UI modules.
