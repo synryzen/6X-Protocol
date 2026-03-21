@@ -8348,6 +8348,36 @@ class CanvasView(Gtk.Box):
             return
         hit_node = self.find_node_at_point(int(x), int(y))
         if hit_node:
+            if self.pending_link_source_id and self.pending_link_source_id != hit_node.id:
+                source = self.find_node(self.pending_link_source_id)
+                previous_selected = self.selected_node_id
+                previous_selection_set = set(self.selected_node_ids)
+                previous_source = self.pending_link_source_id
+                linked = self.add_edge(self.pending_link_source_id, hit_node.id)
+                self.pending_link_source_id = None
+                self.cancel_link_preview()
+                self.set_single_selection(hit_node.id)
+                self.apply_selection_set_visual_state(
+                    previous_selection_set,
+                    self.selected_node_ids,
+                    previous_selected,
+                    self.selected_node_id,
+                )
+                self.apply_link_source_visual_state(previous_source, None)
+                if linked:
+                    self.update_inspector(hit_node)
+                    self.update_control_state()
+                    source_name = source.name if source else previous_source
+                    self.set_status(f"Linked '{source_name}' -> '{hit_node.name}'.")
+                    return
+
+            if self.pending_link_source_id == hit_node.id:
+                previous_source = self.pending_link_source_id
+                self.pending_link_source_id = None
+                self.cancel_link_preview()
+                self.apply_link_source_visual_state(previous_source, None)
+                self.set_status("Link mode canceled.")
+
             # Fallback: if node-level click handler was preempted by gesture arena ordering,
             # still select the node and surface its inspector controls.
             state = gesture.get_current_event_state()
@@ -8482,6 +8512,35 @@ class CanvasView(Gtk.Box):
         node = self.find_node(node_id)
         if not node:
             return
+        stage_pointer = self.gesture_stage_point(gesture)
+        if self.is_output_handle_grab(float(start_x), float(start_y)):
+            if stage_pointer:
+                pointer_stage_x, pointer_stage_y = stage_pointer
+            else:
+                gesture_widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
+                if gesture_widget:
+                    success, translated_x, translated_y = gesture_widget.translate_coordinates(
+                        self.fixed,
+                        float(start_x),
+                        float(start_y),
+                    )
+                    if success:
+                        pointer_stage_x = float(translated_x)
+                        pointer_stage_y = float(translated_y)
+                    else:
+                        pointer_stage_x = float(self.to_screen(node.x))
+                        pointer_stage_y = float(self.to_screen(node.y))
+                else:
+                    pointer_stage_x = float(self.to_screen(node.x))
+                    pointer_stage_y = float(self.to_screen(node.y))
+            self.port_drag_just_finished = False
+            self.begin_output_link_drag(
+                node_id,
+                pointer_x=pointer_stage_x,
+                pointer_y=pointer_stage_y,
+            )
+            self.suppress_stage_click_once = True
+            return
 
         previous_selected = self.selected_node_id
         previous_selection_set = set(self.selected_node_ids)
@@ -8489,7 +8548,6 @@ class CanvasView(Gtk.Box):
             self.set_single_selection(node_id)
         else:
             self.set_selection(set(self.selected_node_ids), primary_id=node_id)
-        stage_pointer = self.gesture_stage_point(gesture)
         if stage_pointer:
             pointer_stage_x, pointer_stage_y = stage_pointer
         else:
@@ -9664,6 +9722,20 @@ class CanvasView(Gtk.Box):
             self.to_screen(node.x) + self.card_screen_width() - 4,
             self.to_screen(node.y) + self.card_screen_height() - y_offset,
         )
+
+    def node_output_handle_local_anchor(self) -> tuple[float, float]:
+        y_offset = max(12, min(18, self.card_screen_height() // 6))
+        return (
+            float(self.card_screen_width() - 4),
+            float(self.card_screen_height() - y_offset),
+        )
+
+    def is_output_handle_grab(self, local_x: float, local_y: float) -> bool:
+        anchor_x, anchor_y = self.node_output_handle_local_anchor()
+        dx = float(local_x) - anchor_x
+        dy = float(local_y) - anchor_y
+        radius = max(14.0, min(26.0, float(self.card_screen_width()) * 0.14))
+        return (dx * dx) + (dy * dy) <= (radius * radius)
 
     def find_node(self, node_id: str) -> CanvasNode | None:
         for node in self.nodes:
