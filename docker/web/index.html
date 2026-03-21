@@ -356,6 +356,35 @@
       gap: 8px;
     }
 
+    .run-detail {
+      border: 1px dashed rgba(131, 186, 255, 0.55);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(8, 19, 36, 0.52);
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .run-timeline {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: auto;
+      min-height: 120px;
+      max-height: 180px;
+      background: rgba(5, 14, 28, 0.84);
+    }
+
+    .run-event {
+      border-bottom: 1px solid rgba(122, 155, 207, 0.2);
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .run-event:last-child {
+      border-bottom: 0;
+    }
+
     .preflight-ok {
       color: #9ce8c1;
     }
@@ -484,6 +513,37 @@
             </div>
           </div>
           <div class="settings">
+            <h2 class="mini-title">Link Editor</h2>
+            <div class="graph-editor-grid">
+              <div class="row">
+                <label class="label" for="graphEditorEdgeSelect">Selected Link</label>
+                <select class="select" id="graphEditorEdgeSelect"></select>
+              </div>
+              <div class="row">
+                <label class="label" for="graphEditorEdgeCondition">Condition</label>
+                <select class="select" id="graphEditorEdgeCondition">
+                  <option value="next">next</option>
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+              </div>
+            </div>
+            <div class="graph-editor-grid">
+              <div class="row">
+                <label class="label" for="graphEditorEdgeSource">Source</label>
+                <select class="select" id="graphEditorEdgeSource"></select>
+              </div>
+              <div class="row">
+                <label class="label" for="graphEditorEdgeTarget">Target</label>
+                <select class="select" id="graphEditorEdgeTarget"></select>
+              </div>
+            </div>
+            <div class="actions" style="justify-content:flex-end;">
+              <button id="graphSaveEdge" class="btn good">Save Link</button>
+              <button id="graphDeleteEdge" class="btn danger">Delete Link</button>
+            </div>
+          </div>
+          <div class="settings">
             <h2 class="mini-title">Node Behavior</h2>
             <div class="graph-editor-grid">
               <div class="row">
@@ -570,7 +630,38 @@
           </div>
           <div>
             <h2 style="font-size:13px;margin:0 0 6px;">Runs</h2>
+            <div class="grid2" style="margin-bottom:8px;">
+              <div class="row">
+                <label class="label" for="runWorkflowFilter">Workflow</label>
+                <select class="select" id="runWorkflowFilter"></select>
+              </div>
+              <div class="row">
+                <label class="label" for="runStatusFilter">Status</label>
+                <select class="select" id="runStatusFilter">
+                  <option value="">all</option>
+                  <option value="queued">queued</option>
+                  <option value="running">running</option>
+                  <option value="cancelling">cancelling</option>
+                  <option value="success">success</option>
+                  <option value="failed">failed</option>
+                  <option value="cancelled">cancelled</option>
+                </select>
+              </div>
+            </div>
+            <div class="row" style="margin-bottom:8px;">
+              <label class="label" for="runSearch">Search</label>
+              <input id="runSearch" class="input" type="text" placeholder="run id, workflow, summary..." />
+            </div>
+            <div class="actions" style="justify-content:flex-start;margin-bottom:8px;">
+              <button id="refreshRuns" class="btn">Refresh Runs</button>
+              <button id="clearRunFilters" class="btn">Clear Filters</button>
+              <button id="cancelSelectedRun" class="btn danger">Cancel Selected</button>
+              <button id="retrySelectedRun" class="btn warn">Retry Selected</button>
+              <button id="retrySelectedFailedNode" class="btn">Retry Failed Node</button>
+            </div>
             <div class="list" id="runList"></div>
+            <div class="run-detail" id="runDetailPanel" style="margin-top:8px;">Select a run to inspect details.</div>
+            <div class="run-timeline" id="runTimelineList" style="margin-top:8px;"></div>
           </div>
         </div>
       </article>
@@ -722,9 +813,11 @@
       workflows: [],
       runs: [],
       selectedWorkflowId: "",
+      selectedRunId: "",
       graphDraft: { version: 1, nodes: [], edges: [] },
       graphDirty: false,
       graphEditorNodeId: "",
+      graphEditorEdgeIndex: -1,
       integrationCatalog: [],
       integrationProfiles: [],
       selectedIntegrationProfileId: "",
@@ -788,29 +881,166 @@
         .join("");
     }
 
-    function renderRuns() {
-      const list = byId("runList");
-      if (!state.runs.length) {
-        list.innerHTML = `<div class="item">No runs yet.</div>`;
+    function runById(runId) {
+      const id = String(runId || "").trim();
+      if (!id) return null;
+      return state.runs.find((item) => String(item.id || "") === id) || null;
+    }
+
+    function selectedRun() {
+      if (state.selectedRunId) {
+        const selected = runById(state.selectedRunId);
+        if (selected) return selected;
+      }
+      return null;
+    }
+
+    function runMatchesSearch(run, searchText) {
+      const needle = String(searchText || "").trim().toLowerCase();
+      if (!needle) return true;
+      const haystack = [
+        run.id,
+        run.workflow_id,
+        run.workflow_name,
+        run.status,
+        run.summary,
+        run.trigger,
+        run.last_failed_node_name,
+        run.last_failed_node_id,
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .join(" ");
+      return haystack.includes(needle);
+    }
+
+    function filteredRuns() {
+      const workflowFilter = String(byId("runWorkflowFilter")?.value || "").trim();
+      const statusFilter = String(byId("runStatusFilter")?.value || "").trim().toLowerCase();
+      const searchText = String(byId("runSearch")?.value || "").trim();
+      return state.runs.filter((run) => {
+        const workflowMatch = !workflowFilter || String(run.workflow_id || "") === workflowFilter;
+        const statusMatch = !statusFilter || String(run.status || "").toLowerCase() === statusFilter;
+        const searchMatch = runMatchesSearch(run, searchText);
+        return workflowMatch && statusMatch && searchMatch;
+      });
+    }
+
+    function renderRunFilters() {
+      const workflowSelect = byId("runWorkflowFilter");
+      if (!workflowSelect) return;
+      const current = String(workflowSelect.value || "").trim();
+      const options = ['<option value="">all workflows</option>']
+        .concat(
+          state.workflows.map((workflow) => {
+            const id = escapeHtml(workflow.id || "");
+            const name = escapeHtml(workflow.name || "Untitled workflow");
+            return `<option value="${id}">${name}</option>`;
+          })
+        );
+      workflowSelect.innerHTML = options.join("");
+      if (current && state.workflows.some((item) => String(item.id || "") === current)) {
+        workflowSelect.value = current;
+      } else {
+        workflowSelect.value = "";
+      }
+    }
+
+    function renderRunDetails() {
+      const panel = byId("runDetailPanel");
+      const timeline = byId("runTimelineList");
+      if (!panel || !timeline) return;
+      const run = selectedRun();
+      if (!run) {
+        panel.innerHTML = "Select a run to inspect details.";
+        timeline.innerHTML = `<div class="item">No run timeline selected.</div>`;
         return;
       }
-      list.innerHTML = state.runs
-        .slice(0, 40)
-        .map((run) => {
-          const id = escapeHtml(run.id || "");
-          const name = escapeHtml(run.workflow_name || run.workflow_id || "Run");
-          const status = String(run.status || "unknown").toLowerCase();
-          const statusText = escapeHtml(status);
-          const summary = escapeHtml(run.summary || "");
-          return `<div class="item"><strong>${name}</strong><span class="small">${statusText} • ${id.slice(0, 8)}</span><span class="small">${summary}</span></div>`;
-        })
-        .join("");
+
+      const status = escapeHtml(String(run.status || "unknown").toLowerCase());
+      const id = escapeHtml(String(run.id || ""));
+      const workflow = escapeHtml(String(run.workflow_name || run.workflow_id || "Unknown workflow"));
+      const summary = escapeHtml(String(run.summary || ""));
+      const trigger = escapeHtml(String(run.trigger || "manual"));
+      const attempt = Number.isFinite(Number(run.attempt)) ? Number(run.attempt) : 1;
+      const retryCount = Number.isFinite(Number(run.retry_count)) ? Number(run.retry_count) : 0;
+      const failedNode = escapeHtml(String(run.last_failed_node_name || run.last_failed_node_id || "—"));
+      panel.innerHTML = [
+        `<div><strong>${workflow}</strong> <span class="graph-pill">${status}</span></div>`,
+        `<div class="small">Run: ${id}</div>`,
+        `<div class="small">Trigger: ${trigger} • Attempt: ${attempt} • Retry Count: ${retryCount}</div>`,
+        `<div class="small">Last Failed Node: ${failedNode}</div>`,
+        `<div class="small">${summary || "No summary."}</div>`,
+      ].join("");
+
+      const eventsRaw = Array.isArray(run.node_results) ? run.node_results : [];
+      const events = eventsRaw.slice(-80).reverse();
+      if (!events.length) {
+        timeline.innerHTML = `<div class="item">No node events for this run yet.</div>`;
+      } else {
+        timeline.innerHTML = events
+          .map((event) => {
+            const when = escapeHtml(String(event.timestamp || ""));
+            const nodeName = escapeHtml(String(event.node_name || event.node_id || "Node"));
+            const nodeStatus = escapeHtml(String(event.status || "unknown"));
+            const message = escapeHtml(String(event.message || ""));
+            const duration = escapeHtml(String(event.duration_ms || "0"));
+            const attemptText = escapeHtml(String(event.attempt || "1"));
+            return (
+              `<div class="run-event">`
+              + `<strong>${nodeName}</strong> <span class="graph-pill">${nodeStatus}</span>`
+              + `<div class="small">${when}</div>`
+              + `<div class="small">Attempt ${attemptText} • ${duration}ms</div>`
+              + `<div class="small">${message}</div>`
+              + `</div>`
+            );
+          })
+          .join("");
+      }
+    }
+
+    function renderRuns() {
+      const list = byId("runList");
+      const runs = filteredRuns();
+      if (!runs.length) {
+        list.innerHTML = `<div class="item">No runs match current filters.</div>`;
+      } else {
+        list.innerHTML = runs
+          .slice(0, 80)
+          .map((run) => {
+            const id = escapeHtml(run.id || "");
+            const name = escapeHtml(run.workflow_name || run.workflow_id || "Run");
+            const status = String(run.status || "unknown").toLowerCase();
+            const statusText = escapeHtml(status);
+            const summary = escapeHtml(run.summary || "");
+            const updated = escapeHtml(run.updated_at || run.created_at || "");
+            const active = String(run.id || "") === state.selectedRunId ? "active" : "";
+            return (
+              `<div class="item ${active}" data-run-id="${id}">`
+              + `<strong>${name}</strong>`
+              + `<span class="small">${statusText} • ${id.slice(0, 8)} • ${updated}</span>`
+              + `<span class="small">${summary}</span>`
+              + `</div>`
+            );
+          })
+          .join("");
+      }
+
+      if (state.selectedRunId && !state.runs.some((item) => String(item.id || "") === state.selectedRunId)) {
+        state.selectedRunId = "";
+      }
+      if (state.selectedRunId && !runs.some((item) => String(item.id || "") === state.selectedRunId)) {
+        state.selectedRunId = runs.length ? String(runs[0].id || "") : "";
+      }
+      if (!state.selectedRunId && runs.length) {
+        state.selectedRunId = String(runs[0].id || "");
+      }
 
       const active = state.runs.filter((run) => activeStatuses.has(String(run.status || "").toLowerCase())).length;
       const failed = state.runs.filter((run) => String(run.status || "").toLowerCase() === "failed").length;
       byId("metricRuns").textContent = String(state.runs.length);
       byId("metricActiveRuns").textContent = String(active);
       byId("metricFailedRuns").textContent = String(failed);
+      renderRunDetails();
     }
 
     function workflowById(workflowId) {
@@ -1057,6 +1287,124 @@
       }
     }
 
+    function ensureGraphEdgeEditorSelection() {
+      const edges = Array.isArray(state.graphDraft.edges) ? state.graphDraft.edges : [];
+      if (!edges.length) {
+        state.graphEditorEdgeIndex = -1;
+        return;
+      }
+      if (Number.isInteger(state.graphEditorEdgeIndex)
+        && state.graphEditorEdgeIndex >= 0
+        && state.graphEditorEdgeIndex < edges.length) {
+        return;
+      }
+      state.graphEditorEdgeIndex = 0;
+    }
+
+    function renderGraphEdgeEditorNodeOptions() {
+      const sourceSelect = byId("graphEditorEdgeSource");
+      const targetSelect = byId("graphEditorEdgeTarget");
+      if (!sourceSelect || !targetSelect) return;
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      if (!nodes.length) {
+        sourceSelect.innerHTML = `<option value="">No nodes</option>`;
+        targetSelect.innerHTML = `<option value="">No nodes</option>`;
+        sourceSelect.value = "";
+        targetSelect.value = "";
+        return;
+      }
+      const options = nodes
+        .map((node) => `<option value="${escapeHtml(node.id)}">${escapeHtml(node.name)} (${escapeHtml(node.id)})</option>`)
+        .join("");
+      sourceSelect.innerHTML = options;
+      targetSelect.innerHTML = options;
+    }
+
+    function renderGraphEdgeEditor() {
+      const edgeSelect = byId("graphEditorEdgeSelect");
+      const conditionSelect = byId("graphEditorEdgeCondition");
+      const sourceSelect = byId("graphEditorEdgeSource");
+      const targetSelect = byId("graphEditorEdgeTarget");
+      const saveButton = byId("graphSaveEdge");
+      const deleteButton = byId("graphDeleteEdge");
+      if (!edgeSelect || !conditionSelect || !sourceSelect || !targetSelect || !saveButton || !deleteButton) return;
+
+      const edges = Array.isArray(state.graphDraft.edges) ? state.graphDraft.edges : [];
+      ensureGraphEdgeEditorSelection();
+      renderGraphEdgeEditorNodeOptions();
+      if (!edges.length) {
+        edgeSelect.innerHTML = `<option value="">No links</option>`;
+        conditionSelect.value = "next";
+        sourceSelect.value = "";
+        targetSelect.value = "";
+        edgeSelect.disabled = true;
+        conditionSelect.disabled = true;
+        sourceSelect.disabled = true;
+        targetSelect.disabled = true;
+        saveButton.disabled = true;
+        deleteButton.disabled = true;
+        return;
+      }
+
+      edgeSelect.disabled = false;
+      conditionSelect.disabled = false;
+      sourceSelect.disabled = false;
+      targetSelect.disabled = false;
+      saveButton.disabled = false;
+      deleteButton.disabled = false;
+
+      edgeSelect.innerHTML = edges
+        .map((edge, index) => {
+          const type = escapeHtml(String(edge.type || "next"));
+          const source = escapeHtml(String(edge.source || ""));
+          const target = escapeHtml(String(edge.target || ""));
+          return `<option value="${index}">${source} → ${target} (${type})</option>`;
+        })
+        .join("");
+      edgeSelect.value = String(state.graphEditorEdgeIndex);
+
+      const edge = edges[state.graphEditorEdgeIndex];
+      if (!edge) return;
+      sourceSelect.value = String(edge.source || "");
+      targetSelect.value = String(edge.target || "");
+      conditionSelect.value = String(edge.type || "next");
+    }
+
+    function saveGraphEdgeEditor() {
+      const index = Number(byId("graphEditorEdgeSelect").value);
+      const edges = Array.isArray(state.graphDraft.edges) ? state.graphDraft.edges : [];
+      if (!Number.isInteger(index) || index < 0 || index >= edges.length) {
+        log("Select a link first.", "warn");
+        return;
+      }
+      const source = String(byId("graphEditorEdgeSource").value || "").trim();
+      const target = String(byId("graphEditorEdgeTarget").value || "").trim();
+      const condition = String(byId("graphEditorEdgeCondition").value || "next").trim().toLowerCase() || "next";
+      if (!source || !target) {
+        log("Link source and target are required.", "warn");
+        return;
+      }
+      if (source === target) {
+        log("A link cannot target the same node.", "warn");
+        return;
+      }
+      if (!["next", "true", "false"].includes(condition)) {
+        log("Invalid link condition.", "warn");
+        return;
+      }
+      edges[index] = { source, target, type: condition };
+      state.graphEditorEdgeIndex = index;
+      state.graphDirty = true;
+      renderGraphDraftLists();
+      renderGraphEdgeEditor();
+      log(`Link saved: ${source} -> ${target} (${condition})`, "info");
+    }
+
+    function deleteGraphEdgeEditor() {
+      const index = Number(byId("graphEditorEdgeSelect").value);
+      removeGraphEdge(index);
+    }
+
     function renderGraphDraftLists() {
       const nodeList = byId("graphNodeList");
       const edgeList = byId("graphEdgeList");
@@ -1098,7 +1446,10 @@
               return (
                 `<div class="graph-row">`
                 + `<div><span class="graph-pill">${type}</span><strong>${source} → ${target}</strong></div>`
+                + `<div class="graph-row-actions">`
+                + `<button class="btn" data-graph-edit-edge="${index}">Edit</button>`
                 + `<button class="btn danger" data-graph-remove-edge="${index}">Remove</button>`
+                + `</div>`
                 + `</div>`
               );
             })
@@ -1108,6 +1459,7 @@
 
       renderGraphNodeOptions();
       renderGraphNodeEditor();
+      renderGraphEdgeEditor();
       renderGraphPreflightStatus(runGraphPreflight());
     }
 
@@ -1116,6 +1468,7 @@
       if (!workflow) {
         state.graphDraft = { version: 1, nodes: [], edges: [] };
         state.graphEditorNodeId = "";
+        state.graphEditorEdgeIndex = -1;
         renderGraphDraftLists();
         renderWorkflowSelect();
         renderWorkflows();
@@ -1136,6 +1489,7 @@
           .filter((item) => Boolean(item)),
       };
       state.graphEditorNodeId = state.graphDraft.nodes.length ? String(state.graphDraft.nodes[0].id || "") : "";
+      state.graphEditorEdgeIndex = state.graphDraft.edges.length ? 0 : -1;
       state.graphDirty = false;
       renderWorkflowSelect();
       renderWorkflows();
@@ -1445,6 +1799,7 @@
         return;
       }
       state.graphDraft.edges.push({ source, target, type });
+      state.graphEditorEdgeIndex = state.graphDraft.edges.length - 1;
       state.graphDirty = true;
       renderGraphDraftLists();
       log(`Link added: ${source} -> ${target} (${type})`, "info");
@@ -1475,6 +1830,13 @@
       if (!Number.isInteger(index) || index < 0 || index >= state.graphDraft.edges.length) return;
       const edge = state.graphDraft.edges[index];
       state.graphDraft.edges.splice(index, 1);
+      if (!state.graphDraft.edges.length) {
+        state.graphEditorEdgeIndex = -1;
+      } else if (state.graphEditorEdgeIndex >= state.graphDraft.edges.length) {
+        state.graphEditorEdgeIndex = state.graphDraft.edges.length - 1;
+      } else if (index <= state.graphEditorEdgeIndex) {
+        state.graphEditorEdgeIndex = Math.max(0, state.graphEditorEdgeIndex - 1);
+      }
       state.graphDirty = true;
       renderGraphDraftLists();
       log(`Link removed: ${edge.source} -> ${edge.target}`, "info");
@@ -1672,6 +2034,7 @@
         ensureWorkflowSelection();
         renderWorkflows();
         renderWorkflowSelect();
+        renderRunFilters();
         if (!state.graphDirty) {
           loadGraphForSelectedWorkflow({ announce: false });
         }
@@ -1795,6 +2158,81 @@
       } catch (error) {
         log(`Retry failed: ${error.message}`, "error");
       }
+    }
+
+    async function refreshSelectedRunDetails() {
+      const run = selectedRun();
+      if (!run) {
+        renderRunDetails();
+        return;
+      }
+      try {
+        const refreshed = await api(`/api/v1/runs/${run.id}`, { method: "GET" });
+        state.runs = state.runs.map((item) => (String(item.id || "") === String(run.id || "") ? refreshed : item));
+        renderRuns();
+      } catch (error) {
+        log(`Refresh selected run failed: ${error.message}`, "error");
+      }
+    }
+
+    async function cancelSelectedRun() {
+      const run = selectedRun();
+      if (!run) {
+        log("Select a run first.", "warn");
+        return;
+      }
+      try {
+        await api(`/api/v1/runs/${run.id}/cancel`, { method: "POST" });
+        log(`Cancel requested for selected run ${run.id}.`, "info");
+        await refreshRuns();
+      } catch (error) {
+        log(`Cancel selected run failed: ${error.message}`, "error");
+      }
+    }
+
+    async function retrySelectedRun() {
+      const run = selectedRun();
+      if (!run) {
+        log("Select a run first.", "warn");
+        return;
+      }
+      try {
+        const retried = await api(`/api/v1/runs/${run.id}/retry`, {
+          method: "POST",
+          body: JSON.stringify({ from_failed_node: false }),
+        });
+        state.selectedRunId = String(retried.id || "");
+        log(`Retry started from selected run ${run.id}.`, "info");
+        await refreshRuns();
+      } catch (error) {
+        log(`Retry selected run failed: ${error.message}`, "error");
+      }
+    }
+
+    async function retrySelectedRunFromFailedNode() {
+      const run = selectedRun();
+      if (!run) {
+        log("Select a run first.", "warn");
+        return;
+      }
+      try {
+        const retried = await api(`/api/v1/runs/${run.id}/retry`, {
+          method: "POST",
+          body: JSON.stringify({ from_failed_node: true }),
+        });
+        state.selectedRunId = String(retried.id || "");
+        log(`Retry-from-failed-node started from run ${run.id}.`, "info");
+        await refreshRuns();
+      } catch (error) {
+        log(`Retry from failed node failed: ${error.message}`, "error");
+      }
+    }
+
+    function clearRunFilters() {
+      byId("runWorkflowFilter").value = "";
+      byId("runStatusFilter").value = "";
+      byId("runSearch").value = "";
+      renderRuns();
     }
 
     function applySettingsToForm(settings) {
@@ -1921,6 +2359,14 @@
       byId("startLatest").addEventListener("click", startLatestWorkflow);
       byId("cancelActive").addEventListener("click", cancelActiveRun);
       byId("retryLatest").addEventListener("click", retryLatestRun);
+      byId("refreshRuns").addEventListener("click", refreshRuns);
+      byId("clearRunFilters").addEventListener("click", clearRunFilters);
+      byId("cancelSelectedRun").addEventListener("click", cancelSelectedRun);
+      byId("retrySelectedRun").addEventListener("click", retrySelectedRun);
+      byId("retrySelectedFailedNode").addEventListener("click", retrySelectedRunFromFailedNode);
+      byId("runWorkflowFilter").addEventListener("change", renderRuns);
+      byId("runStatusFilter").addEventListener("change", renderRuns);
+      byId("runSearch").addEventListener("input", renderRuns);
       byId("workflowSelect").addEventListener("change", () => {
         state.selectedWorkflowId = String(byId("workflowSelect").value || "").trim();
         state.graphDirty = false;
@@ -1953,6 +2399,17 @@
         state.graphDirty = false;
         loadGraphForSelectedWorkflow();
       });
+      byId("runList").addEventListener("click", (event) => {
+        const target = event.target && typeof event.target.closest === "function"
+          ? event.target.closest("[data-run-id]")
+          : null;
+        if (!target) return;
+        const runId = String(target.getAttribute("data-run-id") || "").trim();
+        if (!runId) return;
+        state.selectedRunId = runId;
+        renderRuns();
+        refreshSelectedRunDetails();
+      });
       byId("graphNodeList").addEventListener("click", (event) => {
         const removeTarget = event.target && typeof event.target.closest === "function"
           ? event.target.closest("[data-graph-remove-node]")
@@ -1969,12 +2426,26 @@
         renderGraphNodeEditor();
       });
       byId("graphEdgeList").addEventListener("click", (event) => {
-        const target = event.target && typeof event.target.closest === "function"
+        const removeTarget = event.target && typeof event.target.closest === "function"
           ? event.target.closest("[data-graph-remove-edge]")
           : null;
-        if (!target) return;
-        removeGraphEdge(target.getAttribute("data-graph-remove-edge"));
+        if (removeTarget) {
+          removeGraphEdge(removeTarget.getAttribute("data-graph-remove-edge"));
+          return;
+        }
+        const editTarget = event.target && typeof event.target.closest === "function"
+          ? event.target.closest("[data-graph-edit-edge]")
+          : null;
+        if (!editTarget) return;
+        state.graphEditorEdgeIndex = Number(editTarget.getAttribute("data-graph-edit-edge"));
+        renderGraphEdgeEditor();
       });
+      byId("graphEditorEdgeSelect").addEventListener("change", () => {
+        state.graphEditorEdgeIndex = Number(byId("graphEditorEdgeSelect").value);
+        renderGraphEdgeEditor();
+      });
+      byId("graphSaveEdge").addEventListener("click", saveGraphEdgeEditor);
+      byId("graphDeleteEdge").addEventListener("click", deleteGraphEdgeEditor);
       byId("graphEditorNodeSelect").addEventListener("change", () => {
         state.graphEditorNodeId = String(byId("graphEditorNodeSelect").value || "").trim();
         renderGraphNodeEditor();
@@ -2023,6 +2494,8 @@
     function init() {
       byId("apiBase").value = state.apiBase;
       renderWorkflowSelect();
+      renderRunFilters();
+      renderRunDetails();
       renderGraphDraftLists();
       bindEvents();
       refreshAll();
