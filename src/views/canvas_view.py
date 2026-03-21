@@ -196,6 +196,7 @@ class CanvasView(Gtk.Box):
         self.node_drag_active = False
         self.node_drag_moved = False
         self.stage_drag_node_id: str | None = None
+        self.stage_drag_origin: dict[str, float] = {}
         self.suppress_next_node_click = False
         self.zoom_factor = 1.0
         self.pan_drag_active = False
@@ -1928,6 +1929,7 @@ class CanvasView(Gtk.Box):
         self.drag_guide_x = None
         self.drag_guide_y = None
         self.stage_drag_node_id = None
+        self.stage_drag_origin = {}
         self.set_node_drag_cursor("grab")
 
     def reset_port_drag_state(self):
@@ -2003,14 +2005,63 @@ class CanvasView(Gtk.Box):
 
     def on_stage_select_drag_begin(self, gesture: Gtk.GestureDrag, start_x: float, start_y: float):
         self.stage_drag_node_id = None
-        # If pointer-down starts on a node card, let node-level drag/click gestures
-        # own the sequence. Stage selection should only begin on empty canvas.
-        if self.find_node_at_point(int(start_x), int(start_y)):
-            gesture.set_state(Gtk.EventSequenceState.DENIED)
+        state = gesture.get_current_event_state()
+        selection_modifiers = Gdk.ModifierType.SHIFT_MASK
+        hit_node = self.find_node_at_point(int(start_x), int(start_y))
+
+        # Stage-level fallback drag: if node-level drag gesture arbitration fails, allow
+        # dragging nodes directly from the stage gesture so dragging never gets stuck.
+        if hit_node and not bool(state & Gdk.ModifierType.SHIFT_MASK):
+            if self.port_drag_active and not self.link_preview_source_id:
+                self.reset_port_drag_state()
+            if self.port_drag_active:
+                gesture.set_state(Gtk.EventSequenceState.DENIED)
+                return
+
+            previous_selected = self.selected_node_id
+            previous_selection_set = set(self.selected_node_ids)
+            if hit_node.id not in self.selected_node_ids:
+                self.set_single_selection(hit_node.id)
+            else:
+                self.set_selection(set(self.selected_node_ids), primary_id=hit_node.id)
+
+            self.node_drag_active = True
+            self.node_drag_moved = False
+            self.stage_drag_node_id = hit_node.id
+            self.stage_drag_origin = {
+                "start_x": float(start_x),
+                "start_y": float(start_y),
+            }
+            self.drag_origin = {
+                "node_id": hit_node.id,
+                "x": hit_node.x,
+                "y": hit_node.y,
+                "pointer_stage_x": float(start_x),
+                "pointer_stage_y": float(start_y),
+            }
+            self.drag_group_origins = {
+                item.id: (item.x, item.y)
+                for item in self.nodes
+                if item.id in self.selected_node_ids
+            }
+            self.drag_history_captured = False
+            self.drag_guide_x = None
+            self.drag_guide_y = None
+            self.suppress_stage_click_once = True
+            self.set_node_drag_cursor("grabbing")
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            if previous_selected != self.selected_node_id or previous_selection_set != self.selected_node_ids:
+                self.apply_selection_set_visual_state(
+                    previous_selection_set,
+                    self.selected_node_ids,
+                    previous_selected,
+                    self.selected_node_id,
+                )
+                self.link_layer.queue_draw()
+            self.update_inspector(hit_node)
+            self.update_control_state()
             return
 
-        state = gesture.get_current_event_state()
-        selection_modifiers = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active:
@@ -2035,6 +2086,9 @@ class CanvasView(Gtk.Box):
         self.link_layer.queue_draw()
 
     def on_stage_select_drag_update(self, _gesture: Gtk.GestureDrag, offset_x: float, offset_y: float):
+        if self.stage_drag_node_id:
+            self.on_node_drag_update(_gesture, offset_x, offset_y, self.stage_drag_node_id)
+            return
         if not self.selection_rect_active:
             return
         self.selection_rect_end_x = self.selection_rect_start_x + float(offset_x)
@@ -2042,7 +2096,15 @@ class CanvasView(Gtk.Box):
         self.link_layer.queue_draw()
 
     def on_stage_select_drag_end(self, _gesture: Gtk.GestureDrag, _offset_x: float, _offset_y: float):
+        if self.stage_drag_node_id:
+            stage_drag_node_id = self.stage_drag_node_id
+            self.stage_drag_node_id = None
+            self.stage_drag_origin = {}
+            self.on_node_drag_end(_gesture, _offset_x, _offset_y, stage_drag_node_id)
+            return
+
         self.stage_drag_node_id = None
+        self.stage_drag_origin = {}
         if not self.selection_rect_active:
             return
 
