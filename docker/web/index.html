@@ -832,12 +832,38 @@
             </select>
           </div>
           <div class="row">
+            <label class="label" for="localBackend">Local Runtime Backend</label>
+            <select class="select" id="localBackend">
+              <option value="ollama">ollama</option>
+              <option value="lm_studio">lm_studio</option>
+              <option value="openai_compatible">openai_compatible</option>
+              <option value="vllm">vllm</option>
+              <option value="llama_cpp">llama_cpp</option>
+              <option value="text_generation_webui">text_generation_webui</option>
+              <option value="jan">jan</option>
+            </select>
+          </div>
+          <div class="row">
             <label class="label" for="localEndpoint">Local Runtime Endpoint</label>
             <input id="localEndpoint" class="input" type="text" placeholder="http://localhost:11434" />
           </div>
           <div class="row">
+            <label class="label" for="localRuntimeApiKey">Local Runtime API Key (optional)</label>
+            <input id="localRuntimeApiKey" class="input" type="password" placeholder="Optional local runtime API key" />
+          </div>
+          <div class="row">
             <label class="label" for="defaultModel">Default Local Model</label>
             <input id="defaultModel" class="input" type="text" placeholder="nvidia/nemotron-3-nano" />
+          </div>
+          <div class="grid2">
+            <div class="row">
+              <label class="label" for="openaiApiKey">OpenAI API Key</label>
+              <input id="openaiApiKey" class="input" type="password" placeholder="sk-..." />
+            </div>
+            <div class="row">
+              <label class="label" for="anthropicApiKey">Anthropic API Key</label>
+              <input id="anthropicApiKey" class="input" type="password" placeholder="sk-ant-..." />
+            </div>
           </div>
           <div class="grid2">
             <div class="row">
@@ -3318,9 +3344,13 @@
 
     function applySettingsToForm(settings) {
       byId("preferredProvider").value = settings.preferred_provider || "local";
+      byId("localBackend").value = settings.local_ai_backend || "ollama";
       byId("localAiEnabled").value = String(Boolean(settings.local_ai_enabled));
       byId("localEndpoint").value = settings.local_ai_endpoint || "";
+      byId("localRuntimeApiKey").value = settings.local_ai_api_key || "";
       byId("defaultModel").value = settings.default_local_model || "";
+      byId("openaiApiKey").value = settings.openai_api_key || "";
+      byId("anthropicApiKey").value = settings.anthropic_api_key || "";
       byId("theme").value = settings.theme || "dark";
       byId("themePreset").value = settings.theme_preset || "graphite";
       byId("density").value = settings.ui_density || "comfortable";
@@ -3341,8 +3371,12 @@
       const payload = {
         preferred_provider: byId("preferredProvider").value,
         local_ai_enabled: String(byId("localAiEnabled").value || "true").trim().toLowerCase() === "true",
+        local_ai_backend: byId("localBackend").value,
         local_ai_endpoint: byId("localEndpoint").value.trim(),
+        local_ai_api_key: byId("localRuntimeApiKey").value.trim(),
         default_local_model: byId("defaultModel").value.trim(),
+        openai_api_key: byId("openaiApiKey").value.trim(),
+        anthropic_api_key: byId("anthropicApiKey").value.trim(),
         theme: byId("theme").value,
         theme_preset: byId("themePreset").value,
         ui_density: byId("density").value,

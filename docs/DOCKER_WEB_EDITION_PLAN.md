@@ -61,7 +61,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Workflow list search + selected-workflow edit/delete controls in web preview
 - [x] Workflow editor form (create/update/duplicate with status/tags) in web preview
 - [x] Run timeline event filters (status + search) in web preview
-- [x] Expanded settings controls (`local_ai_enabled`, `theme_preset`, `reduce_motion`) in web preview
+- [x] Expanded settings controls (`local_ai_enabled`, `local_ai_backend`, API keys, `theme_preset`, `reduce_motion`) in web preview
 - [x] Workflow list/editor parity
 - [x] Runs timeline parity
 - [ ] Settings parity
@@ -101,7 +101,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Web preview workflow panel now includes a form-based editor for create/update/duplicate operations with status/tags controls.
 - Web preview runs panel now supports timeline querying (status/search/node/limit/order) via API-backed timeline endpoints.
 - Web preview runs panel now supports selected-run delete and richer run detail refresh workflow.
-- Web preview settings panel now supports local runtime enable toggle, theme preset selection, and reduce-motion toggle.
+- Web preview settings panel now supports local backend selection, local/cloud API keys, local runtime enable toggle, theme preset selection, and reduce-motion toggle.
 
 ## Remaining To Reach First Public Web Beta
 1. Replace web preview dashboard with production web UI modules.

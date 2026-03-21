@@ -79,8 +79,12 @@ class RunOut(RunIn):
 class SettingsPatch(BaseModel):
     preferred_provider: str | None = None
     local_ai_enabled: bool | None = None
+    local_ai_backend: str | None = None
     local_ai_endpoint: str | None = None
+    local_ai_api_key: str | None = None
     default_local_model: str | None = None
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
     theme: str | None = None
     theme_preset: str | None = None
     ui_density: str | None = None
@@ -134,8 +138,12 @@ class IntegrationTestResult(BaseModel):
 DEFAULT_SETTINGS: dict[str, Any] = {
     "preferred_provider": "local",
     "local_ai_enabled": True,
+    "local_ai_backend": "ollama",
     "local_ai_endpoint": "http://localhost:11434",
+    "local_ai_api_key": "",
     "default_local_model": "",
+    "openai_api_key": "",
+    "anthropic_api_key": "",
     "theme": "dark",
     "theme_preset": "graphite",
     "ui_density": "comfortable",
@@ -145,6 +153,15 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 ALLOWED_THEME = {"system", "light", "dark"}
 ALLOWED_DENSITY = {"comfortable", "compact"}
 ALLOWED_PROVIDER = {"local", "openai", "anthropic"}
+ALLOWED_LOCAL_BACKENDS = {
+    "ollama",
+    "lm_studio",
+    "openai_compatible",
+    "vllm",
+    "llama_cpp",
+    "text_generation_webui",
+    "jan",
+}
 
 
 def make_workflow(payload: WorkflowIn) -> dict[str, Any]:
@@ -226,6 +243,11 @@ def normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
 
     merged["local_ai_enabled"] = bool(merged.get("local_ai_enabled", True))
     merged["reduce_motion"] = bool(merged.get("reduce_motion", False))
+    local_backend = str(merged.get("local_ai_backend", "ollama")).strip().lower()
+    merged["local_ai_backend"] = local_backend if local_backend in ALLOWED_LOCAL_BACKENDS else "ollama"
     merged["local_ai_endpoint"] = str(merged.get("local_ai_endpoint", "")).strip() or DEFAULT_SETTINGS["local_ai_endpoint"]
+    merged["local_ai_api_key"] = str(merged.get("local_ai_api_key", "")).strip()
     merged["default_local_model"] = str(merged.get("default_local_model", "")).strip()
+    merged["openai_api_key"] = str(merged.get("openai_api_key", "")).strip()
+    merged["anthropic_api_key"] = str(merged.get("anthropic_api_key", "")).strip()
     return merged
