@@ -7290,6 +7290,20 @@ class CanvasView(Gtk.Box):
                     auto_save=False,
                     show_status_on_duplicate=False,
                 )
+        if not auto_linked and self.node_type_key(node.node_type) != "trigger":
+            for fallback_source in reversed(self.nodes[:-1]):
+                if fallback_source.id == node.id:
+                    continue
+                if self.add_edge(
+                    fallback_source.id,
+                    node.id,
+                    condition_override="",
+                    push_history=False,
+                    auto_save=False,
+                    show_status_on_duplicate=False,
+                ):
+                    auto_linked = True
+                    break
         self.selected_node_id = node.id
         self.selected_node_ids = {node.id}
         self.sync_layout_cursor_from_nodes()

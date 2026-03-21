@@ -16,6 +16,8 @@ All notable changes to this project are documented here.
 - Canvas drag resilience improved further with a stage-motion fallback that
   continues active node movement using live pointer coordinates when some GTK
   environments miss intermittent node drag-update callbacks.
+- New non-trigger nodes now include auto-link source fallback logic so module
+  add operations keep serial wiring even if the primary selected source is stale.
 - Canvas node settings now apply context-aware execution defaults:
   trigger mode profiles (manual/interval/cron/webhook/watch) and action template
   context can auto-tune retry/backoff/timeout behavior.
