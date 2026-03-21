@@ -59,4 +59,5 @@ Add a cross-platform self-hosted path (Linux/macOS/Windows) without replacing th
 - Run scaffold now applies node-type-aware execution and per-run/per-node timeout/retry/backoff controls.
 - Runtime traversal now uses workflow graph edges (including legacy links) with condition branch routing.
 - Runtime now supports parallel ready-node execution with basic join semantics and branch pruning.
+- End-to-end Docker smoke validation now passes against the full scaffold stack (`scripts/test_docker_web.sh`).
 - See `docker/README.md` and `docker/docker-compose.web.yml`.

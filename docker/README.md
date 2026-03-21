@@ -53,6 +53,13 @@ Automated smoke test from repo root:
 ./scripts/test_docker_web.sh
 ```
 
+If your user was recently added to the `docker` group and this shell has not refreshed yet,
+the smoke script will automatically re-run itself with `sg docker`.
+You can also run it directly:
+```bash
+sg docker -c './scripts/test_docker_web.sh'
+```
+
 Core scaffold routes:
 - `GET /api/v1/overview`
 - `GET/POST/PUT/DELETE /api/v1/workflows`

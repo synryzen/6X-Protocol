@@ -16,6 +16,13 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 if ! docker info >/dev/null 2>&1; then
+  if [[ "${_SIXPX_DOCKER_GROUP_REEXEC:-0}" != "1" ]] && command -v sg >/dev/null 2>&1; then
+    if getent group docker >/dev/null 2>&1 && getent group docker | grep -Eq "(^|[:,])${USER}(,|$)"; then
+      echo "docker group membership detected but not active in this shell."
+      echo "Re-running smoke test under 'sg docker'..."
+      exec sg docker -c "cd \"$ROOT_DIR\" && _SIXPX_DOCKER_GROUP_REEXEC=1 ./scripts/test_docker_web.sh"
+    fi
+  fi
   echo "docker daemon is not accessible for current user"
   echo "Fix: sudo usermod -aG docker $USER && newgrp docker"
   exit 1

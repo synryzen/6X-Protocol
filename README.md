@@ -138,5 +138,7 @@ After installing Docker, validate the web scaffold end-to-end:
 ./scripts/test_docker_web.sh
 ```
 
+If your shell session does not yet include active `docker` group access, the script now auto-retries via `sg docker`.
+
 ## License
 MIT. See [`LICENSE`](LICENSE).
