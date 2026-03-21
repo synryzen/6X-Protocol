@@ -2031,64 +2031,10 @@ class CanvasView(Gtk.Box):
         state = gesture.get_current_event_state()
         selection_modifiers = Gdk.ModifierType.SHIFT_MASK
         hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
-
-        # If drag starts over a node and we're not box-selecting, prefer node gestures.
-        # But if gesture arbitration misses on some environments, fall back to stage-driven
-        # node drag so click-hold-move remains reliable.
-        if hit_node and not bool(state & Gdk.ModifierType.SHIFT_MASK):
-            node_screen_x = float(self.to_screen(hit_node.x))
-            node_screen_y = float(self.to_screen(hit_node.y))
-            local_x = pointer_x - node_screen_x
-            local_y = pointer_y - node_screen_y
-            if self.is_output_handle_grab(local_x, local_y):
-                # Keep output-port drag reserved for wire-link behavior.
-                gesture.set_state(Gtk.EventSequenceState.DENIED)
-                return
-
-            if self.pending_link_source_id and self.pending_link_source_id != hit_node.id:
-                previous_source = self.pending_link_source_id
-                self.pending_link_source_id = None
-                self.cancel_link_preview()
-                self.apply_link_source_visual_state(previous_source, None)
-                self.update_control_state()
-
-            previous_selected = self.selected_node_id
-            previous_selection_set = set(self.selected_node_ids)
-            if hit_node.id not in self.selected_node_ids:
-                self.set_single_selection(hit_node.id)
-            else:
-                self.set_selection(set(self.selected_node_ids), primary_id=hit_node.id)
-            self.apply_selection_set_visual_state(
-                previous_selection_set,
-                self.selected_node_ids,
-                previous_selected,
-                self.selected_node_id,
-            )
-            self.update_inspector(hit_node)
-            self.update_control_state()
-
-            self.node_drag_active = True
-            self.node_drag_moved = False
-            self.drag_origin = {
-                "node_id": hit_node.id,
-                "x": hit_node.x,
-                "y": hit_node.y,
-                "pointer_stage_x": pointer_x,
-                "pointer_stage_y": pointer_y,
-            }
-            self.drag_group_origins = {
-                item.id: (item.x, item.y)
-                for item in self.nodes
-                if item.id in self.selected_node_ids
-            }
-            self.drag_history_captured = False
-            self.drag_guide_x = None
-            self.drag_guide_y = None
-            self.suppress_stage_click_once = True
-            self.stage_drag_node_id = hit_node.id
-            self.stage_drag_origin = {"x": pointer_x, "y": pointer_y}
-            self.set_node_drag_cursor("grabbing")
-            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        if hit_node and not bool(state & selection_modifiers):
+            # Keep node gestures (card drag/click and output-port wire drag) authoritative.
+            # Stage drag should only own Shift+drag selection rectangle.
+            gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
 
         if self.port_drag_active and not self.link_preview_source_id:
