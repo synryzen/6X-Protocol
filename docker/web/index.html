@@ -700,6 +700,14 @@
         <div class="grid2">
           <div>
             <h2 style="font-size:13px;margin:0 0 6px;">Workflows</h2>
+            <div class="row" style="margin-bottom:8px;">
+              <label class="label" for="workflowSearch">Search</label>
+              <input id="workflowSearch" class="input" type="text" placeholder="name, id, status..." />
+            </div>
+            <div class="actions" style="justify-content:flex-start;margin-bottom:8px;">
+              <button id="editSelectedWorkflow" class="btn">Edit Selected</button>
+              <button id="deleteSelectedWorkflow" class="btn danger">Delete Selected</button>
+            </div>
             <div class="list" id="workflowList"></div>
           </div>
           <div>
@@ -1082,13 +1090,38 @@
       }
     }
 
+    function workflowMatchesSearch(workflow, searchText) {
+      const needle = String(searchText || "").trim().toLowerCase();
+      if (!needle) return true;
+      const haystack = [
+        workflow.id,
+        workflow.name,
+        workflow.description,
+        workflow.status,
+        workflow.updated_at,
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .join(" ");
+      return haystack.includes(needle);
+    }
+
+    function filteredWorkflows() {
+      const searchText = String(byId("workflowSearch")?.value || "").trim();
+      return state.workflows.filter((workflow) => workflowMatchesSearch(workflow, searchText));
+    }
+
     function renderWorkflows() {
       const list = byId("workflowList");
       if (!state.workflows.length) {
         list.innerHTML = `<div class="item">No workflows yet.</div>`;
         return;
       }
-      list.innerHTML = state.workflows
+      const workflows = filteredWorkflows();
+      if (!workflows.length) {
+        list.innerHTML = `<div class="item">No workflows match current search.</div>`;
+        return;
+      }
+      list.innerHTML = workflows
         .slice(0, 24)
         .map((workflow) => {
           const id = escapeHtml(workflow.id || "");
@@ -1099,6 +1132,92 @@
           return `<div class="item ${active}" data-workflow-id="${id}"><strong>${name}</strong><span class="small">${status} • ${id.slice(0, 8)} • ${updated}</span></div>`;
         })
         .join("");
+    }
+
+    function workflowUpdatePayload(workflow, overrides = {}) {
+      const graph = workflow && workflow.graph && typeof workflow.graph === "object" ? workflow.graph : { version: 1, nodes: [], edges: [] };
+      const tags = workflow && Array.isArray(workflow.tags) ? workflow.tags : [];
+      return {
+        name: String(overrides.name ?? workflow?.name ?? "Untitled Workflow").trim() || "Untitled Workflow",
+        description: String(overrides.description ?? workflow?.description ?? "").trim(),
+        graph,
+        status: String(overrides.status ?? workflow?.status ?? "draft").trim().toLowerCase() || "draft",
+        tags,
+      };
+    }
+
+    async function editSelectedWorkflow() {
+      const workflow = selectedWorkflow();
+      if (!workflow) {
+        log("No workflow selected to edit.", "warn");
+        return;
+      }
+
+      const currentName = String(workflow.name || "Untitled Workflow");
+      const currentDescription = String(workflow.description || "");
+      const currentStatus = String(workflow.status || "draft").trim().toLowerCase() || "draft";
+      const allowedStatuses = new Set(["draft", "active", "archived"]);
+
+      const nextName = prompt("Workflow name", currentName);
+      if (nextName === null) return;
+      const normalizedName = String(nextName || "").trim();
+      if (!normalizedName) {
+        log("Workflow name cannot be empty.", "warn");
+        return;
+      }
+
+      const nextDescription = prompt("Workflow description", currentDescription);
+      if (nextDescription === null) return;
+
+      const nextStatusInput = prompt("Workflow status (draft|active|archived)", currentStatus);
+      if (nextStatusInput === null) return;
+      const nextStatus = String(nextStatusInput || "").trim().toLowerCase() || currentStatus;
+      if (!allowedStatuses.has(nextStatus)) {
+        log(`Invalid workflow status '${nextStatus}'. Allowed: draft, active, archived.`, "warn");
+        return;
+      }
+
+      try {
+        const payload = workflowUpdatePayload(workflow, {
+          name: normalizedName,
+          description: String(nextDescription || "").trim(),
+          status: nextStatus,
+        });
+        await api(`/api/v1/workflows/${workflow.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        log(`Workflow updated: ${normalizedName}`, "info");
+        await refreshWorkflows();
+      } catch (error) {
+        log(`Update workflow failed: ${error.message}`, "error");
+      }
+    }
+
+    async function deleteSelectedWorkflow() {
+      const workflow = selectedWorkflow();
+      if (!workflow) {
+        log("No workflow selected to delete.", "warn");
+        return;
+      }
+      const workflowName = String(workflow.name || "Untitled workflow");
+      const confirmed = confirm(`Delete workflow '${workflowName}'? This cannot be undone.`);
+      if (!confirmed) return;
+
+      try {
+        await api(`/api/v1/workflows/${workflow.id}`, { method: "DELETE" });
+        if (state.selectedWorkflowId === String(workflow.id || "")) {
+          state.selectedWorkflowId = "";
+          state.graphEditorNodeId = "";
+          state.graphEditorEdgeIndex = -1;
+          state.graphDraft = { nodes: [], edges: [] };
+          state.graphDirty = false;
+        }
+        log(`Workflow deleted: ${workflowName}`, "info");
+        await refreshWorkflows();
+      } catch (error) {
+        log(`Delete workflow failed: ${error.message}`, "error");
+      }
     }
 
     function runById(runId) {
@@ -2986,6 +3105,9 @@
       byId("runWorkflowFilter").addEventListener("change", renderRuns);
       byId("runStatusFilter").addEventListener("change", renderRuns);
       byId("runSearch").addEventListener("input", renderRuns);
+      byId("workflowSearch").addEventListener("input", renderWorkflows);
+      byId("editSelectedWorkflow").addEventListener("click", editSelectedWorkflow);
+      byId("deleteSelectedWorkflow").addEventListener("click", deleteSelectedWorkflow);
       byId("workflowSelect").addEventListener("change", () => {
         state.selectedWorkflowId = String(byId("workflowSelect").value || "").trim();
         state.graphDirty = false;
