@@ -794,6 +794,17 @@ class WorkflowValidationService:
             value = str(config.get(candidate, "")).strip()
             if value:
                 return value
+        if key in {"spreadsheet_id", "range"}:
+            payload_raw = str(config.get("payload", "")).strip()
+            if payload_raw:
+                try:
+                    payload = json.loads(payload_raw)
+                except Exception:
+                    payload = None
+                if isinstance(payload, dict):
+                    payload_value = str(payload.get(key, "")).strip()
+                    if payload_value:
+                        return payload_value
         settings = app_settings if isinstance(app_settings, dict) else {}
         if settings and integration_key:
             for setting_key in self._setting_keys_for_required_field(

@@ -165,6 +165,45 @@ class WorkflowValidationServiceTests(unittest.TestCase):
         result = service.validate_graph([trigger, action], edges, "Settings Fallback")
         self.assertTrue(result.ok, result.errors)
 
+    def test_google_sheets_required_fields_can_be_read_from_payload(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="Sheets Append",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "google_sheets",
+                "api_key": "token",
+                "payload": (
+                    '{"spreadsheet_id":"sheet_123","range":"Sheet1!A:B","values":[["ok"]]}'
+                ),
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+
+        result = self.service.validate_graph([trigger, action], edges, "Sheets Payload")
+        self.assertTrue(result.ok, result.errors)
+
     def test_http_request_invalid_url_reports_error(self):
         trigger = CanvasNode(
             id="node_trigger",

@@ -1403,6 +1403,13 @@ class CanvasView(Gtk.Box):
         self.action_integration_section.append(self.action_delivery_group)
         self.action_integration_section.append(self.action_payload_group)
         self.action_integration_section.append(self.action_auth_group)
+        self.action_scaffold_button = Gtk.Button(label="Scaffold Required Fields")
+        self.action_scaffold_button.add_css_class("compact-action-button")
+        self.action_scaffold_button.connect(
+            "clicked",
+            self.on_scaffold_action_required_fields_clicked,
+        )
+
         self.test_node_button = Gtk.Button(label="Test This Node")
         self.test_node_button.add_css_class("compact-action-button")
         self.test_node_button.add_css_class("suggested-action")
@@ -1453,6 +1460,7 @@ class CanvasView(Gtk.Box):
 
         test_node_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         test_node_row.add_css_class("compact-action-row")
+        test_node_row.append(self.action_scaffold_button)
         test_node_row.append(self.test_node_button)
         self.action_integration_section.append(test_node_row)
         self.action_integration_section.append(self.node_test_status_label)
@@ -4785,6 +4793,264 @@ class CanvasView(Gtk.Box):
             return
         self.update_action_requirements_status()
 
+    def on_scaffold_action_required_fields_clicked(self, _button):
+        selected_node = self.get_selected_node()
+        if not selected_node or self.node_type_key(selected_node.node_type) not in {"action", "template"}:
+            self.set_status("Select an action or template node to scaffold required fields.")
+            return
+
+        integration = self.selected_action_integration()
+        if not integration:
+            self.set_status("Choose an integration before scaffolding required fields.")
+            return
+
+        # Pull integration-aware defaults first without overriding user-provided input.
+        self.apply_action_smart_defaults(integration, force=False)
+
+        app_settings = self.settings_store.load_settings()
+        draft_config: dict[str, str] = {}
+        self.apply_action_controls_to_config(draft_config, selected_node.node_type)
+        missing_fields = self.missing_required_action_fields(
+            draft_config,
+            app_settings=app_settings,
+        )
+        if not missing_fields:
+            self.update_action_requirements_status()
+            self.set_status("Required fields are already filled for this integration.")
+            return
+
+        filled_fields: list[str] = []
+        for required_field in missing_fields:
+            if self.scaffold_required_action_field(integration, required_field):
+                filled_fields.append(required_field)
+
+        self.update_action_requirements_status()
+
+        updated_config: dict[str, str] = {}
+        self.apply_action_controls_to_config(updated_config, selected_node.node_type)
+        remaining_fields = self.missing_required_action_fields(
+            updated_config,
+            app_settings=app_settings,
+        )
+        if not remaining_fields:
+            if filled_fields:
+                preview = ", ".join(filled_fields[:4])
+                if len(filled_fields) > 4:
+                    preview = f"{preview}, +{len(filled_fields) - 4} more"
+                self.set_status(f"Scaffolded required fields: {preview}.")
+            else:
+                self.set_status("Required fields are configured.")
+            return
+
+        unresolved = ", ".join(remaining_fields[:4])
+        if len(remaining_fields) > 4:
+            unresolved = f"{unresolved}, +{len(remaining_fields) - 4} more"
+        if filled_fields:
+            self.set_status(
+                f"Scaffolded {len(filled_fields)} field(s), but still missing: {unresolved}."
+            )
+        else:
+            self.set_status(
+                f"Could not auto-scaffold remaining field(s): {unresolved}. Fill them manually."
+            )
+
+    def scaffold_required_action_field(self, integration: str, required_field: str) -> bool:
+        key = str(required_field).strip().lower()
+        if not key:
+            return False
+
+        if key in {"url", "webhook_url", "script_url", "connection_url"}:
+            if self.action_endpoint_entry.get_text().strip():
+                return False
+            self.action_endpoint_entry.set_text(self.scaffold_endpoint_placeholder(integration))
+            return True
+
+        if key in {"message", "text", "content", "approval_message"}:
+            if self.action_message_entry.get_text().strip():
+                return False
+            if str(integration).strip().lower() == "approval_gate":
+                self.action_message_entry.set_text("Approve this step to continue the workflow.")
+            else:
+                self.action_message_entry.set_text("Workflow update: ${last_output}")
+            return True
+
+        if key == "api_key":
+            if self.action_api_key_entry.get_text().strip():
+                return False
+            self.action_api_key_entry.set_text("REPLACE_API_KEY")
+            return True
+
+        if key == "auth_token":
+            if self.action_auth_token_entry.get_text().strip():
+                return False
+            self.action_auth_token_entry.set_text("REPLACE_AUTH_TOKEN")
+            return True
+
+        if key == "location":
+            if self.action_location_entry.get_text().strip():
+                return False
+            self.action_location_entry.set_text("Austin,US")
+            return True
+
+        if key == "units":
+            if self.selected_action_units() == "metric":
+                return False
+            self.action_units_dropdown.set_selected(self.action_units_index("metric"))
+            return True
+
+        if key == "path":
+            if self.action_path_entry.get_text().strip():
+                return False
+            integration_key = str(integration).strip().lower()
+            if integration_key == "sqlite_sql":
+                self.action_path_entry.set_text("/tmp/6x_protocol.db")
+            else:
+                self.action_path_entry.set_text("/tmp/workflow.log")
+            return True
+
+        if key in {"command", "sql", "query"}:
+            integration_key = str(integration).strip().lower()
+            if key == "command" and self.action_command_entry.get_text().strip():
+                return False
+            if integration_key == "redis_command":
+                command = "ping"
+            elif integration_key == "s3_cli":
+                command = "s3 ls"
+            elif key in {"sql", "query"} or integration_key in {"postgres_sql", "mysql_sql", "sqlite_sql"}:
+                command = "select now();"
+            else:
+                command = "echo \"${last_output}\""
+
+            if key == "command":
+                self.action_command_entry.set_text(command)
+                return True
+
+            if self.get_action_payload_text().strip():
+                return False
+            self.set_action_payload_text(command)
+            return True
+
+        if key == "chat_id":
+            if self.action_chat_id_entry.get_text().strip():
+                return False
+            self.action_chat_id_entry.set_text("REPLACE_CHAT_ID")
+            return True
+
+        if key == "account_sid":
+            if self.action_account_sid_entry.get_text().strip():
+                return False
+            self.action_account_sid_entry.set_text("REPLACE_ACCOUNT_SID")
+            return True
+
+        if key == "from":
+            if self.action_from_entry.get_text().strip():
+                return False
+            if str(integration).strip().lower() == "twilio_sms":
+                self.action_from_entry.set_text("+15550001111")
+            else:
+                self.action_from_entry.set_text("sender@example.com")
+            return True
+
+        if key == "to":
+            if self.action_to_entry.get_text().strip():
+                return False
+            if str(integration).strip().lower() == "twilio_sms":
+                self.action_to_entry.set_text("+15550002222")
+            else:
+                self.action_to_entry.set_text("recipient@example.com")
+            return True
+
+        if key == "subject":
+            if self.action_subject_entry.get_text().strip():
+                return False
+            self.action_subject_entry.set_text("Workflow Update")
+            return True
+
+        if key == "domain":
+            if self.action_domain_entry.get_text().strip():
+                return False
+            self.action_domain_entry.set_text("mg.example.com")
+            return True
+
+        if key == "headers":
+            if self.action_headers_entry.get_text().strip():
+                return False
+            self.action_headers_entry.set_text('{"Content-Type":"application/json"}')
+            return True
+
+        if key == "payload":
+            if self.get_action_payload_text().strip():
+                return False
+            self.set_action_payload_text('{"input":"${last_output}"}')
+            return True
+
+        if key in {"spreadsheet_id", "range"}:
+            return self.ensure_payload_key(
+                key,
+                "REPLACE_SHEET_ID" if key == "spreadsheet_id" else "Sheet1!A:B",
+            )
+
+        return False
+
+    def scaffold_endpoint_placeholder(self, integration: str) -> str:
+        key = str(integration).strip().lower()
+        mapping = {
+            "slack_webhook": "https://hooks.slack.com/services/REPLACE/REPLACE/REPLACE",
+            "discord_webhook": "https://discord.com/api/webhooks/REPLACE/REPLACE",
+            "teams_webhook": "https://outlook.office.com/webhook/REPLACE/IncomingWebhook/REPLACE/REPLACE",
+            "google_apps_script": "https://script.google.com/macros/s/REPLACE/exec",
+            "http_request": "https://api.example.com/v1/events",
+            "http_post": "https://api.example.com/v1/events",
+            "google_calendar_api": "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+            "outlook_graph": "https://graph.microsoft.com/v1.0/me/messages",
+            "notion_api": "https://api.notion.com/v1/pages",
+            "airtable_api": "https://api.airtable.com/v0/BASE_ID/TABLE_NAME",
+            "hubspot_api": "https://api.hubapi.com/crm/v3/objects/contacts",
+            "stripe_api": "https://api.stripe.com/v1/balance",
+            "github_rest": "https://api.github.com/user",
+            "gitlab_api": "https://gitlab.com/api/v4/user",
+            "jira_api": "https://your-domain.atlassian.net/rest/api/3/myself",
+            "asana_api": "https://app.asana.com/api/1.0/users/me",
+            "clickup_api": "https://api.clickup.com/api/v2/user",
+            "trello_api": "https://api.trello.com/1/members/me",
+            "monday_api": "https://api.monday.com/v2",
+            "zendesk_api": "https://your-domain.zendesk.com/api/v2/users/me.json",
+            "pipedrive_api": "https://api.pipedrive.com/v1/users/me",
+            "salesforce_api": "https://your-instance.my.salesforce.com/services/data/v58.0/limits",
+            "google_drive_api": "https://www.googleapis.com/drive/v3/files",
+            "dropbox_api": "https://api.dropboxapi.com/2/files/list_folder",
+            "shopify_api": "https://your-store.myshopify.com/admin/api/2024-01/products.json",
+            "webflow_api": "https://api.webflow.com/v2/sites",
+            "supabase_api": "https://PROJECT_REF.supabase.co/rest/v1",
+            "openrouter_api": "https://openrouter.ai/api/v1/chat/completions",
+            "postgres_sql": "postgresql://user:password@localhost:5432/database",
+            "mysql_sql": "mysql://user:password@localhost:3306/database",
+            "redis_command": "redis://localhost:6379/0",
+        }
+        return mapping.get(key, "https://api.example.com/v1/endpoint")
+
+    def ensure_payload_key(self, key: str, value: str) -> bool:
+        payload_raw = self.get_action_payload_text().strip()
+        payload_obj: dict[str, str] = {}
+        if payload_raw:
+            try:
+                parsed_payload = json.loads(payload_raw)
+            except Exception:
+                return False
+            if not isinstance(parsed_payload, dict):
+                return False
+            payload_obj = {
+                str(item_key).strip(): str(item_value).strip()
+                for item_key, item_value in parsed_payload.items()
+            }
+
+        current = str(payload_obj.get(key, "")).strip()
+        if current:
+            return False
+        payload_obj[key] = value
+        self.set_action_payload_text(json.dumps(payload_obj))
+        return True
+
     def bind_trigger_condition_change_events(self):
         for entry in [
             self.trigger_webhook_entry,
@@ -5334,6 +5600,18 @@ class CanvasView(Gtk.Box):
             updated_config["path"] = path
         if integration in {"shell_command", "redis_command", "s3_cli"}:
             updated_config["command"] = command
+        if integration == "google_sheets":
+            try:
+                payload_obj = json.loads(payload) if payload else {}
+            except Exception:
+                payload_obj = {}
+            if isinstance(payload_obj, dict):
+                spreadsheet_id = str(payload_obj.get("spreadsheet_id", "")).strip()
+                range_value = str(payload_obj.get("range", "")).strip()
+                if spreadsheet_id:
+                    updated_config["spreadsheet_id"] = spreadsheet_id
+                if range_value:
+                    updated_config["range"] = range_value
         if to_value and integration in {"gmail_send", "resend_email", "mailgun_email", "twilio_sms"}:
             updated_config["to"] = to_value
         if from_value and integration in {"gmail_send", "resend_email", "mailgun_email", "twilio_sms"}:
@@ -7363,13 +7641,13 @@ class CanvasView(Gtk.Box):
 
         click = Gtk.GestureClick()
         click.set_button(0)
-        click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        click.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         click.connect("released", self.on_node_clicked, node.id)
         frame.add_controller(click)
 
         drag = Gtk.GestureDrag()
         drag.set_button(0)
-        drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         drag.set_exclusive(True)
         drag.connect("drag-begin", self.on_node_drag_begin, node.id)
         drag.connect("drag-update", self.on_node_drag_update, node.id)
@@ -9196,6 +9474,17 @@ class CanvasView(Gtk.Box):
             value = str(config.get(candidate, "")).strip()
             if value:
                 return value
+        if key in {"spreadsheet_id", "range"}:
+            payload_raw = str(config.get("payload", "")).strip()
+            if payload_raw:
+                try:
+                    payload = json.loads(payload_raw)
+                except Exception:
+                    payload = None
+                if isinstance(payload, dict):
+                    payload_value = str(payload.get(key, "")).strip()
+                    if payload_value:
+                        return payload_value
         if integration_key and isinstance(app_settings, dict) and app_settings:
             try:
                 fallback = self.validation_service._required_field_value(
