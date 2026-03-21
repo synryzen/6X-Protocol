@@ -8,6 +8,8 @@ All notable changes to this project are documented here.
   completion status updates while typing and integration-specific placeholders
   are applied for webhook/API, Twilio, email, SQL, Redis, weather, and handoff
   connectors.
+- Docker web graph preflight now treats missing required action integration
+  fields as errors (not warnings) to better match desktop validation strictness.
 - Docker web graph editor node behavior panel now includes richer
   integration-specific action fields (Twilio account/auth, delivery envelope,
   subject/domain, headers) with dynamic visibility and save/load/default wiring.

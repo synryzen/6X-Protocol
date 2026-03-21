@@ -1966,7 +1966,7 @@
           for (const fieldKey of required) {
             const value = actionConfigFieldValue(config, fieldKey);
             if (!value) {
-              warnings.push(
+              errors.push(
                 `Action node '${nodeName}' is missing required field '${fieldKey}' for integration '${integration}'.`
               );
             }
