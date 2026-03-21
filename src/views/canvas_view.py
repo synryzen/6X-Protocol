@@ -8570,12 +8570,17 @@ class CanvasView(Gtk.Box):
         if not self.port_drag_active:
             return
 
-        anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
-        anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
-        bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
-        bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
-        x = int(anchor_x + bias_x + float(offset_x))
-        y = int(anchor_y + bias_y + float(offset_y))
+        stage_point = self.gesture_stage_point(_gesture)
+        if stage_point:
+            x = int(stage_point[0])
+            y = int(stage_point[1])
+        else:
+            anchor_x = float(self.port_drag_origin.get("anchor_x", 0.0))
+            anchor_y = float(self.port_drag_origin.get("anchor_y", 0.0))
+            bias_x = float(self.port_drag_origin.get("pointer_bias_x", 0.0))
+            bias_y = float(self.port_drag_origin.get("pointer_bias_y", 0.0))
+            x = int(anchor_x + bias_x + float(offset_x))
+            y = int(anchor_y + bias_y + float(offset_y))
         source_id = self.link_preview_source_id or self.pending_link_source_id or node_id
         target = self.active_drag_target(source_id, x, y)
         if target:
