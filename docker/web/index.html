@@ -322,6 +322,14 @@
       border-bottom: 0;
     }
 
+    .graph-row-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
     .graph-pill {
       display: inline-block;
       padding: 2px 7px;
@@ -340,6 +348,12 @@
       font-size: 12px;
       color: var(--muted);
       line-height: 1.45;
+    }
+
+    .graph-editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
 
     .preflight-ok {
@@ -362,6 +376,7 @@
       .graph-grid { grid-template-columns: 1fr; }
       .graph-toolbar { grid-template-columns: 1fr; }
       .graph-actions { justify-content: flex-start; }
+      .graph-editor-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -466,6 +481,84 @@
             <div>
               <h2 style="font-size:13px;margin:0 0 6px;">Links</h2>
               <div class="graph-list" id="graphEdgeList"></div>
+            </div>
+          </div>
+          <div class="settings">
+            <h2 class="mini-title">Node Behavior</h2>
+            <div class="graph-editor-grid">
+              <div class="row">
+                <label class="label" for="graphEditorNodeSelect">Selected Node</label>
+                <select class="select" id="graphEditorNodeSelect"></select>
+              </div>
+              <div class="row">
+                <label class="label" for="graphEditorType">Node Type</label>
+                <select class="select" id="graphEditorType">
+                  <option value="trigger">Trigger</option>
+                  <option value="action">Action</option>
+                  <option value="ai">AI</option>
+                  <option value="condition">Condition</option>
+                </select>
+              </div>
+            </div>
+            <div class="graph-editor-grid">
+              <div class="row">
+                <label class="label" for="graphEditorName">Node Name</label>
+                <input id="graphEditorName" class="input" type="text" placeholder="Node name" />
+              </div>
+              <div class="row" id="graphEditorIntegrationRow">
+                <label class="label" for="graphEditorIntegration">Action Integration</label>
+                <select class="select" id="graphEditorIntegration"></select>
+              </div>
+            </div>
+            <div class="graph-editor-grid">
+              <div class="row" id="graphEditorTriggerModeRow">
+                <label class="label" for="graphEditorTriggerMode">Trigger Mode</label>
+                <select class="select" id="graphEditorTriggerMode">
+                  <option value="manual">manual</option>
+                  <option value="schedule_interval">schedule_interval</option>
+                  <option value="webhook">webhook</option>
+                  <option value="file_watch">file_watch</option>
+                  <option value="cron">cron</option>
+                </select>
+              </div>
+              <div class="row" id="graphEditorTriggerValueRow">
+                <label class="label" for="graphEditorTriggerValue">Trigger Value</label>
+                <input id="graphEditorTriggerValue" class="input" type="text" placeholder="60, /incoming, /tmp/watch, */5 * * * *" />
+              </div>
+            </div>
+            <div class="graph-editor-grid">
+              <div class="row" id="graphEditorConditionRow">
+                <label class="label" for="graphEditorCondition">Condition Expression</label>
+                <input id="graphEditorCondition" class="input" type="text" placeholder="contains:success, equals:ok, always_true" />
+              </div>
+              <div class="row" id="graphEditorModelRow">
+                <label class="label" for="graphEditorModel">AI Model</label>
+                <input id="graphEditorModel" class="input" type="text" placeholder="local/default" />
+              </div>
+            </div>
+            <div class="row" id="graphEditorPromptRow">
+              <label class="label" for="graphEditorPrompt">AI Prompt</label>
+              <input id="graphEditorPrompt" class="input" type="text" placeholder="Process node context..." />
+            </div>
+            <div class="graph-editor-grid">
+              <div class="row">
+                <label class="label" for="graphEditorRetry">Retries</label>
+                <input id="graphEditorRetry" class="input" type="number" min="0" max="8" step="1" />
+              </div>
+              <div class="row">
+                <label class="label" for="graphEditorBackoff">Backoff ms</label>
+                <input id="graphEditorBackoff" class="input" type="number" min="0" max="30000" step="50" />
+              </div>
+            </div>
+            <div class="graph-editor-grid">
+              <div class="row">
+                <label class="label" for="graphEditorTimeout">Timeout s</label>
+                <input id="graphEditorTimeout" class="input" type="number" min="0" max="120" step="0.5" />
+              </div>
+              <div class="actions" style="justify-content:flex-end;align-items:flex-end;">
+                <button id="graphApplyNodeDefaults" class="btn">Apply Defaults</button>
+                <button id="graphSaveNode" class="btn good">Save Node</button>
+              </div>
             </div>
           </div>
           <div id="graphPreflightStatus" class="graph-status">No graph loaded yet.</div>
@@ -574,6 +667,55 @@
   <script>
     const activeStatuses = new Set(["queued", "running", "cancelling"]);
     const terminalStatuses = new Set(["success", "failed", "cancelled"]);
+    const actionFastIntegrations = new Set([
+      "slack_webhook",
+      "discord_webhook",
+      "teams_webhook",
+      "telegram_bot",
+      "twilio_sms",
+      "openweather_current",
+    ]);
+    const actionStandardIntegrations = new Set([
+      "http_post",
+      "http_request",
+      "google_apps_script",
+      "google_sheets",
+      "google_calendar_api",
+      "outlook_graph",
+      "notion_api",
+      "airtable_api",
+      "hubspot_api",
+      "stripe_api",
+      "github_rest",
+      "gitlab_api",
+      "google_drive_api",
+      "dropbox_api",
+      "shopify_api",
+      "webflow_api",
+      "supabase_api",
+      "openrouter_api",
+      "linear_api",
+      "jira_api",
+      "asana_api",
+      "clickup_api",
+      "trello_api",
+      "monday_api",
+      "zendesk_api",
+      "pipedrive_api",
+      "salesforce_api",
+      "gmail_send",
+      "resend_email",
+      "mailgun_email",
+    ]);
+    const actionHeavyIntegrations = new Set([
+      "shell_command",
+      "file_append",
+      "postgres_sql",
+      "mysql_sql",
+      "sqlite_sql",
+      "redis_command",
+      "s3_cli",
+    ]);
 
     const state = {
       apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
@@ -582,6 +724,7 @@
       selectedWorkflowId: "",
       graphDraft: { version: 1, nodes: [], edges: [] },
       graphDirty: false,
+      graphEditorNodeId: "",
       integrationCatalog: [],
       integrationProfiles: [],
       selectedIntegrationProfileId: "",
@@ -932,7 +1075,10 @@
               return (
                 `<div class="graph-row">`
                 + `<div><span class="graph-pill">${type}</span><strong>${name}</strong><span class="small">${id}</span></div>`
+                + `<div class="graph-row-actions">`
+                + `<button class="btn" data-graph-edit-node="${id}">Edit</button>`
                 + `<button class="btn danger" data-graph-remove-node="${id}">Remove</button>`
+                + `</div>`
                 + `</div>`
               );
             })
@@ -961,6 +1107,7 @@
       }
 
       renderGraphNodeOptions();
+      renderGraphNodeEditor();
       renderGraphPreflightStatus(runGraphPreflight());
     }
 
@@ -968,6 +1115,7 @@
       const workflow = selectedWorkflow();
       if (!workflow) {
         state.graphDraft = { version: 1, nodes: [], edges: [] };
+        state.graphEditorNodeId = "";
         renderGraphDraftLists();
         renderWorkflowSelect();
         renderWorkflows();
@@ -987,6 +1135,7 @@
           .map((item) => normalizeGraphEdge(item))
           .filter((item) => Boolean(item)),
       };
+      state.graphEditorNodeId = state.graphDraft.nodes.length ? String(state.graphDraft.nodes[0].id || "") : "";
       state.graphDirty = false;
       renderWorkflowSelect();
       renderWorkflows();
@@ -1001,6 +1150,238 @@
         if (!existing.has(candidate)) return candidate;
       }
       return `n${Date.now()}`;
+    }
+
+    function graphNodeById(nodeId) {
+      const id = String(nodeId || "").trim();
+      if (!id) return null;
+      return (state.graphDraft.nodes || []).find((node) => String(node.id || "") === id) || null;
+    }
+
+    function normalizeActionIntegration(value) {
+      return String(value || "").trim().toLowerCase() || "standard";
+    }
+
+    function nodeExecutionDefaults(nodeType, integration = "standard") {
+      const kind = normalizeNodeType(nodeType);
+      const actionKey = normalizeActionIntegration(integration);
+      if (kind === "trigger") return { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 15 };
+      if (kind === "condition") return { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 8 };
+      if (kind === "ai") return { retry_max: 1, retry_backoff_ms: 300, timeout_sec: 120 };
+      if (kind === "action") {
+        if (actionKey === "approval_gate") return { retry_max: 0, retry_backoff_ms: 0, timeout_sec: 0 };
+        if (actionFastIntegrations.has(actionKey)) return { retry_max: 1, retry_backoff_ms: 200, timeout_sec: 25 };
+        if (actionHeavyIntegrations.has(actionKey)) return { retry_max: 1, retry_backoff_ms: 400, timeout_sec: 90 };
+        if (actionStandardIntegrations.has(actionKey)) return { retry_max: 1, retry_backoff_ms: 250, timeout_sec: 45 };
+        return { retry_max: 1, retry_backoff_ms: 250, timeout_sec: 45 };
+      }
+      return { retry_max: 1, retry_backoff_ms: 250, timeout_sec: 60 };
+    }
+
+    function defaultConfigForNodeType(nodeType, integration = "standard") {
+      const kind = normalizeNodeType(nodeType);
+      const policy = nodeExecutionDefaults(kind, integration);
+      if (kind === "trigger") {
+        return {
+          trigger_mode: "manual",
+          trigger_value: "",
+          retry_max: policy.retry_max,
+          retry_backoff_ms: policy.retry_backoff_ms,
+          timeout_sec: policy.timeout_sec,
+        };
+      }
+      if (kind === "ai") {
+        return {
+          provider: "local",
+          model: "local/default",
+          prompt: "Process node context.",
+          retry_max: policy.retry_max,
+          retry_backoff_ms: policy.retry_backoff_ms,
+          timeout_sec: policy.timeout_sec,
+        };
+      }
+      if (kind === "condition") {
+        return {
+          expression: "contains:success",
+          retry_max: policy.retry_max,
+          retry_backoff_ms: policy.retry_backoff_ms,
+          timeout_sec: policy.timeout_sec,
+        };
+      }
+      return {
+        integration: normalizeActionIntegration(integration),
+        method: "POST",
+        retry_max: policy.retry_max,
+        retry_backoff_ms: policy.retry_backoff_ms,
+        timeout_sec: policy.timeout_sec,
+      };
+    }
+
+    function ensureGraphEditorSelection() {
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      if (!nodes.length) {
+        state.graphEditorNodeId = "";
+        return;
+      }
+      if (state.graphEditorNodeId && graphNodeById(state.graphEditorNodeId)) return;
+      state.graphEditorNodeId = String(nodes[0].id || "");
+    }
+
+    function setElementVisible(elementId, visible) {
+      const el = byId(elementId);
+      if (!el) return;
+      el.style.display = visible ? "" : "none";
+    }
+
+    function setGraphEditorVisibilityForType(type) {
+      const kind = normalizeNodeType(type);
+      setElementVisible("graphEditorIntegrationRow", kind === "action");
+      setElementVisible("graphEditorTriggerModeRow", kind === "trigger");
+      setElementVisible("graphEditorTriggerValueRow", kind === "trigger");
+      setElementVisible("graphEditorConditionRow", kind === "condition");
+      setElementVisible("graphEditorModelRow", kind === "ai");
+      setElementVisible("graphEditorPromptRow", kind === "ai");
+    }
+
+    function renderGraphIntegrationEditorOptions(selectedKey = "standard") {
+      const select = byId("graphEditorIntegration");
+      if (!select) return;
+      const catalog = Array.isArray(state.integrationCatalog) ? state.integrationCatalog : [];
+      const options = [];
+      const seen = new Set();
+      options.push(`<option value="standard">Standard Action</option>`);
+      seen.add("standard");
+      for (const item of catalog) {
+        const key = normalizeActionIntegration(item.key);
+        if (!key || seen.has(key)) continue;
+        const name = String(item.name || key).trim() || key;
+        options.push(`<option value="${escapeHtml(key)}">${escapeHtml(name)}</option>`);
+        seen.add(key);
+      }
+      select.innerHTML = options.join("");
+      select.value = seen.has(normalizeActionIntegration(selectedKey))
+        ? normalizeActionIntegration(selectedKey)
+        : "standard";
+    }
+
+    function renderGraphNodeEditor() {
+      const nodeSelect = byId("graphEditorNodeSelect");
+      if (!nodeSelect) return;
+      ensureGraphEditorSelection();
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      if (!nodes.length) {
+        nodeSelect.innerHTML = `<option value="">No nodes</option>`;
+        byId("graphEditorName").value = "";
+        byId("graphEditorType").value = "action";
+        renderGraphIntegrationEditorOptions("standard");
+        byId("graphEditorTriggerMode").value = "manual";
+        byId("graphEditorTriggerValue").value = "";
+        byId("graphEditorCondition").value = "";
+        byId("graphEditorModel").value = "";
+        byId("graphEditorPrompt").value = "";
+        byId("graphEditorRetry").value = "0";
+        byId("graphEditorBackoff").value = "0";
+        byId("graphEditorTimeout").value = "0";
+        setGraphEditorVisibilityForType("action");
+        return;
+      }
+      nodeSelect.innerHTML = nodes
+        .map((node) => `<option value="${escapeHtml(node.id)}">${escapeHtml(node.name)} (${escapeHtml(node.id)})</option>`)
+        .join("");
+      nodeSelect.value = state.graphEditorNodeId;
+      const node = graphNodeById(state.graphEditorNodeId);
+      if (!node) return;
+      const type = normalizeNodeType(node.type);
+      const config = node.config && typeof node.config === "object" ? node.config : {};
+      const detailIntegration = String(node.detail || "").trim().toLowerCase().replace(/^integration:/, "");
+      byId("graphEditorName").value = String(node.name || "");
+      byId("graphEditorType").value = type;
+      const actionIntegration = normalizeActionIntegration(
+        config.integration || config.action_type || detailIntegration || "standard"
+      );
+      renderGraphIntegrationEditorOptions(actionIntegration);
+      byId("graphEditorTriggerMode").value = String(config.trigger_mode || "manual").trim() || "manual";
+      byId("graphEditorTriggerValue").value = String(config.trigger_value || "");
+      byId("graphEditorCondition").value = String(config.expression || config.condition || "contains:success");
+      byId("graphEditorModel").value = String(config.model || "local/default");
+      byId("graphEditorPrompt").value = String(config.prompt || "");
+      const defaults = nodeExecutionDefaults(type, actionIntegration);
+      byId("graphEditorRetry").value = String(
+        Number.isFinite(Number(config.retry_max)) ? Number(config.retry_max) : defaults.retry_max
+      );
+      byId("graphEditorBackoff").value = String(
+        Number.isFinite(Number(config.retry_backoff_ms)) ? Number(config.retry_backoff_ms) : defaults.retry_backoff_ms
+      );
+      byId("graphEditorTimeout").value = String(
+        Number.isFinite(Number(config.timeout_sec)) ? Number(config.timeout_sec) : defaults.timeout_sec
+      );
+      setGraphEditorVisibilityForType(type);
+    }
+
+    function applyGraphNodeEditorDefaults() {
+      const node = graphNodeById(state.graphEditorNodeId);
+      if (!node) {
+        log("Select a node first.", "warn");
+        return;
+      }
+      const type = normalizeNodeType(byId("graphEditorType").value || node.type);
+      const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
+      const defaults = nodeExecutionDefaults(type, integration);
+      byId("graphEditorRetry").value = String(defaults.retry_max);
+      byId("graphEditorBackoff").value = String(defaults.retry_backoff_ms);
+      byId("graphEditorTimeout").value = String(defaults.timeout_sec);
+      if (type === "trigger") {
+        byId("graphEditorTriggerMode").value = "manual";
+        byId("graphEditorTriggerValue").value = "";
+      } else if (type === "ai") {
+        if (!byId("graphEditorModel").value.trim()) byId("graphEditorModel").value = "local/default";
+        if (!byId("graphEditorPrompt").value.trim()) byId("graphEditorPrompt").value = "Process node context.";
+      } else if (type === "condition" && !byId("graphEditorCondition").value.trim()) {
+        byId("graphEditorCondition").value = "contains:success";
+      }
+      log(`Defaults applied to '${node.name}'.`, "info");
+    }
+
+    function saveGraphNodeEditor() {
+      const node = graphNodeById(state.graphEditorNodeId);
+      if (!node) {
+        log("Select a node first.", "warn");
+        return;
+      }
+      const nextType = normalizeNodeType(byId("graphEditorType").value || node.type);
+      const nextName = byId("graphEditorName").value.trim() || node.name;
+      const nextConfig = node.config && typeof node.config === "object" ? { ...node.config } : {};
+      const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || nextConfig.integration || "standard");
+      const retryMax = Math.max(0, Math.min(8, Number(byId("graphEditorRetry").value || 0)));
+      const backoffMs = Math.max(0, Math.min(30000, Number(byId("graphEditorBackoff").value || 0)));
+      const timeoutSec = Math.max(0, Math.min(120, Number(byId("graphEditorTimeout").value || 0)));
+
+      node.type = nextType;
+      node.name = nextName;
+      if (nextType === "trigger") {
+        nextConfig.trigger_mode = String(byId("graphEditorTriggerMode").value || "manual").trim() || "manual";
+        nextConfig.trigger_value = byId("graphEditorTriggerValue").value.trim();
+        node.detail = `trigger:${nextConfig.trigger_mode}`;
+      } else if (nextType === "condition") {
+        nextConfig.expression = byId("graphEditorCondition").value.trim() || "always_true";
+        node.detail = nextConfig.expression;
+      } else if (nextType === "ai") {
+        nextConfig.model = byId("graphEditorModel").value.trim() || "local/default";
+        nextConfig.prompt = byId("graphEditorPrompt").value.trim() || "Process node context.";
+        node.detail = `prompt:${nextConfig.prompt.slice(0, 64)}`;
+      } else {
+        nextConfig.integration = integration;
+        node.detail = `integration:${integration}`;
+      }
+
+      nextConfig.retry_max = Number.isFinite(retryMax) ? retryMax : 0;
+      nextConfig.retry_backoff_ms = Number.isFinite(backoffMs) ? backoffMs : 0;
+      nextConfig.timeout_sec = Number.isFinite(timeoutSec) ? timeoutSec : 0;
+      node.config = nextConfig;
+      state.graphDirty = true;
+      renderGraphDraftLists();
+      renderGraphNodeEditor();
+      log(`Node saved: ${node.name}`, "info");
     }
 
     function addGraphNode() {
@@ -1018,10 +1399,10 @@
         condition: "contains:success",
       };
       const configByType = {
-        trigger: { trigger_mode: "manual", trigger_value: "" },
-        action: { integration: "standard", method: "POST" },
-        ai: { provider: "local" },
-        condition: { expression: "contains:success" },
+        trigger: defaultConfigForNodeType("trigger"),
+        action: defaultConfigForNodeType("action", "standard"),
+        ai: defaultConfigForNodeType("ai"),
+        condition: defaultConfigForNodeType("condition"),
       };
       const node = {
         id,
@@ -1034,9 +1415,11 @@
         config: configByType[type] || {},
       };
       state.graphDraft.nodes.push(node);
+      state.graphEditorNodeId = id;
       state.graphDirty = true;
       byId("graphNodeName").value = "";
       renderGraphDraftLists();
+      renderGraphNodeEditor();
       log(`Node added: ${name} (${id})`, "info");
     }
 
@@ -1076,6 +1459,11 @@
         (edge) => String(edge.source || "") !== id && String(edge.target || "") !== id
       );
       if (state.graphDraft.nodes.length !== beforeNodes) {
+        if (state.graphEditorNodeId === id) {
+          state.graphEditorNodeId = state.graphDraft.nodes.length
+            ? String(state.graphDraft.nodes[0].id || "")
+            : "";
+        }
         state.graphDirty = true;
         renderGraphDraftLists();
         log(`Node removed: ${id}`, "info");
@@ -1231,6 +1619,10 @@
         if (previous && state.integrationCatalog.some((item) => String(item.key || "").trim().toLowerCase() === previous)) {
           select.value = previous;
         }
+        const selectedIntegration = byId("graphEditorIntegration")
+          ? String(byId("graphEditorIntegration").value || "").trim()
+          : "standard";
+        renderGraphIntegrationEditorOptions(selectedIntegration);
       } catch (error) {
         log(`Integration catalog refresh failed: ${error.message}`, "error");
       }
@@ -1562,11 +1954,19 @@
         loadGraphForSelectedWorkflow();
       });
       byId("graphNodeList").addEventListener("click", (event) => {
-        const target = event.target && typeof event.target.closest === "function"
+        const removeTarget = event.target && typeof event.target.closest === "function"
           ? event.target.closest("[data-graph-remove-node]")
           : null;
-        if (!target) return;
-        removeGraphNode(target.getAttribute("data-graph-remove-node"));
+        if (removeTarget) {
+          removeGraphNode(removeTarget.getAttribute("data-graph-remove-node"));
+          return;
+        }
+        const editTarget = event.target && typeof event.target.closest === "function"
+          ? event.target.closest("[data-graph-edit-node]")
+          : null;
+        if (!editTarget) return;
+        state.graphEditorNodeId = String(editTarget.getAttribute("data-graph-edit-node") || "").trim();
+        renderGraphNodeEditor();
       });
       byId("graphEdgeList").addEventListener("click", (event) => {
         const target = event.target && typeof event.target.closest === "function"
@@ -1575,6 +1975,24 @@
         if (!target) return;
         removeGraphEdge(target.getAttribute("data-graph-remove-edge"));
       });
+      byId("graphEditorNodeSelect").addEventListener("change", () => {
+        state.graphEditorNodeId = String(byId("graphEditorNodeSelect").value || "").trim();
+        renderGraphNodeEditor();
+      });
+      byId("graphEditorType").addEventListener("change", () => {
+        const type = normalizeNodeType(byId("graphEditorType").value || "action");
+        setGraphEditorVisibilityForType(type);
+      });
+      byId("graphEditorIntegration").addEventListener("change", () => {
+        const type = normalizeNodeType(byId("graphEditorType").value || "action");
+        if (type !== "action") return;
+        const defaults = nodeExecutionDefaults(type, byId("graphEditorIntegration").value || "standard");
+        byId("graphEditorRetry").value = String(defaults.retry_max);
+        byId("graphEditorBackoff").value = String(defaults.retry_backoff_ms);
+        byId("graphEditorTimeout").value = String(defaults.timeout_sec);
+      });
+      byId("graphApplyNodeDefaults").addEventListener("click", applyGraphNodeEditorDefaults);
+      byId("graphSaveNode").addEventListener("click", saveGraphNodeEditor);
       byId("loadSettings").addEventListener("click", loadSettings);
       byId("saveSettings").addEventListener("click", saveSettings);
       byId("newIntegrationProfile").addEventListener("click", () => {
