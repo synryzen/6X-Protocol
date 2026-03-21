@@ -75,6 +75,7 @@ class ValidationResult:
 
 class WorkflowValidationService:
     VALID_EDGE_CONDITIONS = {"", "next", "true", "false"}
+    VALID_ON_ERROR_MODES = {"fail", "continue", "goto"}
     REQUIRED_FIELD_ALIASES = {
         "url": ["webhook_url", "script_url", "connection_url"],
         "webhook_url": ["url"],
@@ -275,6 +276,8 @@ class WorkflowValidationService:
                 )
             incoming_count[target] += 1
             outgoing_count[source] += 1
+
+        self._validate_node_error_policies(node_map, outgoing_count, result)
 
         start_nodes = [node_id for node_id, count in incoming_count.items() if count == 0]
         if not start_nodes:
@@ -695,6 +698,124 @@ class WorkflowValidationService:
                 f"Trigger node '{node_name}' has no trigger_value for mode '{trigger_mode}'. Default will be used.",
                 node_id=node.id,
             )
+
+    def _validate_node_error_policies(
+        self,
+        node_map: Dict[str, CanvasNode],
+        outgoing_count: Dict[str, int],
+        result: ValidationResult,
+    ):
+        for node_id, node in node_map.items():
+            merged_config = self._parse_directives(node.detail)
+            merged_config.update(dict(node.config))
+            node_name = node.name.strip() or node_id or "Unnamed"
+            policy = self._resolve_node_error_policy(merged_config, node.detail)
+            mode = str(policy.get("mode", "fail")).strip().lower()
+            target = str(policy.get("target_node_id", "")).strip()
+            raw_mode = str(policy.get("raw_mode", "")).strip()
+            invalid_mode = bool(policy.get("invalid_mode", False))
+
+            if invalid_mode:
+                result.add_error(
+                    (
+                        f"Node '{node_name}' has unsupported on_error mode "
+                        f"'{raw_mode}'. Use fail, continue, or goto:<node_id>."
+                    ),
+                    node_id=node_id,
+                )
+                continue
+
+            if mode == "goto":
+                if not target:
+                    result.add_error(
+                        f"Node '{node_name}' uses on_error='goto' but has no target node ID.",
+                        node_id=node_id,
+                    )
+                    continue
+                if target == node_id:
+                    result.add_error(
+                        f"Node '{node_name}' uses on_error='goto:{target}' which targets itself.",
+                        node_id=node_id,
+                    )
+                    continue
+                if target not in node_map:
+                    result.add_error(
+                        (
+                            f"Node '{node_name}' uses on_error='goto:{target}' "
+                            "but the target node does not exist."
+                        ),
+                        node_id=node_id,
+                    )
+                    continue
+
+            if mode == "continue" and outgoing_count.get(node_id, 0) == 0:
+                result.add_warning(
+                    (
+                        f"Node '{node_name}' uses on_error='continue' but has no outgoing edge. "
+                        "It will still end the run if it fails."
+                    ),
+                    node_id=node_id,
+                )
+
+            if mode == "fail" and target:
+                result.add_warning(
+                    (
+                        f"Node '{node_name}' defines an on_error target '{target}' "
+                        "but mode is 'fail', so the target is ignored."
+                    ),
+                    node_id=node_id,
+                )
+
+    def _resolve_node_error_policy(self, config: Dict[str, str], detail_text: str) -> Dict[str, object]:
+        directives = self._parse_directives(detail_text)
+        raw_mode = (
+            str(config.get("on_error", "")).strip()
+            or str(config.get("error_mode", "")).strip()
+            or str(directives.get("on_error", "")).strip()
+            or str(directives.get("error_mode", "")).strip()
+        )
+        target_node_id = (
+            str(config.get("error_target_node_id", "")).strip()
+            or str(config.get("on_error_target", "")).strip()
+            or str(config.get("error_target", "")).strip()
+            or str(directives.get("error_target_node_id", "")).strip()
+            or str(directives.get("on_error_target", "")).strip()
+            or str(directives.get("error_target", "")).strip()
+        )
+
+        normalized = str(raw_mode).strip().lower()
+        invalid_mode = False
+        if ":" in normalized:
+            prefix, suffix = normalized.split(":", 1)
+            prefix = prefix.strip()
+            suffix = suffix.strip()
+            if prefix in {"goto", "route", "target"}:
+                normalized = "goto"
+                if suffix and not target_node_id:
+                    target_node_id = suffix
+            elif prefix in {"continue", "next", "skip", "fail", "stop", "error"}:
+                normalized = prefix
+            elif prefix:
+                invalid_mode = True
+                normalized = prefix
+
+        if normalized in {"", "fail", "stop", "error"}:
+            mode = "fail"
+        elif normalized in {"continue", "next", "skip"}:
+            mode = "continue"
+        elif normalized in {"goto", "route", "target"}:
+            mode = "goto"
+        else:
+            mode = "fail"
+            if normalized:
+                invalid_mode = True
+
+        return {
+            "mode": mode,
+            "target_node_id": target_node_id,
+            "raw_mode": raw_mode,
+            "invalid_mode": invalid_mode,
+        }
 
     def _node_type_key(self, node_type: str) -> str:
         normalized = str(node_type).strip().lower()

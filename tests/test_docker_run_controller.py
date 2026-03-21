@@ -855,6 +855,82 @@ class DockerRunControllerTests(unittest.TestCase):
         self.assertIn("a3", successful)
         self.assertNotIn("a2", successful)
 
+    def test_trigger_schedule_interval_includes_interval_output(self):
+        workflow = {
+            "id": "wf_trigger_schedule",
+            "name": "Trigger Schedule",
+            "graph": {
+                "nodes": [
+                    {
+                        "id": "t1",
+                        "name": "Schedule Trigger",
+                        "type": "trigger",
+                        "config": {
+                            "trigger_mode": "schedule_interval",
+                            "trigger_value": "30",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                    {
+                        "id": "a1",
+                        "name": "Action",
+                        "type": "action",
+                        "config": {"integration": "standard", "simulate_delay_ms": 0},
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+        trigger_success = [
+            item
+            for item in completed.get("node_results", [])
+            if str(item.get("node_id", "")).strip() == "t1"
+            and str(item.get("status", "")).strip().lower() == "success"
+        ]
+        self.assertTrue(trigger_success, "Expected trigger success event.")
+        output_preview = str(trigger_success[-1].get("output_preview", ""))
+        self.assertIn("trigger:schedule_interval:30s", output_preview)
+
+    def test_trigger_invalid_cron_marks_run_failed(self):
+        workflow = {
+            "id": "wf_trigger_bad_cron",
+            "name": "Trigger Bad Cron",
+            "graph": {
+                "nodes": [
+                    {
+                        "id": "t1",
+                        "name": "Cron Trigger",
+                        "type": "trigger",
+                        "config": {
+                            "trigger_mode": "cron",
+                            "trigger_value": "not-a-cron",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                    {
+                        "id": "a1",
+                        "name": "Action",
+                        "type": "action",
+                        "config": {"integration": "standard", "simulate_delay_ms": 0},
+                    },
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "a1", "condition": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("failed", completed.get("status"))
+        self.assertIn("cron expression is invalid", str(completed.get("summary", "")).lower())
+
     def test_postgres_sql_missing_fields_fails_cleanly(self):
         workflow = {
             "id": "wf_postgres_missing",

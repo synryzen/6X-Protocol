@@ -6,6 +6,7 @@ import concurrent.futures
 import base64
 import json
 import os
+import re
 import shlex
 import sqlite3
 import subprocess
@@ -629,12 +630,57 @@ class RunController:
             raise NodeExecutionError("Simulated node failure.")
 
         if node_type == "trigger":
-            trigger_mode = str(
-                config.get("trigger_mode", config.get("trigger", metadata.get("trigger", "manual")))
-            ).strip() or "manual"
-            output = f"trigger:{trigger_mode}"
+            trigger_mode, trigger_value = self._resolve_trigger_context(
+                node=node,
+                config=config,
+                metadata=metadata,
+            )
+            if trigger_mode == "schedule_interval":
+                interval_seconds = self._safe_float(trigger_value, 0.0)
+                if interval_seconds <= 0.0:
+                    raise NodeExecutionError(
+                        "Trigger schedule_interval requires a positive trigger_value in seconds."
+                    )
+                interval_text = f"{int(round(interval_seconds))}s"
+                output = f"trigger:schedule_interval:{interval_text}"
+                context["trigger_mode"] = "schedule_interval"
+                context["trigger_value"] = interval_text
+                context["last_output"] = output
+                return f"Trigger fired (schedule_interval:{interval_text}).", output
+
+            if trigger_mode == "cron":
+                cron_expr = str(trigger_value).strip()
+                if not self._looks_like_cron(cron_expr):
+                    raise NodeExecutionError(
+                        f"Trigger cron expression is invalid: '{cron_expr}'."
+                    )
+                output = f"trigger:cron:{cron_expr}"
+                context["trigger_mode"] = "cron"
+                context["trigger_value"] = cron_expr
+                context["last_output"] = output
+                return f"Trigger fired (cron:{cron_expr}).", output
+
+            if trigger_mode == "webhook":
+                endpoint = str(trigger_value).strip() or "/incoming"
+                output = f"trigger:webhook:{endpoint}"
+                context["trigger_mode"] = "webhook"
+                context["trigger_value"] = endpoint
+                context["last_output"] = output
+                return f"Trigger fired (webhook:{endpoint}).", output
+
+            if trigger_mode == "file_watch":
+                watched_path = str(trigger_value).strip() or "/tmp"
+                output = f"trigger:file_watch:{watched_path}"
+                context["trigger_mode"] = "file_watch"
+                context["trigger_value"] = watched_path
+                context["last_output"] = output
+                return f"Trigger fired (file_watch:{watched_path}).", output
+
+            output = "trigger:manual"
+            context["trigger_mode"] = "manual"
+            context["trigger_value"] = ""
             context["last_output"] = output
-            return f"Trigger fired ({trigger_mode}).", output
+            return "Trigger fired (manual).", output
 
         if node_type == "condition":
             expression = str(
@@ -1397,6 +1443,81 @@ class RunController:
             if key:
                 directives[key] = value
         return directives
+
+    def _resolve_trigger_context(
+        self,
+        *,
+        node: dict[str, Any],
+        config: dict[str, Any],
+        metadata: dict[str, Any],
+    ) -> tuple[str, str]:
+        detail_text = str(node.get("detail", "")).strip()
+        detail_lower = detail_text.lower()
+        directives = self._parse_directives(detail_text)
+
+        mode = str(
+            config.get(
+                "trigger_mode",
+                config.get(
+                    "trigger",
+                    metadata.get(
+                        "trigger",
+                        metadata.get("trigger_mode", directives.get("trigger_mode", "")),
+                    ),
+                ),
+            )
+        ).strip().lower()
+        value = str(
+            config.get(
+                "trigger_value",
+                metadata.get("trigger_value", directives.get("trigger_value", "")),
+            )
+        ).strip()
+
+        if not mode:
+            if detail_lower.startswith("schedule:"):
+                mode = "schedule_interval"
+                value = detail_text.split(":", 1)[1].strip() if ":" in detail_text else value
+            elif detail_lower.startswith("webhook:"):
+                mode = "webhook"
+                value = detail_text.split(":", 1)[1].strip() if ":" in detail_text else value
+            elif detail_lower.startswith("file_watch:"):
+                mode = "file_watch"
+                value = detail_text.split(":", 1)[1].strip() if ":" in detail_text else value
+            elif detail_lower.startswith("cron:"):
+                mode = "cron"
+                value = detail_text.split(":", 1)[1].strip() if ":" in detail_text else value
+
+        mode_aliases = {
+            "schedule": "schedule_interval",
+            "interval": "schedule_interval",
+            "webhook_event": "webhook",
+            "file": "file_watch",
+            "watch": "file_watch",
+        }
+        mode = mode_aliases.get(mode, mode)
+        if mode not in {"manual", "schedule_interval", "webhook", "file_watch", "cron"}:
+            mode = "manual"
+
+        if mode == "cron" and not value:
+            value = str(config.get("cron", metadata.get("cron", directives.get("cron", "")))).strip()
+        if mode == "webhook" and not value:
+            value = str(config.get("webhook_url", config.get("url", directives.get("webhook", "")))).strip()
+            if not value:
+                value = self._pick_url(config)
+        if mode == "file_watch" and not value:
+            value = str(config.get("path", metadata.get("path", directives.get("path", "")))).strip()
+        return mode, value
+
+    def _looks_like_cron(self, value: str) -> bool:
+        expression = str(value or "").strip()
+        if not expression:
+            return False
+        parts = [item for item in expression.split() if item]
+        if len(parts) < 5 or len(parts) > 7:
+            return False
+        token = re.compile(r"^[A-Za-z0-9_\-*/?,#LW]+$")
+        return all(token.match(item) for item in parts)
 
     def _run_command(
         self,

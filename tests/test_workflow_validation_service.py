@@ -498,6 +498,83 @@ class WorkflowValidationServiceTests(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertTrue(any("aws s3" in item.lower() or "start with 's3'" in item.lower() for item in result.warnings))
 
+    def test_on_error_goto_requires_existing_node_target(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="Action",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "standard",
+                "on_error": "goto",
+                "error_target_node_id": "missing_node",
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "on_error target")
+        self.assertFalse(result.ok)
+        self.assertTrue(
+            any("goto:missing_node" in item.lower() and "does not exist" in item.lower() for item in result.errors)
+        )
+
+    def test_on_error_continue_without_outgoing_edge_warns(self):
+        trigger = CanvasNode(
+            id="node_trigger",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=20,
+            y=20,
+            config={"trigger_mode": "manual"},
+        )
+        action = CanvasNode(
+            id="node_action",
+            name="Action",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=220,
+            y=20,
+            config={
+                "integration": "standard",
+                "on_error": "continue",
+            },
+        )
+        edges = [
+            CanvasEdge(
+                id="edge_1",
+                source_node_id=trigger.id,
+                target_node_id=action.id,
+                condition="",
+            )
+        ]
+        result = self.service.validate_graph([trigger, action], edges, "on_error continue terminal")
+        self.assertTrue(result.ok, result.errors)
+        self.assertTrue(
+            any("on_error='continue'" in item.lower() and "no outgoing edge" in item.lower() for item in result.warnings)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
