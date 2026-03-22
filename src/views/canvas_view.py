@@ -2046,7 +2046,31 @@ class CanvasView(Gtk.Box):
             return
         hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
         if hit_node and not bool(state & selection_modifiers):
-            # Node widgets own pointer interactions.
+            # Stage fallback drag path:
+            # If a per-node drag gesture fails to claim ownership on some systems,
+            # keep node movement functional by allowing the stage gesture to drive
+            # node drag updates.
+            node_x, node_y, _node_w, _node_h = self.node_screen_geometry(hit_node)
+            local_x = float(pointer_x) - float(node_x)
+            local_y = float(pointer_y) - float(node_y)
+            if self.is_output_handle_grab(local_x, local_y, hit_node.id):
+                return
+            previous_selected = self.selected_node_id
+            previous_selection_set = set(self.selected_node_ids)
+            self.start_node_drag(
+                hit_node.id,
+                pointer_stage_x=float(pointer_x),
+                pointer_stage_y=float(pointer_y),
+                previous_selected=previous_selected,
+                previous_selection_set=previous_selection_set,
+                drag_driver="stage",
+            )
+            self.stage_drag_node_id = hit_node.id
+            self.stage_drag_origin = {
+                "start_x": float(pointer_x),
+                "start_y": float(pointer_y),
+            }
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
             return
         if not bool(state & selection_modifiers):
             # Stage box-select is explicit (Shift+drag) to avoid fighting node dragging.
@@ -9045,6 +9069,11 @@ class CanvasView(Gtk.Box):
         return float(translated[1]), float(translated[2])
 
     def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
+        if self.port_drag_active and self.link_preview_source_id:
+            # Output-port drag owns this pointer sequence; don't let the frame
+            # drag handler cancel link creation.
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            return
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if (
@@ -9069,7 +9098,7 @@ class CanvasView(Gtk.Box):
             self.update_control_state()
             self.set_status("Link mode canceled. Dragging node.")
 
-        if self.port_drag_active:
+        if self.port_drag_active and not self.link_preview_source_id:
             # Recover from stale/interrupted port drag state so node dragging never gets stuck.
             previous_source = self.pending_link_source_id
             self.cancel_link_preview()

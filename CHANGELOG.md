@@ -13,6 +13,10 @@ All notable changes to this project are documented here.
 - Docker runtime condition execution now supports richer expressions
   (`not_contains:`, `regex:`, `min_len:`) and structured fallback config
   (`condition_mode`, `condition_value`, `condition_min_len`).
+- Canvas node drag now includes a stage-level fallback drag owner when node
+  gesture ownership is missed, and frame drag handlers no longer cancel active
+  output-port drag sessions, restoring click-hold move reliability and drag-to-
+  wire linking on stricter GTK gesture stacks.
 - Canvas event routing now uses bubble-phase stage click/drag handlers to avoid
   stealing pointer ownership from node gestures, restoring reliable node move,
   click-to-inspector selection, and drag-to-link interactions.
