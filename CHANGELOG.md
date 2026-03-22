@@ -9,6 +9,9 @@ All notable changes to this project are documented here.
   click-to-inspector selection, and drag-to-link interactions.
 - Canvas auto-link source selection now prefers open tail nodes so repeatedly
   adding modules forms a stable serial chain by default.
+- Canvas node press now updates selection/inspector independently of the
+  post-drag click suppression guard, preventing stale inspector panels after
+  drag interactions.
 - Canvas drag ownership now prefers per-node gestures; stage box-select no
   longer claims normal node drags, and stage-motion fallback updates run only
   for stage-owned drags. This removes competing drag updates that caused

@@ -8791,8 +8791,6 @@ class CanvasView(Gtk.Box):
             self.reset_port_drag_state()
         if self.node_drag_active and not self.drag_origin:
             self.reset_node_drag_state()
-        if self.suppress_next_node_click:
-            return
 
         node = self.find_node(node_id)
         if not node:
