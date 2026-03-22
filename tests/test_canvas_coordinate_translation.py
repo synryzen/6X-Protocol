@@ -1,5 +1,6 @@
 import unittest
 from types import SimpleNamespace
+import time
 
 from src.views.canvas_view import CanvasView
 
@@ -92,6 +93,16 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
             node,
         )
         self.assertEqual((88.5, 129.25), pointer)
+
+    def test_is_port_drag_stale_true_when_active_without_activity_timestamp(self):
+        self.view.port_drag_active = True
+        self.view.port_drag_last_activity_monotonic = 0.0
+        self.assertTrue(self.view.is_port_drag_stale())
+
+    def test_is_port_drag_stale_false_when_recent_activity_exists(self):
+        self.view.port_drag_active = True
+        self.view.port_drag_last_activity_monotonic = time.monotonic()
+        self.assertFalse(self.view.is_port_drag_stale())
 
 
 if __name__ == "__main__":

@@ -17,6 +17,9 @@ All notable changes to this project are documented here.
 - Canvas stage drag fallback now auto-recovers stale drag state and explicitly
   starts output-link drag mode when the pointer begins on an output handle,
   preventing stage ownership from blocking wire link gestures.
+- Canvas now tracks output-port drag activity timestamps and auto-recovers
+  stale link-drag state, preventing stuck link mode from blocking node
+  dragging/selection after interrupted gestures.
 - Docker Web graph node editor now includes structured condition controls
   (mode/value/min-length/raw), OpenWeather units configuration, and smarter
   per-node recommended execution preset defaults by node type/integration.

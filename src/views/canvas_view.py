@@ -3,6 +3,7 @@ import json
 import math
 import re
 import threading
+import time
 import uuid
 
 gi.require_version("Gtk", "4.0")
@@ -179,6 +180,7 @@ class CanvasView(Gtk.Box):
         self.port_drag_active = False
         self.port_drag_origin: dict[str, float] = {}
         self.port_drag_just_finished = False
+        self.port_drag_last_activity_monotonic = 0.0
         self.hovered_port_node_id: str | None = None
         self.hovered_port_kind: str | None = None
         self.link_hover_target_id: str | None = None
@@ -1965,10 +1967,22 @@ class CanvasView(Gtk.Box):
         self.cancel_link_preview()
         self.port_drag_active = False
         self.port_drag_origin = {}
+        self.port_drag_last_activity_monotonic = 0.0
         self.pending_link_source_id = None
         self.set_link_hover_target(None)
         self.apply_link_source_visual_state(previous_source, None)
         self.update_control_state()
+
+    def mark_port_drag_activity(self):
+        self.port_drag_last_activity_monotonic = float(time.monotonic())
+
+    def is_port_drag_stale(self, max_age_sec: float = 1.4) -> bool:
+        if not self.port_drag_active:
+            return False
+        last = float(self.port_drag_last_activity_monotonic or 0.0)
+        if last <= 0.0:
+            return True
+        return (time.monotonic() - last) > float(max(0.2, max_age_sec))
 
     def set_selection(self, node_ids: set[str], primary_id: str | None = None):
         previous_ids = set(self.selected_node_ids)
@@ -2041,6 +2055,8 @@ class CanvasView(Gtk.Box):
         state = gesture.get_current_event_state()
         selection_modifiers = Gdk.ModifierType.SHIFT_MASK
 
+        if self.is_port_drag_stale():
+            self.reset_port_drag_state()
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active:
@@ -8653,6 +8669,7 @@ class CanvasView(Gtk.Box):
         self.drag_origin = {}
         self.drag_group_origins = {}
         self.port_drag_active = True
+        self.mark_port_drag_activity()
         anchor_x = 0.0
         anchor_y = 0.0
         source_node = self.find_node(node_id)
@@ -8699,6 +8716,7 @@ class CanvasView(Gtk.Box):
     ):
         if not self.port_drag_active:
             return
+        self.mark_port_drag_activity()
 
         stage_point = self.gesture_stage_point(_gesture)
         if stage_point:
@@ -8771,6 +8789,7 @@ class CanvasView(Gtk.Box):
 
         self.port_drag_active = False
         self.port_drag_origin = {}
+        self.port_drag_last_activity_monotonic = 0.0
         self.port_drag_just_finished = True
         GLib.timeout_add(120, self.clear_recent_port_drag_flag)
 
@@ -9182,10 +9201,15 @@ class CanvasView(Gtk.Box):
 
     def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
         if self.port_drag_active and self.link_preview_source_id:
-            # Output-port drag owns this pointer sequence; don't let the frame
-            # drag handler cancel link creation.
-            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-            return
+            if self.is_port_drag_stale():
+                self.reset_port_drag_state()
+            else:
+                # Output-port drag owns this pointer sequence; don't let the frame
+                # drag handler cancel link creation.
+                gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+                return
+        if self.is_port_drag_stale():
+            self.reset_port_drag_state()
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if (
