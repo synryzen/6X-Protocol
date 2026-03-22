@@ -2044,7 +2044,9 @@ class CanvasView(Gtk.Box):
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active:
-            return
+            # Recover from stale state if a previous drag sequence did not emit
+            # a matching drag-end event on some GTK stacks.
+            self.reset_node_drag_state()
         if self.port_drag_active:
             return
         hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
@@ -2056,6 +2058,12 @@ class CanvasView(Gtk.Box):
             node_x, node_y, _node_w, _node_h = self.node_screen_geometry(hit_node)
             local_x = float(pointer_x) - float(node_x)
             local_y = float(pointer_y) - float(node_y)
+            if (
+                self.hovered_port_kind == "out"
+                and str(self.hovered_port_node_id or "").strip() == hit_node.id
+            ):
+                # Respect explicit output-port drags for link wiring.
+                return
             if self.is_output_handle_grab(local_x, local_y, hit_node.id):
                 return
             previous_selected = self.selected_node_id

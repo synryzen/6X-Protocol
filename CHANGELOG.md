@@ -9,6 +9,9 @@ All notable changes to this project are documented here.
   stage pointers now derive from deterministic local offsets when GTK
   translation is unavailable, and stage-click suppression no longer blocks
   node-hit inspector updates.
+- Canvas stage drag fallback now auto-recovers stale drag state and explicitly
+  yields to output-port hover drags, preventing stage ownership from blocking
+  wire link gestures.
 - Docker Web graph node editor now includes structured condition controls
   (mode/value/min-length/raw), OpenWeather units configuration, and smarter
   per-node recommended execution preset defaults by node type/integration.
