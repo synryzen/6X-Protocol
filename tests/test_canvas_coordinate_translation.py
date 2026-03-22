@@ -298,6 +298,31 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertEqual([("n1", 220.0, 320.0)], link_drag_calls)
         self.assertEqual([], drag_calls)
 
+    def test_stage_drag_begin_does_not_interrupt_active_node_owned_drag(self):
+        self.view.STAGE_WIDTH = 4000
+        self.view.STAGE_HEIGHT = 2400
+        self.view.port_drag_active = False
+        self.view.link_preview_source_id = None
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "node"
+        self.view.drag_origin = {"node_id": "n1"}
+        self.view.stage_drag_node_id = None
+        self.view.stage_drag_origin = {}
+        self.view.is_port_drag_stale = lambda: False
+        self.view.is_node_drag_stale = lambda: False
+        self.view.reset_port_drag_state = lambda: None
+        reset_calls: list[bool] = []
+        self.view.reset_node_drag_state = lambda: reset_calls.append(True)
+        self.view.gesture_stage_point = lambda _gesture: None
+        self.view.find_node_at_point = lambda *_args, **_kwargs: None
+
+        gesture = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_select_drag_begin(gesture, 220.0, 320.0)
+
+        self.assertEqual([], reset_calls)
+        self.assertFalse(gesture.claimed)
+        self.assertIsNone(self.view.stage_drag_node_id)
+
 
 if __name__ == "__main__":
     unittest.main()

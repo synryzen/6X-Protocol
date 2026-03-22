@@ -2088,9 +2088,16 @@ class CanvasView(Gtk.Box):
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active:
-            # Recover from stale state if a previous drag sequence did not emit
-            # a matching drag-end event on some GTK stacks.
-            self.reset_node_drag_state()
+            if self.is_node_drag_stale():
+                # Recover from stale state if a previous drag sequence did not emit
+                # a matching drag-end event on some GTK stacks.
+                self.reset_node_drag_state()
+            elif self.node_drag_driver == "node" and self.drag_origin:
+                # A node-level drag gesture already owns this pointer sequence.
+                # Do not let stage fallback cancel the active node drag.
+                return
+            else:
+                self.reset_node_drag_state()
         if self.port_drag_active:
             return
         hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
