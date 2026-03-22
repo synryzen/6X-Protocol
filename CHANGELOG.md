@@ -22,6 +22,9 @@ All notable changes to this project are documented here.
 - Docker web/server smoke was re-verified on March 22, 2026 with full compose
   startup plus workflow/run, retry-from-failed-node, timeline/log filter, bot,
   integration, and settings patch coverage.
+- GitHub Pages app showcase copy now uses app-specific App Store-aligned
+  positioning across NodeSpark, IQPearl, Write JSON, Lexora, and GhostLedger
+  cards/pages instead of generic shared text.
 - Canvas event routing now uses bubble-phase stage click/drag handlers to avoid
   stealing pointer ownership from node gestures, restoring reliable node move,
   click-to-inspector selection, and drag-to-link interactions.
