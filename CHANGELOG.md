@@ -9,6 +9,9 @@ All notable changes to this project are documented here.
   still an open tail), making serial node-building behavior more predictable.
 - Added regression tests for canvas auto-link source selection so selected
   trigger chaining and fallback tail selection do not regress.
+- Sidebar navigation now supplies stronger icon fallback chains per view
+  (especially Runs/Integrations) to prevent missing-icon placeholders on Linux
+  icon themes that lack specific symbolic glyphs.
 - Docker Web API integration catalog now includes the full supported
   integration set (handoff, Google Calendar API, Drive/Dropbox, Shopify,
   Webflow, Supabase, OpenRouter, Resend, Mailgun, and more) so web graph node

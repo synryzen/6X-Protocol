@@ -45,6 +45,22 @@ class MainWindow(Adw.ApplicationWindow):
         ("settings", "Settings", "emblem-system-symbolic"),
         ("about", "About", "help-about-symbolic"),
     ]
+    NAV_ICON_FALLBACKS = {
+        "dashboard": ("view-grid-symbolic", "go-home-symbolic"),
+        "workflows": ("view-list-symbolic", "folder-symbolic"),
+        "canvas": ("applications-graphics-symbolic", "draw-freehand-symbolic"),
+        "bots": ("avatar-default-symbolic", "system-users-symbolic"),
+        "runs": ("view-history-symbolic", "view-list-bullet-symbolic", "system-run-symbolic"),
+        "integrations": (
+            "insert-link-symbolic",
+            "network-server-symbolic",
+            "applications-internet-symbolic",
+        ),
+        "marketplace": ("package-x-generic-symbolic", "folder-symbolic"),
+        "daemon": ("system-run-symbolic", "utilities-terminal-symbolic"),
+        "settings": ("preferences-system-symbolic", "emblem-system-symbolic"),
+        "about": ("help-about-symbolic", "dialog-information-symbolic"),
+    }
 
     def __init__(self, application):
         super().__init__(application=application)
@@ -251,7 +267,11 @@ class MainWindow(Adw.ApplicationWindow):
             row_box.set_margin_start(3)
             row_box.set_margin_end(3)
 
-            icon = create_icon(icon_name, css_class="navigation-row-icon")
+            icon = create_icon(
+                icon_name,
+                css_class="navigation-row-icon",
+                fallbacks=self.NAV_ICON_FALLBACKS.get(view_name, ()),
+            )
 
             label = Gtk.Label(label=title)
             label.set_halign(Gtk.Align.START)
