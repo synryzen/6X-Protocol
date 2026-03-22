@@ -1,8 +1,8 @@
 # Docker + Web Edition Build Plan
 
 ## Last Verified Status
-- Date: **March 21, 2026**
-- Overall completion toward first public self-hosted web beta: **~84%**
+- Date: **March 22, 2026**
+- Overall completion toward first public self-hosted web beta: **~88%**
 - Automated smoke status: **passing** via `./scripts/test_docker_web.sh`
 
 ## Product Layout
@@ -90,6 +90,8 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
   - retry from failed node
   - timeout/retry policy behavior
   - graph branching validation
+  - run timeline and log query filters
+  - bot profile CRUD + test lifecycle
   - integration profile create/test/delete lifecycle
 - Server execution model now handles node-type behavior + policy controls per run/node.
 - Web preview now includes integration profile save/test controls wired to API.

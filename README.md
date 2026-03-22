@@ -119,14 +119,14 @@ See:
 - Execution behavior implemented: timeout/retry/backoff and graph-aware branch routing
 - Parallel DAG behavior implemented: ready-node fan-out + join with skipped-branch pruning
 - Web graph editor supports node/link draft editing, link inspector, run timeline filters, and per-node behavior presets
-- Smoke test validated (March 21, 2026): `./scripts/test_docker_web.sh` including integration profile create/test/delete
+- Smoke test validated (March 22, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, timeline/log filters, integrations, bots, and settings patch flows
 
-Estimated completion for a first public self-hosted web beta: **~84%**
+Estimated completion for a first public self-hosted web beta: **~88%**
 
 Remaining high-value items:
-- Replace placeholder web panel with production web app views (workflow list/canvas/runs/settings).
-- Add DB migration strategy and tighten persistence model.
-- Add auth + secrets hardening baseline for team/hosted paths.
+- Replace the preview web panel with production-grade web UX modules.
+- Add DB migration strategy and tighten persistence/versioning.
+- Add auth + secrets hardening baseline for team/hosted deployment paths.
 
 ## Package Build Commands
 Build local installer artifacts:
