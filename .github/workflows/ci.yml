@@ -25,3 +25,19 @@ jobs:
       - name: Run Unit Tests
         run: |
           python -m unittest discover -s tests -p "test_*.py" -v
+
+  docker_smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Smoke Test Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Run Docker Web Smoke Test
+        run: |
+          ./scripts/test_docker_web.sh
