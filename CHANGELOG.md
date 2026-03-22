@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Canvas drag/select interaction handling was hardened again: stage-level drag
+  fallback now starts from native stage drag-begin coordinates, node drag-begin
+  stage pointers now derive from deterministic local offsets when GTK
+  translation is unavailable, and stage-click suppression no longer blocks
+  node-hit inspector updates.
 - Docker Web graph node editor now includes structured condition controls
   (mode/value/min-length/raw), OpenWeather units configuration, and smarter
   per-node recommended execution preset defaults by node type/integration.
@@ -38,6 +43,8 @@ All notable changes to this project are documented here.
   drag/click regressions across distro-specific GI wrappers.
 - Added regression tests for canvas coordinate translation parsing so GTK tuple
   format differences cannot silently break canvas interactions again.
+- Added regression tests for node drag-begin stage pointer fallback behavior so
+  node movement remains reliable when translation APIs return incomplete values.
 - Canvas event routing now uses bubble-phase stage click/drag handlers to avoid
   stealing pointer ownership from node gestures, restoring reliable node move,
   click-to-inspector selection, and drag-to-link interactions.

@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 
 from src.views.canvas_view import CanvasView
 
@@ -14,6 +15,14 @@ class _FakeWidget:
 class _FailingWidget:
     def translate_coordinates(self, _dest, _x, _y):
         raise RuntimeError("boom")
+
+
+class _FakeGesture:
+    def __init__(self, widget):
+        self._widget = widget
+
+    def get_widget(self):
+        return self._widget
 
 
 class CanvasCoordinateTranslationTests(unittest.TestCase):
@@ -57,6 +66,32 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
     def test_parse_gesture_point_rejects_false_flag(self):
         result = self.view.parse_gesture_point((False, 25.0, 31.0))
         self.assertIsNone(result)
+
+    def test_stage_pointer_from_node_drag_begin_prefers_translated_coordinates(self):
+        self.view.fixed = object()
+        self.view.translate_widget_coordinates = lambda *_args, **_kwargs: (140.0, 260.0)
+        self.view.to_screen = lambda value: int(round(value))
+        node = SimpleNamespace(x=80, y=120)
+        pointer = self.view.stage_pointer_from_node_drag_begin(
+            _FakeGesture(object()),
+            12.0,
+            16.0,
+            node,
+        )
+        self.assertEqual((140.0, 260.0), pointer)
+
+    def test_stage_pointer_from_node_drag_begin_falls_back_to_node_origin_offset(self):
+        self.view.fixed = object()
+        self.view.translate_widget_coordinates = lambda *_args, **_kwargs: None
+        self.view.to_screen = lambda value: int(round(float(value) * 2.0))
+        node = SimpleNamespace(x=40, y=60)
+        pointer = self.view.stage_pointer_from_node_drag_begin(
+            _FakeGesture(object()),
+            8.5,
+            9.25,
+            node,
+        )
+        self.assertEqual((88.5, 129.25), pointer)
 
 
 if __name__ == "__main__":

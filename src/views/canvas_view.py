@@ -626,8 +626,9 @@ class CanvasView(Gtk.Box):
 
         stage_select_drag = Gtk.GestureDrag()
         stage_select_drag.set_button(Gdk.BUTTON_PRIMARY)
-        # Keep box-select on stage only, without stealing node drag ownership.
-        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
+        # Capture phase gives us a reliable stage-level fallback when some
+        # widget stacks do not bubble drag gestures consistently from node cards.
+        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         stage_select_drag.set_exclusive(False)
         stage_select_drag.connect("drag-begin", self.on_stage_select_drag_begin)
         stage_select_drag.connect("drag-update", self.on_stage_select_drag_update)
@@ -2032,9 +2033,11 @@ class CanvasView(Gtk.Box):
 
     def on_stage_select_drag_begin(self, gesture: Gtk.GestureDrag, start_x: float, start_y: float):
         self.stage_drag_node_id = None
-        stage_point = self.gesture_stage_point(gesture)
-        pointer_x = float(stage_point[0]) if stage_point else float(start_x)
-        pointer_y = float(stage_point[1]) if stage_point else float(start_y)
+        # Stage drag callbacks already provide stage-local coordinates.
+        # Prefer these over gesture point translation to avoid toolkit-specific
+        # coordinate tuple variations.
+        pointer_x = float(start_x)
+        pointer_y = float(start_y)
         state = gesture.get_current_event_state()
         selection_modifiers = Gdk.ModifierType.SHIFT_MASK
 
@@ -8943,9 +8946,6 @@ class CanvasView(Gtk.Box):
                 input_x, input_y = self.node_input_anchor(target)
                 self.finalize_link_preview_at(int(input_x), int(input_y))
                 return
-        if self.suppress_stage_click_once:
-            self.suppress_stage_click_once = False
-            return
         hit_node = self.find_node_at_point(int(x), int(y))
         if hit_node:
             # Fallback: if node-level click did not run (gesture ownership race), keep
@@ -8967,6 +8967,10 @@ class CanvasView(Gtk.Box):
                 # Keep inspector synced even when the node is already selected.
                 self.update_inspector(hit_node)
                 self.update_control_state()
+            return
+        if self.suppress_stage_click_once:
+            # Suppress only empty-stage cleanup after a drag/gesture handoff.
+            self.suppress_stage_click_once = False
             return
 
         if not self.get_selected_node() and not self.pending_link_source_id:
@@ -9134,6 +9138,30 @@ class CanvasView(Gtk.Box):
 
         return None
 
+    def stage_pointer_from_node_drag_begin(
+        self,
+        gesture,
+        start_x: float,
+        start_y: float,
+        node: CanvasNode,
+    ) -> tuple[float, float]:
+        gesture_widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
+        if gesture_widget:
+            translated = self.translate_widget_coordinates(
+                gesture_widget,
+                self.fixed,
+                float(start_x),
+                float(start_y),
+            )
+            if translated:
+                return float(translated[0]), float(translated[1])
+
+        # Fallback when toolkit coordinate translation is unavailable:
+        # derive stage space from node logical origin + local pointer offset.
+        node_stage_x = float(self.to_screen(node.x))
+        node_stage_y = float(self.to_screen(node.y))
+        return node_stage_x + float(start_x), node_stage_y + float(start_y)
+
     def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
         if self.port_drag_active and self.link_preview_source_id:
             # Output-port drag owns this pointer sequence; don't let the frame
@@ -9175,28 +9203,13 @@ class CanvasView(Gtk.Box):
         node = self.find_node(node_id)
         if not node:
             return
-        stage_pointer = self.gesture_stage_point(gesture)
+        pointer_stage_x, pointer_stage_y = self.stage_pointer_from_node_drag_begin(
+            gesture,
+            float(start_x),
+            float(start_y),
+            node,
+        )
         if self.is_output_handle_grab(float(start_x), float(start_y), node_id):
-            if stage_pointer:
-                pointer_stage_x, pointer_stage_y = stage_pointer
-            else:
-                gesture_widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
-                if gesture_widget:
-                    translated = self.translate_widget_coordinates(
-                        gesture_widget,
-                        self.fixed,
-                        float(start_x),
-                        float(start_y),
-                    )
-                    if translated:
-                        pointer_stage_x = float(translated[0])
-                        pointer_stage_y = float(translated[1])
-                    else:
-                        pointer_stage_x = float(self.to_screen(node.x))
-                        pointer_stage_y = float(self.to_screen(node.y))
-                else:
-                    pointer_stage_x = float(self.to_screen(node.x))
-                    pointer_stage_y = float(self.to_screen(node.y))
             self.port_drag_just_finished = False
             self.begin_output_link_drag(
                 node_id,
@@ -9208,26 +9221,6 @@ class CanvasView(Gtk.Box):
 
         previous_selected = self.selected_node_id
         previous_selection_set = set(self.selected_node_ids)
-        if stage_pointer:
-            pointer_stage_x, pointer_stage_y = stage_pointer
-        else:
-            gesture_widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
-            if gesture_widget:
-                translated = self.translate_widget_coordinates(
-                    gesture_widget,
-                    self.fixed,
-                    float(start_x),
-                    float(start_y),
-                )
-                if translated:
-                    pointer_stage_x = float(translated[0])
-                    pointer_stage_y = float(translated[1])
-                else:
-                    pointer_stage_x = float(self.to_screen(node.x))
-                    pointer_stage_y = float(self.to_screen(node.y))
-            else:
-                pointer_stage_x = float(self.to_screen(node.x))
-                pointer_stage_y = float(self.to_screen(node.y))
         self.start_node_drag(
             node_id,
             pointer_stage_x=pointer_stage_x,
