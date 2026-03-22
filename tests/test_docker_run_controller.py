@@ -103,6 +103,74 @@ class DockerRunControllerTests(unittest.TestCase):
         self.assertEqual("success", completed.get("status"))
         self.assertEqual(["t1", "c1", "a2"], self._success_node_order(completed))
 
+    def test_condition_mode_not_contains_routes_true_path(self):
+        workflow = {
+            "id": "wf_branch_not_contains",
+            "name": "Condition Not Contains",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Trigger", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "c1",
+                        "name": "Condition",
+                        "type": "condition",
+                        "config": {
+                            "condition_mode": "not_contains",
+                            "condition_value": "error",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                    {"id": "a1", "name": "True Path", "type": "action", "config": {"simulate_delay_ms": 0}},
+                    {"id": "a2", "name": "False Path", "type": "action", "config": {"simulate_delay_ms": 0}},
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "c1", "condition": "next"},
+                    {"source_node_id": "c1", "target_node_id": "a1", "condition": "true"},
+                    {"source_node_id": "c1", "target_node_id": "a2", "condition": "false"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+
+        self.assertEqual("success", completed.get("status"))
+        self.assertEqual(["t1", "c1", "a1"], self._success_node_order(completed))
+
+    def test_condition_mode_min_len_routes_false_path(self):
+        workflow = {
+            "id": "wf_branch_min_len",
+            "name": "Condition Min Length",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Trigger", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "c1",
+                        "name": "Condition",
+                        "type": "condition",
+                        "config": {
+                            "condition_mode": "min_len",
+                            "condition_min_len": 40,
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                    {"id": "a1", "name": "True Path", "type": "action", "config": {"simulate_delay_ms": 0}},
+                    {"id": "a2", "name": "False Path", "type": "action", "config": {"simulate_delay_ms": 0}},
+                ],
+                "edges": [
+                    {"source_node_id": "t1", "target_node_id": "c1", "condition": "next"},
+                    {"source_node_id": "c1", "target_node_id": "a1", "condition": "true"},
+                    {"source_node_id": "c1", "target_node_id": "a2", "condition": "false"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        completed = self._wait_for_terminal(run["id"])
+
+        self.assertEqual("success", completed.get("status"))
+        self.assertEqual(["t1", "c1", "a2"], self._success_node_order(completed))
+
     def test_replay_start_node_runs_descendants_only(self):
         workflow = {
             "id": "wf_replay",

@@ -678,6 +678,16 @@
                 <input id="graphEditorActionLocation" class="input" type="text" placeholder="Austin,US" />
               </div>
             </div>
+            <div class="graph-editor-grid" id="graphEditorActionWeatherRow">
+              <div class="row" id="graphEditorActionUnitsRow">
+                <label class="label" for="graphEditorActionUnits">Units</label>
+                <select class="select" id="graphEditorActionUnits">
+                  <option value="metric">Metric</option>
+                  <option value="imperial">Imperial</option>
+                  <option value="standard">Standard</option>
+                </select>
+              </div>
+            </div>
             <div class="graph-editor-grid" id="graphEditorActionSystemRow">
               <div class="row" id="graphEditorActionPathRow">
                 <label class="label" for="graphEditorActionPath">Path / File</label>
@@ -702,10 +712,33 @@
                 <input id="graphEditorActionBot" class="input" type="text" placeholder="Fallback bot name (optional)" />
               </div>
             </div>
-            <div class="graph-editor-grid">
+            <div class="graph-editor-grid" id="graphEditorConditionPrimaryRow">
+              <div class="row" id="graphEditorConditionModeRow">
+                <label class="label" for="graphEditorConditionMode">Condition Mode</label>
+                <select class="select" id="graphEditorConditionMode">
+                  <option value="contains">Contains</option>
+                  <option value="equals">Equals</option>
+                  <option value="not_contains">Not Contains</option>
+                  <option value="regex">Regex</option>
+                  <option value="min_len">Min Length</option>
+                  <option value="true">Always True</option>
+                  <option value="false">Always False</option>
+                  <option value="raw">Raw Expression</option>
+                </select>
+              </div>
+              <div class="row" id="graphEditorConditionValueRow">
+                <label class="label" for="graphEditorConditionValue">Condition Value</label>
+                <input id="graphEditorConditionValue" class="input" type="text" placeholder="success" />
+              </div>
+            </div>
+            <div class="graph-editor-grid" id="graphEditorConditionAdvancedRow">
+              <div class="row" id="graphEditorConditionMinLenRow">
+                <label class="label" for="graphEditorConditionMinLen">Minimum Length</label>
+                <input id="graphEditorConditionMinLen" class="input" type="number" min="0" max="10000" step="1" value="0" />
+              </div>
               <div class="row" id="graphEditorConditionRow">
-                <label class="label" for="graphEditorCondition">Condition Expression</label>
-                <input id="graphEditorCondition" class="input" type="text" placeholder="contains:success, equals:ok, always_true" />
+                <label class="label" for="graphEditorCondition">Raw Condition Expression</label>
+                <input id="graphEditorCondition" class="input" type="text" placeholder="contains:success, equals:ok, regex:^done, min_len:20" />
               </div>
               <div class="row" id="graphEditorModelRow">
                 <label class="label" for="graphEditorModel">AI Model</label>
@@ -1157,7 +1190,7 @@
         method: "POST",
       },
       http_request: { endpoint: "https://api.example.com/endpoint", method: "GET" },
-      weather_lookup: { location: "Austin,US", method: "GET" },
+      weather_lookup: { location: "Austin,US", units: "metric", method: "GET" },
       script_google_apps: { endpoint: "https://script.google.com/macros/s/REPLACE/exec", method: "POST" },
       bot_handoff: { bot_chain: "Planner > Writer", message: "${last_output}" },
       file_append: { path: "/tmp/6x-workflow.log", message: "${last_output}" },
@@ -1271,6 +1304,7 @@
       "handoff",
     ]);
     const integrationRequiresLocation = new Set(["openweather_current"]);
+    const integrationUsesUnits = new Set(["openweather_current"]);
     const integrationRequiresPath = new Set(["file_append", "sqlite_sql"]);
     const integrationRequiresCommand = new Set(["shell_command", "postgres_sql", "mysql_sql", "sqlite_sql", "redis_command", "s3_cli"]);
     const integrationUsesChatId = new Set(["telegram_bot"]);
@@ -1317,6 +1351,7 @@
       webhook: { retry_max: 1, retry_backoff_ms: 150, timeout_sec: 45 },
       file_watch: { retry_max: 1, retry_backoff_ms: 150, timeout_sec: 45 },
     };
+    const conditionModesUsingValue = new Set(["contains", "equals", "not_contains", "regex"]);
 
     const state = {
       apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
@@ -2005,6 +2040,41 @@
         if (nodeType === "condition" && outCount === 0) {
           errors.push(`Condition node '${nodeName}' has no outgoing branches.`);
         }
+        if (nodeType === "condition") {
+          const conditionMode = String(config.condition_mode || "").trim().toLowerCase();
+          const conditionExpression = String(
+            config.expression || config.condition || byId("graphEditorCondition")?.value || ""
+          ).trim();
+          if (conditionMode && conditionModesUsingValue.has(conditionMode)) {
+            const conditionValue = String(config.condition_value || "").trim();
+            if (!conditionValue) {
+              warnings.push(
+                `Condition node '${nodeName}' uses mode '${conditionMode}' but has no condition value.`
+              );
+            }
+          }
+          if (conditionMode === "min_len") {
+            const minLen = Number(config.condition_min_len);
+            if (!Number.isFinite(minLen) || minLen < 0) {
+              warnings.push(
+                `Condition node '${nodeName}' uses mode 'min_len' with an invalid minimum length.`
+              );
+            }
+          }
+          const regexExpression = conditionExpression.toLowerCase().startsWith("regex:")
+            ? conditionExpression.slice(6).trim()
+            : "";
+          if (regexExpression) {
+            try {
+              // eslint-disable-next-line no-new
+              new RegExp(regexExpression, "i");
+            } catch (_error) {
+              errors.push(
+                `Condition node '${nodeName}' has an invalid regex expression.`
+              );
+            }
+          }
+        }
         if (nodeType === "trigger") {
           const triggerMode = String(config.trigger_mode || "manual").trim().toLowerCase() || "manual";
           const triggerValue = String(config.trigger_value || "").trim();
@@ -2557,6 +2627,95 @@
       }
     }
 
+    function recommendedExecutionPreset(nodeType, integration = "standard", triggerMode = "manual") {
+      const kind = normalizeNodeType(nodeType);
+      const actionKey = normalizeActionIntegration(integration);
+      const mode = String(triggerMode || "manual").trim().toLowerCase() || "manual";
+      if (kind === "trigger") {
+        return ["webhook", "file_watch"].includes(mode) ? "balanced" : "safe";
+      }
+      if (kind === "condition") return "safe";
+      if (kind === "ai") return "aggressive";
+      if (kind === "action") {
+        if (actionKey === "approval_gate") return "safe";
+        if (actionHeavyIntegrations.has(actionKey)) return "aggressive";
+        return "balanced";
+      }
+      return "balanced";
+    }
+
+    function parseConditionExpression(expressionRaw) {
+      const expression = String(expressionRaw || "").trim();
+      const normalized = expression.toLowerCase();
+      if (!normalized || ["always_true", "true", "pass"].includes(normalized)) {
+        return { mode: "true", value: "", minLen: 0, expression: expression || "always_true" };
+      }
+      if (["always_false", "false", "fail"].includes(normalized)) {
+        return { mode: "false", value: "", minLen: 0, expression: expression || "always_false" };
+      }
+      if (normalized.startsWith("contains:")) {
+        return { mode: "contains", value: expression.split(":", 2)[1] || "", minLen: 0, expression };
+      }
+      if (normalized.startsWith("equals:")) {
+        return { mode: "equals", value: expression.split(":", 2)[1] || "", minLen: 0, expression };
+      }
+      if (normalized.startsWith("not_contains:")) {
+        return { mode: "not_contains", value: expression.split(":", 2)[1] || "", minLen: 0, expression };
+      }
+      if (normalized.startsWith("regex:")) {
+        return { mode: "regex", value: expression.split(":", 2)[1] || "", minLen: 0, expression };
+      }
+      if (normalized.startsWith("min_len:")) {
+        const minLen = Math.max(0, Number.parseInt(expression.split(":", 2)[1] || "0", 10) || 0);
+        return { mode: "min_len", value: "", minLen, expression: `min_len:${minLen}` };
+      }
+      return { mode: "raw", value: "", minLen: 0, expression };
+    }
+
+    function updateConditionFieldVisibility(modeRaw) {
+      const mode = String(modeRaw || "contains").trim().toLowerCase() || "contains";
+      const showValue = conditionModesUsingValue.has(mode);
+      const showMinLen = mode === "min_len";
+      const showRaw = mode === "raw";
+      setElementVisible("graphEditorConditionValueRow", showValue);
+      setElementVisible("graphEditorConditionMinLenRow", showMinLen);
+      setElementVisible("graphEditorConditionRow", showRaw);
+    }
+
+    function fillConditionControlsFromConfig(config) {
+      const cfg = config && typeof config === "object" ? config : {};
+      const expression = String(
+        cfg.expression || cfg.condition || cfg.rule || "always_true"
+      ).trim() || "always_true";
+      const parsed = parseConditionExpression(expression);
+      const explicitMode = String(cfg.condition_mode || "").trim().toLowerCase();
+      const mode = explicitMode || parsed.mode || "contains";
+      byId("graphEditorConditionMode").value = mode;
+      byId("graphEditorConditionValue").value = String(
+        cfg.condition_value ?? parsed.value ?? ""
+      ).trim();
+      byId("graphEditorConditionMinLen").value = String(
+        Math.max(0, Number.parseInt(String(cfg.condition_min_len ?? parsed.minLen ?? 0), 10) || 0)
+      );
+      byId("graphEditorCondition").value = expression;
+      updateConditionFieldVisibility(mode);
+    }
+
+    function buildConditionExpressionFromControls() {
+      const mode = String(byId("graphEditorConditionMode").value || "contains").trim().toLowerCase();
+      const value = String(byId("graphEditorConditionValue").value || "").trim();
+      const minLen = Math.max(0, Number.parseInt(String(byId("graphEditorConditionMinLen").value || "0"), 10) || 0);
+      const raw = String(byId("graphEditorCondition").value || "").trim();
+      if (mode === "true") return "always_true";
+      if (mode === "false") return "always_false";
+      if (mode === "contains") return `contains:${value}`;
+      if (mode === "equals") return `equals:${value}`;
+      if (mode === "not_contains") return `not_contains:${value}`;
+      if (mode === "regex") return `regex:${value}`;
+      if (mode === "min_len") return `min_len:${minLen}`;
+      return raw || "always_true";
+    }
+
     function refreshGraphNodeBehaviorHelper(nodeType, integrationKey, triggerMode) {
       const helper = byId("graphEditorNodeHelper");
       if (!helper) return;
@@ -2591,7 +2750,17 @@
         return;
       }
       if (kind === "condition") {
-        helper.textContent = "Condition expressions support contains:, equals:, always_true, and always_false patterns.";
+        const mode = String(byId("graphEditorConditionMode")?.value || "contains").trim().toLowerCase() || "contains";
+        const expression = buildConditionExpressionFromControls();
+        if (mode === "regex") {
+          helper.textContent = `Condition mode '${mode}' evaluates JavaScript-style regex against last output. Expression: ${expression}`;
+          return;
+        }
+        if (mode === "min_len") {
+          helper.textContent = `Condition mode '${mode}' checks output length threshold. Expression: ${expression}`;
+          return;
+        }
+        helper.textContent = `Condition mode '${mode}' configured. Expression: ${expression}`;
         return;
       }
       helper.textContent = "Choose a node to configure behavior defaults, execution policy, and integration details.";
@@ -2603,6 +2772,7 @@
       const showRouting = integrationRequiresEndpoint.has(integration) || integrationRequiresMethod.has(integration);
       const showAuth = integrationRequiresAuth.has(integration) || integrationUsesChatId.has(integration);
       const showPayload = integrationRequiresMessage.has(integration) || integrationRequiresLocation.has(integration);
+      const showWeather = integrationUsesUnits.has(integration);
       const showSystem = integrationRequiresPath.has(integration) || integrationRequiresCommand.has(integration);
       const showProviderAuth = integrationUsesAccountSid.has(integration) || integrationUsesAuthToken.has(integration);
       const showDelivery = integrationUsesTo.has(integration) || integrationUsesFrom.has(integration);
@@ -2620,6 +2790,7 @@
         "graphEditorActionPayloadRow",
         showPayload
       );
+      setElementVisible("graphEditorActionWeatherRow", showWeather);
       setElementVisible(
         "graphEditorActionSystemRow",
         showSystem
@@ -2644,6 +2815,7 @@
       setElementVisible("graphEditorActionDomainRow", integrationUsesDomain.has(integration));
       setElementVisible("graphEditorActionMessageRow", integrationRequiresMessage.has(integration));
       setElementVisible("graphEditorActionLocationRow", integrationRequiresLocation.has(integration));
+      setElementVisible("graphEditorActionUnitsRow", integrationUsesUnits.has(integration));
       setElementVisible("graphEditorActionPathRow", integrationRequiresPath.has(integration));
       setElementVisible("graphEditorActionCommandRow", integrationRequiresCommand.has(integration));
       setElementVisible("graphEditorActionBotChainRow", integrationUsesBotChain.has(integration));
@@ -2665,6 +2837,7 @@
         domain: ["domain"],
         headers: ["headers"],
         location: ["location"],
+        units: ["units"],
         path: ["path", "file_path", "db_path"],
         command: ["command", "sql", "query"],
         bot_chain: ["bot_chain"],
@@ -2694,6 +2867,7 @@
       byId("graphEditorActionDomain").value = actionConfigFieldValue(config, "domain");
       byId("graphEditorActionHeaders").value = actionConfigFieldValue(config, "headers");
       byId("graphEditorActionLocation").value = actionConfigFieldValue(config, "location");
+      byId("graphEditorActionUnits").value = actionConfigFieldValue(config, "units") || "metric";
       byId("graphEditorActionPath").value = actionConfigFieldValue(config, "path");
       byId("graphEditorActionCommand").value = actionConfigFieldValue(config, "command");
       byId("graphEditorActionBotChain").value = actionConfigFieldValue(config, "bot_chain");
@@ -2726,6 +2900,7 @@
       writeIfAllowed("graphEditorActionDomain", defaults.domain);
       writeIfAllowed("graphEditorActionHeaders", defaults.headers);
       writeIfAllowed("graphEditorActionLocation", defaults.location);
+      writeIfAllowed("graphEditorActionUnits", defaults.units);
       writeIfAllowed("graphEditorActionPath", defaults.path);
       writeIfAllowed("graphEditorActionCommand", defaults.command);
       writeIfAllowed("graphEditorActionBotChain", defaults.bot_chain);
@@ -2750,6 +2925,7 @@
       const domain = String(byId("graphEditorActionDomain").value || "").trim();
       const headers = String(byId("graphEditorActionHeaders").value || "").trim();
       const location = String(byId("graphEditorActionLocation").value || "").trim();
+      const units = String(byId("graphEditorActionUnits").value || "metric").trim().toLowerCase() || "metric";
       const path = String(byId("graphEditorActionPath").value || "").trim();
       const command = String(byId("graphEditorActionCommand").value || "").trim();
       const botChain = String(byId("graphEditorActionBotChain").value || "").trim();
@@ -2833,6 +3009,13 @@
       }
       if (integrationRequiresLocation.has(integration)) {
         setOrDelete("location", location);
+      } else {
+        setOrDelete("location", "");
+      }
+      if (integrationUsesUnits.has(integration)) {
+        setOrDelete("units", units);
+      } else {
+        setOrDelete("units", "");
       }
       if (integrationRequiresPath.has(integration)) {
         setOrDelete("path", path);
@@ -2876,11 +3059,12 @@
     function defaultConfigForNodeType(nodeType, integration = "standard", triggerMode = "manual") {
       const kind = normalizeNodeType(nodeType);
       const policy = nodeExecutionDefaults(kind, integration, triggerMode);
+      const executionPreset = recommendedExecutionPreset(kind, integration, triggerMode);
       if (kind === "trigger") {
         return {
           trigger_mode: "manual",
           trigger_value: "",
-          execution_preset: "balanced",
+          execution_preset: executionPreset,
           retry_max: policy.retry_max,
           retry_backoff_ms: policy.retry_backoff_ms,
           timeout_sec: policy.timeout_sec,
@@ -2891,7 +3075,7 @@
           provider: "local",
           model: "local/default",
           prompt: "Process node context.",
-          execution_preset: "balanced",
+          execution_preset: executionPreset,
           retry_max: policy.retry_max,
           retry_backoff_ms: policy.retry_backoff_ms,
           timeout_sec: policy.timeout_sec,
@@ -2900,7 +3084,10 @@
       if (kind === "condition") {
         return {
           expression: "contains:success",
-          execution_preset: "balanced",
+          condition_mode: "contains",
+          condition_value: "success",
+          condition_min_len: 0,
+          execution_preset: executionPreset,
           retry_max: policy.retry_max,
           retry_backoff_ms: policy.retry_backoff_ms,
           timeout_sec: policy.timeout_sec,
@@ -2910,7 +3097,7 @@
         integration: normalizeActionIntegration(integration),
         action_template: inferActionTemplateKey({}, integration),
         method: "POST",
-        execution_preset: "balanced",
+        execution_preset: executionPreset,
         retry_max: policy.retry_max,
         retry_backoff_ms: policy.retry_backoff_ms,
         timeout_sec: policy.timeout_sec,
@@ -2946,12 +3133,20 @@
       setElementVisible("graphEditorActionHandoffRow", actionMode);
       setElementVisible("graphEditorTriggerModeRow", kind === "trigger");
       setElementVisible("graphEditorTriggerValueRow", kind === "trigger");
+      setElementVisible("graphEditorConditionPrimaryRow", kind === "condition");
+      setElementVisible("graphEditorConditionAdvancedRow", kind === "condition");
+      setElementVisible("graphEditorConditionModeRow", kind === "condition");
+      setElementVisible("graphEditorConditionValueRow", kind === "condition");
+      setElementVisible("graphEditorConditionMinLenRow", kind === "condition");
       setElementVisible("graphEditorConditionRow", kind === "condition");
       setElementVisible("graphEditorModelRow", kind === "ai");
       setElementVisible("graphEditorPromptRow", kind === "ai");
       if (actionMode) {
         const integration = normalizeActionIntegration(byId("graphEditorIntegration")?.value || "standard");
         setGraphEditorActionFieldVisibility(integration);
+      }
+      if (kind === "condition") {
+        updateConditionFieldVisibility(byId("graphEditorConditionMode")?.value || "contains");
       }
     }
 
@@ -3005,17 +3200,23 @@
         byId("graphEditorActionDomain").value = "";
         byId("graphEditorActionHeaders").value = "";
         byId("graphEditorActionLocation").value = "";
+        byId("graphEditorActionUnits").value = "metric";
         byId("graphEditorActionPath").value = "";
         byId("graphEditorActionCommand").value = "";
         byId("graphEditorActionBotChain").value = "";
         byId("graphEditorActionBot").value = "";
         byId("graphEditorActionMethod").value = "POST";
+        byId("graphEditorConditionMode").value = "contains";
+        byId("graphEditorConditionValue").value = "success";
+        byId("graphEditorConditionMinLen").value = "0";
+        byId("graphEditorCondition").value = "contains:success";
         byId("graphEditorRetry").value = "0";
         byId("graphEditorBackoff").value = "0";
         byId("graphEditorTimeout").value = "0";
         setGraphEditorVisibilityForType("action");
         updateGraphEditorIntegrationRequirements("standard");
         setGraphEditorActionFieldVisibility("standard");
+        updateConditionFieldVisibility("contains");
         refreshGraphNodeBehaviorHelper("action", "standard", "manual");
         return;
       }
@@ -3038,7 +3239,7 @@
       byId("graphEditorTriggerMode").value = String(config.trigger_mode || "manual").trim() || "manual";
       byId("graphEditorTriggerValue").value = String(config.trigger_value || "");
       applyTriggerModeDefaults(byId("graphEditorTriggerMode").value || "manual");
-      byId("graphEditorCondition").value = String(config.expression || config.condition || "contains:success");
+      fillConditionControlsFromConfig(config);
       byId("graphEditorModel").value = String(config.model || "local/default");
       byId("graphEditorPrompt").value = String(config.prompt || "");
       fillGraphEditorActionFieldsFromConfig(config);
@@ -3078,16 +3279,21 @@
       const type = normalizeNodeType(byId("graphEditorType").value || node.type);
       const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
       const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
-      applyNodeExecutionPresetInputs(type, integration, "balanced", triggerMode);
-      byId("graphEditorExecutionPreset").value = "balanced";
+      const preset = recommendedExecutionPreset(type, integration, triggerMode);
+      applyNodeExecutionPresetInputs(type, integration, preset, triggerMode);
+      byId("graphEditorExecutionPreset").value = preset;
       if (type === "trigger") {
         byId("graphEditorTriggerMode").value = "manual";
         applyTriggerModeDefaults("manual", { forceValue: true });
       } else if (type === "ai") {
         if (!byId("graphEditorModel").value.trim()) byId("graphEditorModel").value = "local/default";
         if (!byId("graphEditorPrompt").value.trim()) byId("graphEditorPrompt").value = "Process node context.";
-      } else if (type === "condition" && !byId("graphEditorCondition").value.trim()) {
+      } else if (type === "condition") {
+        byId("graphEditorConditionMode").value = "contains";
+        byId("graphEditorConditionValue").value = "success";
+        byId("graphEditorConditionMinLen").value = "0";
         byId("graphEditorCondition").value = "contains:success";
+        updateConditionFieldVisibility("contains");
       } else if (type === "action") {
         const templateKey = inferActionTemplateKey(node.config || {}, integration);
         renderActionTemplateOptions(templateKey);
@@ -3121,8 +3327,13 @@
         nextConfig.trigger_value = byId("graphEditorTriggerValue").value.trim();
         node.detail = `trigger:${nextConfig.trigger_mode}`;
       } else if (nextType === "condition") {
-        nextConfig.expression = byId("graphEditorCondition").value.trim() || "always_true";
-        node.detail = nextConfig.expression;
+        const conditionExpression = buildConditionExpressionFromControls();
+        nextConfig.condition_mode = String(byId("graphEditorConditionMode").value || "contains").trim().toLowerCase() || "contains";
+        nextConfig.condition_value = String(byId("graphEditorConditionValue").value || "").trim();
+        nextConfig.condition_min_len = Math.max(0, Number.parseInt(String(byId("graphEditorConditionMinLen").value || "0"), 10) || 0);
+        nextConfig.expression = conditionExpression;
+        nextConfig.condition = conditionExpression;
+        node.detail = conditionExpression;
       } else if (nextType === "ai") {
         nextConfig.model = byId("graphEditorModel").value.trim() || "local/default";
         nextConfig.prompt = byId("graphEditorPrompt").value.trim() || "Process node context.";
@@ -4141,6 +4352,14 @@
           renderActionTemplateOptions(templateKey);
           applyGraphEditorActionTemplateDefaults(templateKey, { force: true });
           setGraphEditorActionFieldVisibility(integration);
+        } else if (type === "condition") {
+          if (!String(byId("graphEditorCondition").value || "").trim()) {
+            byId("graphEditorConditionMode").value = "contains";
+            byId("graphEditorConditionValue").value = "success";
+            byId("graphEditorConditionMinLen").value = "0";
+            byId("graphEditorCondition").value = "contains:success";
+          }
+          updateConditionFieldVisibility(byId("graphEditorConditionMode").value || "contains");
         }
         const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
         refreshGraphExecutionPresetControl(type, integration, triggerMode);
@@ -4159,8 +4378,9 @@
         renderActionTemplateOptions(templateKey);
         applyGraphEditorActionTemplateDefaults(templateKey, { force: false });
         const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
-        applyNodeExecutionPresetInputs(type, integration, "balanced", triggerMode);
-        byId("graphEditorExecutionPreset").value = "balanced";
+        const preset = recommendedExecutionPreset(type, integration, triggerMode);
+        applyNodeExecutionPresetInputs(type, integration, preset, triggerMode);
+        byId("graphEditorExecutionPreset").value = preset;
         updateGraphEditorIntegrationRequirements(integration);
         setGraphEditorActionFieldVisibility(integration);
         refreshGraphNodeBehaviorHelper(type, integration, byId("graphEditorTriggerMode").value || "manual");
@@ -4174,8 +4394,9 @@
         byId("graphEditorIntegration").value = integration;
         applyGraphEditorActionTemplateDefaults(template.key, { force: true });
         const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
-        applyNodeExecutionPresetInputs(type, integration, "balanced", triggerMode);
-        byId("graphEditorExecutionPreset").value = "balanced";
+        const preset = recommendedExecutionPreset(type, integration, triggerMode);
+        applyNodeExecutionPresetInputs(type, integration, preset, triggerMode);
+        byId("graphEditorExecutionPreset").value = preset;
         updateGraphEditorIntegrationRequirements(integration);
         setGraphEditorActionFieldVisibility(integration);
         refreshGraphNodeBehaviorHelper(type, integration, "manual");
@@ -4186,8 +4407,9 @@
         const type = normalizeNodeType(byId("graphEditorType").value || "action");
         const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
         if (type === "trigger") {
-          applyNodeExecutionPresetInputs(type, integration, "balanced", mode);
-          byId("graphEditorExecutionPreset").value = "balanced";
+          const preset = recommendedExecutionPreset(type, integration, mode);
+          applyNodeExecutionPresetInputs(type, integration, preset, mode);
+          byId("graphEditorExecutionPreset").value = preset;
         } else {
           refreshGraphExecutionPresetControl(type, integration, mode);
         }
@@ -4197,6 +4419,34 @@
           mode
         );
         updateGraphEditorIntegrationRequirements(integration);
+      });
+      byId("graphEditorConditionMode").addEventListener("change", () => {
+        const mode = String(byId("graphEditorConditionMode").value || "contains").trim().toLowerCase() || "contains";
+        updateConditionFieldVisibility(mode);
+        if (mode !== "raw") {
+          byId("graphEditorCondition").value = buildConditionExpressionFromControls();
+        }
+        refreshGraphNodeBehaviorHelper("condition", byId("graphEditorIntegration").value || "standard", byId("graphEditorTriggerMode").value || "manual");
+      });
+      byId("graphEditorConditionValue").addEventListener("input", () => {
+        if (String(byId("graphEditorConditionMode").value || "").trim().toLowerCase() !== "raw") {
+          byId("graphEditorCondition").value = buildConditionExpressionFromControls();
+        }
+      });
+      byId("graphEditorConditionMinLen").addEventListener("input", () => {
+        if (String(byId("graphEditorConditionMode").value || "").trim().toLowerCase() !== "raw") {
+          byId("graphEditorCondition").value = buildConditionExpressionFromControls();
+        }
+      });
+      byId("graphEditorCondition").addEventListener("input", () => {
+        if (String(byId("graphEditorConditionMode").value || "").trim().toLowerCase() !== "raw") {
+          return;
+        }
+        refreshGraphNodeBehaviorHelper(
+          "condition",
+          byId("graphEditorIntegration").value || "standard",
+          byId("graphEditorTriggerMode").value || "manual"
+        );
       });
       byId("graphEditorExecutionPreset").addEventListener("change", () => {
         const preset = String(byId("graphEditorExecutionPreset").value || "balanced").trim().toLowerCase();
@@ -4228,6 +4478,7 @@
         "graphEditorActionHeaders",
         "graphEditorActionMessage",
         "graphEditorActionLocation",
+        "graphEditorActionUnits",
         "graphEditorActionPath",
         "graphEditorActionCommand",
         "graphEditorActionBotChain",

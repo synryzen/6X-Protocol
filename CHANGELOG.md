@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Docker Web graph node editor now includes structured condition controls
+  (mode/value/min-length/raw), OpenWeather units configuration, and smarter
+  per-node recommended execution preset defaults by node type/integration.
+- Docker Web graph preflight now validates condition-mode inputs more clearly,
+  including invalid regex detection and missing condition values for value-based
+  modes.
+- Docker runtime condition execution now supports richer expressions
+  (`not_contains:`, `regex:`, `min_len:`) and structured fallback config
+  (`condition_mode`, `condition_value`, `condition_min_len`).
 - Canvas event routing now uses bubble-phase stage click/drag handlers to avoid
   stealing pointer ownership from node gestures, restoring reliable node move,
   click-to-inspector selection, and drag-to-link interactions.

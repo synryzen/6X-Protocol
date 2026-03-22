@@ -613,7 +613,6 @@ class RunController:
         cancel_event: threading.Event,
         attempt: int,
     ) -> tuple[str, str]:
-        node_id = str(node.get("id", "")).strip()
         node_name = str(node.get("name", "Node")).strip() or "Node"
         node_type = self._node_type(node)
         config = node.get("config", {}) if isinstance(node.get("config"), dict) else {}
@@ -691,9 +690,7 @@ class RunController:
             return "Trigger fired (manual).", output
 
         if node_type == "condition":
-            expression = str(
-                config.get("condition", config.get("expression", config.get("rule", "always_true")))
-            ).strip() or "always_true"
+            expression = self._resolve_condition_expression(config)
             result = self._evaluate_condition(expression, context)
             context["last_condition"] = result
             output = f"condition:{str(result).lower()}"
@@ -1547,6 +1544,34 @@ class RunController:
             value = str(config.get("path", metadata.get("path", directives.get("path", "")))).strip()
         return mode, value
 
+    def _resolve_condition_expression(self, config: dict[str, Any]) -> str:
+        expression = str(
+            config.get("condition", config.get("expression", config.get("rule", "")))
+        ).strip()
+        if expression:
+            return expression
+
+        mode = str(config.get("condition_mode", config.get("mode", ""))).strip().lower()
+        if not mode:
+            return "always_true"
+        if mode in {"true", "always_true", "pass"}:
+            return "always_true"
+        if mode in {"false", "always_false", "fail"}:
+            return "always_false"
+        if mode in {"contains", "equals", "not_contains", "regex"}:
+            value = str(config.get("condition_value", config.get("value", ""))).strip()
+            return f"{mode}:{value}"
+        if mode == "min_len":
+            value = max(
+                0,
+                self._safe_int(
+                    config.get("condition_min_len", config.get("min_len", 0)),
+                    0,
+                ),
+            )
+            return f"min_len:{value}"
+        return "always_true"
+
     def _looks_like_cron(self, value: str) -> bool:
         expression = str(value or "").strip()
         if not expression:
@@ -2106,9 +2131,25 @@ class RunController:
         if normalized.startswith("contains:"):
             needle = normalized.split(":", 1)[1].strip()
             return needle in last_output.lower()
+        if normalized.startswith("not_contains:"):
+            needle = normalized.split(":", 1)[1].strip()
+            if not needle:
+                return True
+            return needle not in last_output.lower()
         if normalized.startswith("equals:"):
             target = normalized.split(":", 1)[1].strip()
             return last_output.strip().lower() == target
+        if normalized.startswith("regex:"):
+            pattern = expression.split(":", 1)[1].strip()
+            if not pattern:
+                return False
+            try:
+                return bool(re.search(pattern, last_output, re.IGNORECASE))
+            except re.error:
+                return False
+        if normalized.startswith("min_len:"):
+            threshold = max(0, self._safe_int(normalized.split(":", 1)[1], 0))
+            return len(last_output.strip()) >= threshold
 
         # Fallback: non-empty expression means pass for scaffold mode.
         return True
