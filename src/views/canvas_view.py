@@ -10748,7 +10748,17 @@ class CanvasView(Gtk.Box):
         anchor_x, anchor_y = self.node_output_handle_local_anchor(node_id)
         dx = float(local_x) - anchor_x
         dy = float(local_y) - anchor_y
-        radius = max(14.0, min(28.0, anchor_x * 0.18))
+        # Keep port-hit detection tight so general node dragging stays reliable.
+        # Users should only enter link-drag mode when they are intentionally near
+        # the visible output connector dot.
+        radius = 14.0
+        if (
+            node_id
+            and str(self.hovered_port_node_id or "").strip() == str(node_id).strip()
+            and self.hovered_port_kind == "out"
+        ):
+            # Slightly larger forgiveness when the output handle is explicitly hovered.
+            radius = 18.0
         return (dx * dx) + (dy * dy) <= (radius * radius)
 
     def find_node(self, node_id: str) -> CanvasNode | None:

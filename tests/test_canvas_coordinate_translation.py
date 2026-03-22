@@ -187,6 +187,20 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.view.on_stage_select_drag_begin(gesture, 0.0, 0.0)
         self.assertEqual([(312, 188)], observed_points)
 
+    def test_output_handle_grab_radius_is_tight_without_hover(self):
+        self.view.node_output_handle_local_anchor = lambda _node_id=None: (100.0, 50.0)
+        self.view.hovered_port_node_id = None
+        self.view.hovered_port_kind = None
+        # 17px away from anchor should not trigger link-drag mode by default.
+        self.assertFalse(self.view.is_output_handle_grab(117.0, 50.0, "n1"))
+
+    def test_output_handle_grab_radius_expands_when_hovered(self):
+        self.view.node_output_handle_local_anchor = lambda _node_id=None: (100.0, 50.0)
+        self.view.hovered_port_node_id = "n1"
+        self.view.hovered_port_kind = "out"
+        # Same point becomes valid when the connector is explicitly hovered.
+        self.assertTrue(self.view.is_output_handle_grab(117.0, 50.0, "n1"))
+
 
 if __name__ == "__main__":
     unittest.main()
