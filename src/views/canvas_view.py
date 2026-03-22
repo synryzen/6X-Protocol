@@ -214,6 +214,7 @@ class CanvasView(Gtk.Box):
         self.loading_node_execution_preset = False
         self.node_drag_active = False
         self.node_drag_moved = False
+        self.node_drag_last_activity_monotonic = 0.0
         self.node_drag_driver: str | None = None
         self.stage_drag_node_id: str | None = None
         self.stage_drag_origin: dict[str, float] = {}
@@ -1955,6 +1956,7 @@ class CanvasView(Gtk.Box):
         self.drag_group_origins = {}
         self.node_drag_active = False
         self.node_drag_moved = False
+        self.node_drag_last_activity_monotonic = 0.0
         self.node_drag_driver = None
         self.drag_history_captured = False
         self.drag_guide_x = None
@@ -1977,10 +1979,21 @@ class CanvasView(Gtk.Box):
     def mark_port_drag_activity(self):
         self.port_drag_last_activity_monotonic = float(time.monotonic())
 
+    def mark_node_drag_activity(self):
+        self.node_drag_last_activity_monotonic = float(time.monotonic())
+
     def is_port_drag_stale(self, max_age_sec: float = 1.4) -> bool:
         if not self.port_drag_active:
             return False
         last = float(self.port_drag_last_activity_monotonic or 0.0)
+        if last <= 0.0:
+            return True
+        return (time.monotonic() - last) > float(max(0.2, max_age_sec))
+
+    def is_node_drag_stale(self, max_age_sec: float = 1.2) -> bool:
+        if not self.node_drag_active:
+            return False
+        last = float(self.node_drag_last_activity_monotonic or 0.0)
         if last <= 0.0:
             return True
         return (time.monotonic() - last) > float(max(0.2, max_age_sec))
@@ -8836,6 +8849,8 @@ class CanvasView(Gtk.Box):
 
     def on_output_port_released(self, _gesture, _n_press, _x, _y, node_id: str):
         _gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        if self.is_node_drag_stale():
+            self.reset_node_drag_state()
         if self.node_drag_active or self.port_drag_active or self.port_drag_just_finished:
             return
         selected = self.find_node(node_id)
@@ -8869,7 +8884,7 @@ class CanvasView(Gtk.Box):
         self.grab_focus()
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
-        if self.node_drag_active and not self.drag_origin:
+        if self.node_drag_active and (not self.drag_origin or self.is_node_drag_stale()):
             self.reset_node_drag_state()
 
         node = self.find_node(node_id)
@@ -8886,6 +8901,8 @@ class CanvasView(Gtk.Box):
             return
 
         if self.selected_node_id == node_id and node_id in self.selected_node_ids:
+            self.update_inspector(node)
+            self.update_control_state()
             return
 
         previous_selected = self.selected_node_id
@@ -8907,8 +8924,10 @@ class CanvasView(Gtk.Box):
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active:
+            if self.is_node_drag_stale():
+                self.reset_node_drag_state()
             # Let drag-end own state cleanup. Resetting here can interrupt active drags.
-            if self.drag_origin.get("node_id") == node_id:
+            elif self.drag_origin.get("node_id") == node_id:
                 return
             if not self.drag_origin:
                 self.reset_node_drag_state()
@@ -8984,6 +9003,8 @@ class CanvasView(Gtk.Box):
 
     def on_canvas_stage_clicked(self, gesture, _n_press, x: float, y: float):
         self.grab_focus()
+        if self.is_node_drag_stale():
+            self.reset_node_drag_state()
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.port_drag_active:
@@ -9067,6 +9088,9 @@ class CanvasView(Gtk.Box):
             return
 
         if not self.node_drag_active:
+            return
+        if self.is_node_drag_stale():
+            self.reset_node_drag_state()
             return
         if self.node_drag_driver and self.node_drag_driver != "stage":
             return
@@ -9367,6 +9391,7 @@ class CanvasView(Gtk.Box):
         else:
             self.set_selection(set(self.selected_node_ids), primary_id=node_id)
         self.node_drag_active = True
+        self.mark_node_drag_activity()
         self.node_drag_driver = str(drag_driver or "node").strip().lower() or "node"
         self.node_drag_moved = False
         self.drag_origin = {
@@ -9411,6 +9436,7 @@ class CanvasView(Gtk.Box):
             return
         if node_id not in self.drag_group_origins:
             return
+        self.mark_node_drag_activity()
 
         start_x, start_y = self.drag_group_origins[node_id]
         start_pointer_x = float(self.drag_origin.get("pointer_stage_x", self.to_screen(start_x)))
@@ -9569,6 +9595,7 @@ class CanvasView(Gtk.Box):
             self.drag_group_origins = {}
             self.node_drag_active = False
             self.node_drag_moved = False
+            self.node_drag_last_activity_monotonic = 0.0
             self.drag_history_captured = False
             self.node_drag_driver = None
             self.drag_guide_x = None
@@ -9581,6 +9608,7 @@ class CanvasView(Gtk.Box):
         self.drag_group_origins = {}
         self.node_drag_active = False
         self.node_drag_moved = False
+        self.node_drag_last_activity_monotonic = 0.0
         self.drag_history_captured = False
         self.node_drag_driver = None
         self.drag_guide_x = None
