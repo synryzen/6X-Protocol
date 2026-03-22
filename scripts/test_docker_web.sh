@@ -275,7 +275,29 @@ fi
 
 curl -fsS -X DELETE "http://127.0.0.1:8787/api/v1/integrations/$PROFILE_ID" | jq .
 
-echo "[11/11] Patching settings and run status..."
+echo "[11/12] Validating bot profile endpoints..."
+BOT_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/bots \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Docker Smoke Bot","role":"Validate bot API in smoke test","provider":"local","model":"nvidia/nemotron-3-nano","temperature":0.2,"max_tokens":700}')"
+echo "$BOT_JSON" | jq .
+BOT_ID="$(echo "$BOT_JSON" | jq -r '.id')"
+
+BOT_TEST_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/bots/test \
+  -H 'Content-Type: application/json' \
+  -d "{\"bot_id\":\"$BOT_ID\",\"prompt\":\"Confirm bot test works\"}")"
+echo "$BOT_TEST_JSON" | jq .
+if [[ "$(echo "$BOT_TEST_JSON" | jq -r '.ok')" != "true" ]]; then
+  echo "Expected bot profile test to pass."
+  exit 1
+fi
+
+curl -fsS -X PATCH "http://127.0.0.1:8787/api/v1/bots/$BOT_ID" \
+  -H 'Content-Type: application/json' \
+  -d '{"provider":"openai"}' | jq .
+
+curl -fsS -X DELETE "http://127.0.0.1:8787/api/v1/bots/$BOT_ID" | jq .
+
+echo "[12/12] Patching settings and run status..."
 curl -fsS -X PATCH http://127.0.0.1:8787/api/v1/settings \
   -H 'Content-Type: application/json' \
   -d '{"theme":"dark","ui_density":"compact","preferred_provider":"local"}' | jq .

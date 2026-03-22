@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Canvas drag ownership now prefers per-node gestures; stage box-select no
+  longer claims normal node drags, and stage-motion fallback updates run only
+  for stage-owned drags. This removes competing drag updates that caused
+  flicker/shake and unreliable inspector switching during node interaction.
+- Docker API now includes bots CRUD + test endpoints (`/api/v1/bots*`) with
+  persisted bot profiles and test-result history.
+- Docker Web Access now includes a Bot Profiles + Test panel and a live Bots
+  metric, with save/test/refresh flows wired to the new API endpoints.
 - Docker web node editor now surfaces live integration guidance: required-field
   completion status updates while typing and integration-specific placeholders
   are applied for webhook/API, Twilio, email, SQL, Redis, weather, and handoff

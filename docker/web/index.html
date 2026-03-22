@@ -433,6 +433,7 @@
     <section class="card metrics">
       <div class="metric"><div class="k">Workflows</div><div class="v" id="metricWorkflows">0</div></div>
       <div class="metric"><div class="k">Runs</div><div class="v" id="metricRuns">0</div></div>
+      <div class="metric"><div class="k">Bots</div><div class="v" id="metricBots">0</div></div>
       <div class="metric"><div class="k">Active Runs</div><div class="v" id="metricActiveRuns">0</div></div>
       <div class="metric"><div class="k">Failed Runs</div><div class="v" id="metricFailedRuns">0</div></div>
     </section>
@@ -1002,6 +1003,59 @@
           </div>
           <div class="list" id="integrationProfileList"></div>
         </div>
+        <div class="settings">
+          <h2 class="mini-title">Bot Profiles + Test</h2>
+          <div class="grid2">
+            <div class="row">
+              <label class="label" for="botProfileName">Bot Name</label>
+              <input id="botProfileName" class="input" type="text" placeholder="Support Assistant" />
+            </div>
+            <div class="row">
+              <label class="label" for="botProfileRole">Bot Role</label>
+              <input id="botProfileRole" class="input" type="text" placeholder="Handle support tickets and summarize outcomes" />
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="row">
+              <label class="label" for="botProfileProvider">Provider</label>
+              <select class="select" id="botProfileProvider">
+                <option value="local">local</option>
+                <option value="openai">openai</option>
+                <option value="anthropic">anthropic</option>
+              </select>
+            </div>
+            <div class="row">
+              <label class="label" for="botProfileModel">Model</label>
+              <input id="botProfileModel" class="input" type="text" placeholder="nvidia/nemotron-3-nano" />
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="row">
+              <label class="label" for="botProfileTemperature">Temperature</label>
+              <input id="botProfileTemperature" class="input" type="number" min="0" max="2" step="0.01" placeholder="0.20" />
+            </div>
+            <div class="row">
+              <label class="label" for="botProfileMaxTokens">Max Tokens</label>
+              <input id="botProfileMaxTokens" class="input" type="number" min="1" max="128000" step="1" placeholder="700" />
+            </div>
+          </div>
+          <div class="row">
+            <label class="label" for="botProfileSystemPrompt">System Prompt</label>
+            <input id="botProfileSystemPrompt" class="input" type="text" placeholder="You are a concise, reliable operations assistant." />
+          </div>
+          <div class="row">
+            <label class="label" for="botTestPrompt">Test Prompt</label>
+            <input id="botTestPrompt" class="input" type="text" placeholder="Give me a short confirmation that this bot profile is configured." />
+          </div>
+          <div class="actions" style="justify-content:flex-start;">
+            <button id="newBotProfile" class="btn">New</button>
+            <button id="saveBotProfile" class="btn primary">Save Bot</button>
+            <button id="testBotProfile" class="btn good">Run Bot Test</button>
+            <button id="refreshBotProfiles" class="btn">Refresh Bots</button>
+          </div>
+          <div class="list" id="botProfileList"></div>
+          <div class="logs" id="botTestOutput" style="max-height:170px;"></div>
+        </div>
         <div class="logs" id="logs"></div>
       </article>
     </section>
@@ -1281,6 +1335,8 @@
       integrationCatalog: [],
       integrationProfiles: [],
       selectedIntegrationProfileId: "",
+      bots: [],
+      selectedBotProfileId: "",
     };
 
     function byId(id) {
@@ -3362,6 +3418,154 @@
       }
     }
 
+    function clearBotProfileForm() {
+      state.selectedBotProfileId = "";
+      byId("botProfileName").value = "";
+      byId("botProfileRole").value = "";
+      byId("botProfileProvider").value = "local";
+      byId("botProfileModel").value = "";
+      byId("botProfileTemperature").value = "";
+      byId("botProfileMaxTokens").value = "";
+      byId("botProfileSystemPrompt").value = "";
+      byId("botTestPrompt").value = "";
+      byId("botTestOutput").textContent = "";
+    }
+
+    function applyBotProfile(profile) {
+      if (!profile || typeof profile !== "object") return;
+      state.selectedBotProfileId = String(profile.id || "").trim();
+      byId("botProfileName").value = String(profile.name || "");
+      byId("botProfileRole").value = String(profile.role || "");
+      byId("botProfileProvider").value = String(profile.provider || "local");
+      byId("botProfileModel").value = String(profile.model || "");
+      byId("botProfileTemperature").value =
+        profile.temperature === null || profile.temperature === undefined
+          ? ""
+          : String(profile.temperature);
+      byId("botProfileMaxTokens").value =
+        profile.max_tokens === null || profile.max_tokens === undefined
+          ? ""
+          : String(profile.max_tokens);
+      byId("botProfileSystemPrompt").value = String(profile.system_prompt || "");
+      const output = String(profile.last_test_output || "").trim();
+      byId("botTestOutput").textContent = output || "No bot test output yet.";
+    }
+
+    function currentBotPayloadFromForm() {
+      const temperatureRaw = String(byId("botProfileTemperature").value || "").trim();
+      const maxTokensRaw = String(byId("botProfileMaxTokens").value || "").trim();
+      return {
+        name: String(byId("botProfileName").value || "").trim(),
+        role: String(byId("botProfileRole").value || "").trim(),
+        provider: String(byId("botProfileProvider").value || "local").trim().toLowerCase(),
+        model: String(byId("botProfileModel").value || "").trim(),
+        temperature: temperatureRaw ? Number(temperatureRaw) : null,
+        max_tokens: maxTokensRaw ? Number(maxTokensRaw) : null,
+        system_prompt: String(byId("botProfileSystemPrompt").value || "").trim(),
+        enabled: true,
+      };
+    }
+
+    function renderBots() {
+      const list = byId("botProfileList");
+      if (!state.bots.length) {
+        list.innerHTML = `<div class="item">No bot profiles yet.</div>`;
+        return;
+      }
+      list.innerHTML = state.bots
+        .slice(0, 50)
+        .map((bot) => {
+          const id = escapeHtml(bot.id || "");
+          const name = escapeHtml(bot.name || "Untitled bot");
+          const provider = escapeHtml(bot.provider || "local");
+          const model = escapeHtml(bot.model || "default");
+          const status = escapeHtml(bot.last_test_status || "untested");
+          const active = String(bot.id || "") === state.selectedBotProfileId ? "active" : "";
+          return (
+            `<div class="item ${active}" data-bot-id="${id}">`
+            + `<strong>${name}</strong>`
+            + `<span class="small">${provider} • ${model} • ${status}</span>`
+            + `<span class="small">${escapeHtml(String(bot.role || ""))}</span>`
+            + `</div>`
+          );
+        })
+        .join("");
+    }
+
+    async function refreshBots() {
+      try {
+        const response = await api("/api/v1/bots", { method: "GET" });
+        state.bots = Array.isArray(response.items) ? response.items : [];
+        if (
+          state.selectedBotProfileId
+          && !state.bots.some((item) => String(item.id || "") === state.selectedBotProfileId)
+        ) {
+          state.selectedBotProfileId = "";
+        }
+        renderBots();
+      } catch (error) {
+        log(`Bot profile refresh failed: ${error.message}`, "error");
+      }
+    }
+
+    async function saveBotProfile() {
+      const payload = currentBotPayloadFromForm();
+      if (!payload.name) {
+        log("Bot name is required.", "warn");
+        return;
+      }
+      if (!payload.model) {
+        log("Bot model is required.", "warn");
+        return;
+      }
+      try {
+        if (state.selectedBotProfileId) {
+          await api(`/api/v1/bots/${state.selectedBotProfileId}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          });
+          log(`Bot profile updated: ${payload.name}`, "info");
+        } else {
+          const created = await api("/api/v1/bots", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          state.selectedBotProfileId = String(created.id || "");
+          log(`Bot profile created: ${payload.name}`, "info");
+        }
+        await refreshBots();
+      } catch (error) {
+        log(`Save bot profile failed: ${error.message}`, "error");
+      }
+    }
+
+    async function testBotProfile() {
+      const payload = currentBotPayloadFromForm();
+      const request = {
+        bot_id: String(state.selectedBotProfileId || "").trim(),
+        prompt: String(byId("botTestPrompt").value || "").trim() || "Respond with a concise confirmation.",
+        provider: payload.provider,
+        model: payload.model,
+        role: payload.role,
+        system_prompt: payload.system_prompt,
+        temperature: payload.temperature,
+        max_tokens: payload.max_tokens,
+      };
+      try {
+        const result = await api("/api/v1/bots/test", {
+          method: "POST",
+          body: JSON.stringify(request),
+        });
+        const output = String(result.output || "").trim();
+        byId("botTestOutput").textContent = output || "Bot test completed with no output.";
+        log(result.message || "Bot test completed.", result.ok ? "info" : "error");
+        await refreshBots();
+      } catch (error) {
+        byId("botTestOutput").textContent = `Bot test failed: ${error.message}`;
+        log(`Bot test request failed: ${error.message}`, "error");
+      }
+    }
+
     async function refreshHealth() {
       const healthEl = byId("apiHealth");
       try {
@@ -3377,8 +3581,12 @@
       try {
         const overview = await api("/api/v1/overview", { method: "GET" });
         byId("metricWorkflows").textContent = String(overview.workflow_count || 0);
+        byId("metricRuns").textContent = String(overview.run_count || 0);
+        byId("metricBots").textContent = String(overview.bot_count || 0);
       } catch (error) {
         byId("metricWorkflows").textContent = "0";
+        byId("metricRuns").textContent = "0";
+        byId("metricBots").textContent = "0";
         log(`Overview refresh failed: ${error.message}`, "error");
       }
     }
@@ -3432,6 +3640,7 @@
       await refreshRuns();
       await refreshIntegrationCatalog();
       await refreshIntegrationProfiles();
+      await refreshBots();
     }
 
     async function createSampleWorkflow() {
@@ -3987,7 +4196,6 @@
           byId("graphEditorIntegration").value || "standard",
           mode
         );
-        const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
         updateGraphEditorIntegrationRequirements(integration);
       });
       byId("graphEditorExecutionPreset").addEventListener("change", () => {
@@ -4064,10 +4272,32 @@
         renderIntegrationProfiles();
         log(`Selected integration profile: ${profile.name}`, "info");
       });
+      byId("newBotProfile").addEventListener("click", () => {
+        clearBotProfileForm();
+        renderBots();
+      });
+      byId("saveBotProfile").addEventListener("click", saveBotProfile);
+      byId("testBotProfile").addEventListener("click", testBotProfile);
+      byId("refreshBotProfiles").addEventListener("click", refreshBots);
+      byId("botProfileList").addEventListener("click", (event) => {
+        const target = event.target && typeof event.target.closest === "function"
+          ? event.target.closest("[data-bot-id]")
+          : null;
+        if (!target) return;
+        const botId = String(target.getAttribute("data-bot-id") || "").trim();
+        if (!botId) return;
+        const profile = state.bots.find((item) => String(item.id || "") === botId);
+        if (!profile) return;
+        applyBotProfile(profile);
+        renderBots();
+        log(`Selected bot profile: ${profile.name}`, "info");
+      });
     }
 
     function init() {
       byId("apiBase").value = state.apiBase;
+      byId("botTestPrompt").value = "Give me a short confirmation that this bot profile is configured.";
+      byId("botTestOutput").textContent = "No bot test output yet.";
       renderWorkflowSelect();
       clearWorkflowEditor();
       renderRunFilters();

@@ -11,6 +11,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.run_controller import ACTIVE_STATUSES, RunController
 from app.schemas import (
+    ALLOWED_PROVIDER,
+    BotProfileIn,
+    BotProfileOut,
+    BotProfilePatch,
+    BotTestRequest,
+    BotTestResult,
     DEFAULT_SETTINGS,
     IntegrationProfileIn,
     IntegrationProfileOut,
@@ -25,6 +31,7 @@ from app.schemas import (
     StartRunRequest,
     WorkflowIn,
     WorkflowOut,
+    make_bot_profile,
     make_integration_profile,
     make_run,
     make_workflow,
@@ -125,8 +132,62 @@ def _find_integration_profile(profile_id: str) -> tuple[list[dict[str, Any]], di
     return profiles, _find_by_id(profiles, profile_id)
 
 
+def _find_bot_profile(bot_id: str) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    bots = store.load_bots()
+    return bots, _find_by_id(bots, bot_id)
+
+
 def _sanitize_profile_config(payload: Any) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
+
+
+def _normalize_bot_temperature(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return max(0.0, min(2.0, float(value)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_bot_max_tokens(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_bot_provider(value: Any) -> str:
+    provider = str(value or "local").strip().lower() or "local"
+    return provider if provider in ALLOWED_PROVIDER else "local"
+
+
+def _simulate_bot_response(
+    *,
+    role: str,
+    provider: str,
+    model: str,
+    prompt: str,
+    system_prompt: str,
+    temperature: float | None,
+    max_tokens: int | None,
+) -> tuple[str, str]:
+    role_text = role.strip() or "automation assistant"
+    prompt_text = prompt.strip() or "Respond with a concise confirmation."
+    system_text = system_prompt.strip()
+    model_text = model.strip() or "default"
+    temp_text = f"{temperature:.2f}" if temperature is not None else "inherit"
+    token_text = str(max_tokens) if max_tokens is not None else "inherit"
+    header = f"[{provider}:{model_text}] role={role_text} temp={temp_text} max_tokens={token_text}"
+    if system_text:
+        summary = f"{header}\nSystem: {system_text[:220]}"
+    else:
+        summary = header
+    output = f"{summary}\nPrompt: {prompt_text[:420]}\nResult: Bot test simulation completed successfully."
+    message = f"Bot test completed using provider '{provider}' and model '{model_text}'."
+    return message, output
 
 
 def _run_timeline_events(run: dict[str, Any]) -> list[dict[str, Any]]:
@@ -210,9 +271,13 @@ def meta() -> dict[str, str]:
 def overview() -> dict[str, int]:
     workflows = store.load_workflows()
     runs = store.load_runs()
+    integrations = store.load_integrations()
+    bots = store.load_bots()
     return {
         "workflow_count": len(workflows),
         "run_count": len(runs),
+        "integration_count": len(integrations),
+        "bot_count": len(bots),
     }
 
 
@@ -554,6 +619,190 @@ def delete_run(run_id: str) -> dict[str, bool]:
         raise HTTPException(status_code=404, detail="Run not found")
     store.save_runs(filtered)
     return {"deleted": True}
+
+
+@app.get(
+    "/api/v1/bots",
+    response_model=dict[str, list[BotProfileOut]],
+    tags=["bots"],
+)
+def list_bots(
+    q: str | None = Query(default=None, description="Filter by name/role/provider/model"),
+    provider: str | None = Query(default=None),
+    enabled: bool | None = Query(default=None),
+) -> dict[str, list[dict[str, Any]]]:
+    bots = store.load_bots()
+    if q:
+        needle = q.strip().lower()
+        if needle:
+            bots = [
+                item
+                for item in bots
+                if needle
+                in (
+                    " ".join(
+                        [
+                            str(item.get("name", "")),
+                            str(item.get("role", "")),
+                            str(item.get("provider", "")),
+                            str(item.get("model", "")),
+                            str(item.get("system_prompt", "")),
+                        ]
+                    ).lower()
+                )
+            ]
+    if provider:
+        normalized_provider = _normalize_bot_provider(provider)
+        bots = [item for item in bots if _normalize_bot_provider(item.get("provider")) == normalized_provider]
+    if enabled is not None:
+        bots = [item for item in bots if bool(item.get("enabled", True)) == bool(enabled)]
+    bots.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
+    return {"items": bots}
+
+
+@app.post(
+    "/api/v1/bots",
+    response_model=BotProfileOut,
+    status_code=201,
+    tags=["bots"],
+)
+def create_bot(payload: BotProfileIn) -> dict[str, Any]:
+    bots = store.load_bots()
+    item = make_bot_profile(payload)
+    bots.insert(0, item)
+    store.save_bots(bots)
+    return item
+
+
+@app.get(
+    "/api/v1/bots/{bot_id}",
+    response_model=BotProfileOut,
+    tags=["bots"],
+)
+def get_bot(bot_id: str) -> dict[str, Any]:
+    bots = store.load_bots()
+    item = _find_by_id(bots, bot_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    return item
+
+
+@app.patch(
+    "/api/v1/bots/{bot_id}",
+    response_model=BotProfileOut,
+    tags=["bots"],
+)
+def patch_bot(bot_id: str, payload: BotProfilePatch) -> dict[str, Any]:
+    bots = store.load_bots()
+    for index, item in enumerate(bots):
+        if str(item.get("id", "")) != bot_id:
+            continue
+        updates = payload.model_dump(exclude_none=True)
+        if "name" in updates:
+            updates["name"] = str(updates["name"]).strip()
+        if "role" in updates:
+            updates["role"] = str(updates["role"]).strip()
+        if "provider" in updates:
+            updates["provider"] = _normalize_bot_provider(updates["provider"])
+        if "model" in updates:
+            updates["model"] = str(updates["model"]).strip()
+        if "system_prompt" in updates:
+            updates["system_prompt"] = str(updates["system_prompt"]).strip()
+        if "temperature" in updates:
+            updates["temperature"] = _normalize_bot_temperature(updates.get("temperature"))
+        if "max_tokens" in updates:
+            updates["max_tokens"] = _normalize_bot_max_tokens(updates.get("max_tokens"))
+        if "enabled" in updates:
+            updates["enabled"] = bool(updates["enabled"])
+        if "tags" in updates and not isinstance(updates.get("tags"), list):
+            updates["tags"] = []
+        item.update(updates)
+        item["updated_at"] = utc_now_iso()
+        bots[index] = item
+        store.save_bots(bots)
+        return item
+    raise HTTPException(status_code=404, detail="Bot not found")
+
+
+@app.delete("/api/v1/bots/{bot_id}", tags=["bots"])
+def delete_bot(bot_id: str) -> dict[str, bool]:
+    bots = store.load_bots()
+    filtered = [item for item in bots if str(item.get("id", "")) != bot_id]
+    if len(filtered) == len(bots):
+        raise HTTPException(status_code=404, detail="Bot not found")
+    store.save_bots(filtered)
+    return {"deleted": True}
+
+
+@app.post(
+    "/api/v1/bots/test",
+    response_model=BotTestResult,
+    tags=["bots"],
+)
+def test_bot(payload: BotTestRequest) -> dict[str, Any]:
+    bot_id = str(payload.bot_id or "").strip()
+    prompt = str(payload.prompt or "").strip() or "Respond with a concise confirmation."
+    role = str(payload.role or "").strip()
+    provider = _normalize_bot_provider(payload.provider)
+    model = str(payload.model or "").strip()
+    system_prompt = str(payload.system_prompt or "").strip()
+    temperature = _normalize_bot_temperature(payload.temperature)
+    max_tokens = _normalize_bot_max_tokens(payload.max_tokens)
+
+    bots: list[dict[str, Any]] = []
+    bot: dict[str, Any] | None = None
+    if bot_id:
+        bots, bot = _find_bot_profile(bot_id)
+        if not bot:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        role = role or str(bot.get("role", "")).strip()
+        provider = _normalize_bot_provider(provider or bot.get("provider"))
+        model = model or str(bot.get("model", "")).strip()
+        system_prompt = system_prompt or str(bot.get("system_prompt", "")).strip()
+        if temperature is None:
+            temperature = _normalize_bot_temperature(bot.get("temperature"))
+        if max_tokens is None:
+            max_tokens = _normalize_bot_max_tokens(bot.get("max_tokens"))
+
+    if not model:
+        settings = normalize_settings(store.load_settings(DEFAULT_SETTINGS))
+        model = str(settings.get("default_local_model", "")).strip() or "default"
+    if not role:
+        role = "automation assistant"
+
+    tested_at = utc_now_iso()
+    message, output = _simulate_bot_response(
+        role=role,
+        provider=provider,
+        model=model,
+        prompt=prompt,
+        system_prompt=system_prompt,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
+    if bot and bots:
+        for index, item in enumerate(bots):
+            if str(item.get("id", "")) != str(bot.get("id", "")):
+                continue
+            item["last_test_status"] = "success"
+            item["last_test_message"] = message
+            item["last_test_output"] = output
+            item["last_tested_at"] = tested_at
+            item["updated_at"] = tested_at
+            bots[index] = item
+            store.save_bots(bots)
+            break
+
+    return {
+        "ok": True,
+        "bot_id": bot_id,
+        "provider": provider,
+        "model": model,
+        "message": message,
+        "output": output,
+        "tested_at": tested_at,
+    }
 
 
 @app.get("/api/v1/integrations/catalog", tags=["integrations"])

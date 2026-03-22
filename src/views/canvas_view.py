@@ -2047,27 +2047,11 @@ class CanvasView(Gtk.Box):
             return
         hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
         if hit_node and not bool(state & selection_modifiers):
-            node_x, node_y, _node_w, _node_h = self.node_screen_geometry(hit_node)
-            local_x = float(pointer_x - node_x)
-            local_y = float(pointer_y - node_y)
-            if self.is_output_handle_grab(local_x, local_y, hit_node.id):
-                self.begin_output_link_drag(
-                    hit_node.id,
-                    pointer_x=pointer_x,
-                    pointer_y=pointer_y,
-                )
-                self.suppress_stage_click_once = True
-                gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-                return
-            self.stage_drag_node_id = hit_node.id
-            self.start_node_drag(
-                hit_node.id,
-                pointer_stage_x=pointer_x,
-                pointer_stage_y=pointer_y,
-                drag_driver="stage",
-            )
-            self.suppress_stage_click_once = True
-            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            # Node widgets own click/drag/link interactions. If stage drag claims these
+            # sequences too, GTK can dispatch competing updates that cause jitter and
+            # can leave nodes effectively "stuck". Deny here so per-node controllers
+            # are the single source of truth for node dragging and selection.
+            gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
         if not bool(state & selection_modifiers):
             # Node drags are handled by per-node drag gestures.
@@ -8992,6 +8976,8 @@ class CanvasView(Gtk.Box):
             return
 
         if not self.node_drag_active:
+            return
+        if self.node_drag_driver and self.node_drag_driver != "stage":
             return
         if not self.drag_origin:
             self.reset_node_drag_state()

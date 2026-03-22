@@ -135,6 +135,61 @@ class IntegrationTestResult(BaseModel):
     tested_at: str
 
 
+class BotProfileIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    role: str = ""
+    provider: str = "local"
+    model: str = ""
+    temperature: float | None = None
+    max_tokens: int | None = None
+    system_prompt: str = ""
+    enabled: bool = True
+    tags: list[str] = Field(default_factory=list)
+
+
+class BotProfilePatch(BaseModel):
+    name: str | None = None
+    role: str | None = None
+    provider: str | None = None
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    system_prompt: str | None = None
+    enabled: bool | None = None
+    tags: list[str] | None = None
+
+
+class BotProfileOut(BotProfileIn):
+    id: str
+    last_test_status: str = ""
+    last_test_message: str = ""
+    last_test_output: str = ""
+    last_tested_at: str = ""
+    created_at: str
+    updated_at: str
+
+
+class BotTestRequest(BaseModel):
+    bot_id: str = ""
+    prompt: str = "Respond with a concise confirmation."
+    provider: str = ""
+    model: str = ""
+    role: str = ""
+    system_prompt: str = ""
+    temperature: float | None = None
+    max_tokens: int | None = None
+
+
+class BotTestResult(BaseModel):
+    ok: bool
+    bot_id: str = ""
+    provider: str = ""
+    model: str = ""
+    message: str
+    output: str = ""
+    tested_at: str
+
+
 DEFAULT_SETTINGS: dict[str, Any] = {
     "preferred_provider": "local",
     "local_ai_enabled": True,
@@ -217,6 +272,37 @@ def make_integration_profile(payload: IntegrationProfileIn) -> dict[str, Any]:
         "tags": payload.tags if isinstance(payload.tags, list) else [],
         "last_test_status": "",
         "last_test_message": "",
+        "last_tested_at": "",
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+def make_bot_profile(payload: BotProfileIn) -> dict[str, Any]:
+    now = utc_now_iso()
+    provider = str(payload.provider or "local").strip().lower() or "local"
+    if provider not in ALLOWED_PROVIDER:
+        provider = "local"
+    temperature = payload.temperature if payload.temperature is not None else None
+    if temperature is not None:
+        temperature = max(0.0, min(2.0, float(temperature)))
+    max_tokens = payload.max_tokens if payload.max_tokens is not None else None
+    if max_tokens is not None:
+        max_tokens = max(1, int(max_tokens))
+    return {
+        "id": str(uuid4()),
+        "name": payload.name.strip(),
+        "role": payload.role.strip(),
+        "provider": provider,
+        "model": payload.model.strip(),
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "system_prompt": payload.system_prompt.strip(),
+        "enabled": bool(payload.enabled),
+        "tags": payload.tags if isinstance(payload.tags, list) else [],
+        "last_test_status": "",
+        "last_test_message": "",
+        "last_test_output": "",
         "last_tested_at": "",
         "created_at": now,
         "updated_at": now,
