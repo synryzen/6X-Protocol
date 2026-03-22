@@ -2052,6 +2052,20 @@ class CanvasView(Gtk.Box):
         # coordinate tuple variations.
         pointer_x = float(start_x)
         pointer_y = float(start_y)
+        stage_point = self.gesture_stage_point(gesture)
+        if stage_point:
+            stage_x, stage_y = float(stage_point[0]), float(stage_point[1])
+            # Some GTK stacks occasionally deliver 0,0 for drag-begin even when
+            # the pointer is on a node. Favor observed stage point in that case.
+            if (
+                (abs(pointer_x) < 0.001 and abs(pointer_y) < 0.001)
+                or pointer_x < 0.0
+                or pointer_y < 0.0
+                or pointer_x > float(self.STAGE_WIDTH)
+                or pointer_y > float(self.STAGE_HEIGHT)
+            ):
+                pointer_x = stage_x
+                pointer_y = stage_y
         state = gesture.get_current_event_state()
         selection_modifiers = Gdk.ModifierType.SHIFT_MASK
 

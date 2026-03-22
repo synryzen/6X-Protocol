@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 import time
 
-from src.views.canvas_view import CanvasView
+from src.views.canvas_view import CanvasView, Gdk
 
 
 class _FakeWidget:
@@ -24,6 +24,19 @@ class _FakeGesture:
 
     def get_widget(self):
         return self._widget
+
+
+class _FakeDragGesture(_FakeGesture):
+    def __init__(self, widget, state=0):
+        super().__init__(widget)
+        self._state = state
+        self.claimed = False
+
+    def get_current_event_state(self):
+        return self._state
+
+    def set_state(self, _state):
+        self.claimed = True
 
 
 class _BrokenSizeWidget:
@@ -141,6 +154,25 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
             (40.0, 60.0, 320.0, 160.0),
             self.view.node_screen_geometry(node),
         )
+
+    def test_stage_drag_begin_prefers_observed_stage_point_when_offsets_zero(self):
+        self.view.STAGE_WIDTH = 4000
+        self.view.STAGE_HEIGHT = 2400
+        self.view.port_drag_active = False
+        self.view.link_preview_source_id = None
+        self.view.node_drag_active = False
+        self.view.selected_node_ids = set()
+        self.view.is_port_drag_stale = lambda: False
+        self.view.reset_port_drag_state = lambda: None
+        self.view.reset_node_drag_state = lambda: None
+        self.view.gesture_stage_point = lambda _gesture: (312.0, 188.0)
+        observed_points: list[tuple[int, int]] = []
+        self.view.find_node_at_point = (
+            lambda x, y, exclude_node_id=None: observed_points.append((x, y)) or None
+        )
+        gesture = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_select_drag_begin(gesture, 0.0, 0.0)
+        self.assertEqual([(312, 188)], observed_points)
 
 
 if __name__ == "__main__":
