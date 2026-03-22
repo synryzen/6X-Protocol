@@ -63,6 +63,11 @@ body {
   margin-bottom: 6px;
 }
 
+.release-pill {
+  margin-top: 8px;
+  font-size: 0.92rem;
+}
+
 h1 {
   margin: 0;
   font-size: clamp(1.6rem, 3vw, 2.4rem);
@@ -241,6 +246,13 @@ p {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
+}
+
+.download-actions {
+  margin: 10px 0 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .install-card {
