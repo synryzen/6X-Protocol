@@ -9726,8 +9726,12 @@ class CanvasView(Gtk.Box):
             if not source or not target:
                 continue
 
-            start_x, start_y = self.node_output_anchor(source)
-            end_x, end_y = self.node_input_anchor(target)
+            try:
+                start_x, start_y = self.node_output_anchor(source)
+                end_x, end_y = self.node_input_anchor(target)
+            except Exception:
+                # Guard draw loop against transient widget lifecycle/layout states.
+                continue
             control_offset = max(80, abs(end_x - start_x) * 0.35)
 
             red, green, blue, alpha = self.edge_color(edge.condition, dark_mode)
@@ -9866,7 +9870,11 @@ class CanvasView(Gtk.Box):
 
         preview_source = node_map.get(self.link_preview_source_id or "")
         if preview_source:
-            start_x, start_y = self.node_output_anchor(preview_source)
+            try:
+                start_x, start_y = self.node_output_anchor(preview_source)
+            except Exception:
+                start_x = self.link_preview_end_x or 0
+                start_y = self.link_preview_end_y or 0
             end_x = self.link_preview_end_x or start_x
             end_y = self.link_preview_end_y or start_y
             control_offset = max(80, abs(end_x - start_x) * 0.35)
@@ -10679,8 +10687,12 @@ class CanvasView(Gtk.Box):
         # Use node logical coordinates as the source of truth for X/Y.
         # We place/move node widgets from these values, so this stays stable even when
         # GTK widget coordinate translation reports transient or toolkit-specific values.
-        width = float(widget.get_allocated_width() or int(fallback_w))
-        height = float(widget.get_allocated_height() or int(fallback_h))
+        try:
+            width = float(widget.get_allocated_width() or int(fallback_w))
+            height = float(widget.get_allocated_height() or int(fallback_h))
+        except Exception:
+            width = fallback_w
+            height = fallback_h
         return fallback_x, fallback_y, max(8.0, width), max(8.0, height)
 
     def node_input_anchor(self, node: CanvasNode) -> tuple[int, int]:

@@ -26,6 +26,14 @@ class _FakeGesture:
         return self._widget
 
 
+class _BrokenSizeWidget:
+    def get_allocated_width(self):
+        raise RuntimeError("width unavailable")
+
+    def get_allocated_height(self):
+        raise RuntimeError("height unavailable")
+
+
 class CanvasCoordinateTranslationTests(unittest.TestCase):
     def setUp(self):
         # Exercise the helper directly without bootstrapping full GTK view state.
@@ -122,6 +130,17 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.view.port_drag_active = True
         self.view.port_drag_last_activity_monotonic = time.monotonic()
         self.assertFalse(self.view.is_port_drag_stale())
+
+    def test_node_screen_geometry_falls_back_when_widget_size_raises(self):
+        self.view.to_screen = lambda value: int(round(float(value) * 2.0))
+        self.view.card_screen_width = lambda: 320
+        self.view.card_screen_height = lambda: 160
+        node = SimpleNamespace(id="n1", x=20, y=30)
+        self.view.node_widgets = {"n1": _BrokenSizeWidget()}
+        self.assertEqual(
+            (40.0, 60.0, 320.0, 160.0),
+            self.view.node_screen_geometry(node),
+        )
 
 
 if __name__ == "__main__":
