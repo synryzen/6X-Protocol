@@ -118,10 +118,10 @@ See:
 - Integration profile endpoints implemented: catalog, CRUD, and connector test execution
 - Execution behavior implemented: timeout/retry/backoff and graph-aware branch routing
 - Parallel DAG behavior implemented: ready-node fan-out + join with skipped-branch pruning
-- Web graph editor supports node/link draft editing, link inspector, run timeline filters, and per-node behavior presets
+- Web graph editor supports node/link draft editing, link inspector, run timeline filters, per-node behavior presets, and on-error behavior policy (`fail`/`continue`/`goto`)
 - Smoke test validated (March 22, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, timeline/log filters, integrations, bots, and settings patch flows
 
-Estimated completion for a first public self-hosted web beta: **~88%**
+Estimated completion for a first public self-hosted web beta: **~91%**
 
 Remaining high-value items:
 - Replace the preview web panel with production-grade web UX modules.
@@ -148,6 +148,16 @@ After installing Docker, validate the web scaffold end-to-end:
 ```
 
 If your shell session does not yet include active `docker` group access, the script now auto-retries via `sg docker`.
+
+## One-Command Release Readiness
+Run compile/tests + optional Docker smoke + package artifacts in one command:
+```bash
+./scripts/release_readiness.sh
+```
+
+Useful flags:
+- `SKIP_DOCKER_SMOKE=1 ./scripts/release_readiness.sh`
+- `REQUIRE_DOCKER_SMOKE=1 ./scripts/release_readiness.sh`
 
 ## License
 MIT. See [`LICENSE`](LICENSE).

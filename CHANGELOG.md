@@ -12,6 +12,10 @@ All notable changes to this project are documented here.
 - Docker Web graph node editor now supports per-node on-error behavior policy
   (`fail`, `continue`, `goto`) with target-node input wiring, helper text
   guidance, and save/load/default persistence into node config.
+- Added `scripts/release_readiness.sh` for one-command release validation
+  (compile, unit tests, optional Docker smoke, package build, artifact checks).
+- Docker smoke script step labels are now consistent (`1/12` ... `12/12`) so
+  logs are easier to follow during release verification.
 - Canvas drag/select interaction handling was hardened again: stage-level drag
   fallback now starts from native stage drag-begin coordinates, node drag-begin
   stage pointers now derive from deterministic local offsets when GTK

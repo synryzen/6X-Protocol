@@ -43,6 +43,13 @@ git push origin v0.1.0
 ```
 Artifacts are written to `dist/`.
 
+## 4b) Run Full Release Readiness Check (Recommended)
+```bash
+./scripts/release_readiness.sh
+```
+This validates compile/tests, runs Docker/web smoke when Docker+`jq` are available,
+and produces package artifacts with checksums.
+
 ## 5) Recommended Repo Settings
 ### Branch Protection (Strongly Recommended)
 Use `Settings` -> `Rules` -> `Rulesets` -> `New ruleset` (or branch protection rule on `main`):
