@@ -36,9 +36,26 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         result = self.view.translate_widget_coordinates(source, object(), 1.0, 2.0)
         self.assertIsNone(result)
 
+    def test_translate_widget_coordinates_accepts_nested_success_tuple(self):
+        source = _FakeWidget((True, (11.0, 19.0)))
+        result = self.view.translate_widget_coordinates(source, object(), 1.0, 2.0)
+        self.assertEqual((11.0, 19.0), result)
+
     def test_translate_widget_coordinates_handles_errors(self):
         source = _FailingWidget()
         result = self.view.translate_widget_coordinates(source, object(), 1.0, 2.0)
+        self.assertIsNone(result)
+
+    def test_parse_gesture_point_accepts_legacy_shape(self):
+        result = self.view.parse_gesture_point((True, 25.0, 31.0))
+        self.assertEqual((25.0, 31.0), result)
+
+    def test_parse_gesture_point_accepts_two_value_shape(self):
+        result = self.view.parse_gesture_point((25.0, 31.0))
+        self.assertEqual((25.0, 31.0), result)
+
+    def test_parse_gesture_point_rejects_false_flag(self):
+        result = self.view.parse_gesture_point((False, 25.0, 31.0))
         self.assertIsNone(result)
 
 

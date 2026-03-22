@@ -33,6 +33,9 @@ All notable changes to this project are documented here.
   hit-testing and link anchors (while still using live widget size), preventing
   transient GTK translation jitter from breaking click-to-select and drag
   behavior.
+- Canvas gesture/translation parsing now handles additional GTK binding variants
+  (including nested success tuples and two-value gesture points) to prevent
+  drag/click regressions across distro-specific GI wrappers.
 - Added regression tests for canvas coordinate translation parsing so GTK tuple
   format differences cannot silently break canvas interactions again.
 - Canvas event routing now uses bubble-phase stage click/drag handlers to avoid

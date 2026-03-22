@@ -9056,17 +9056,36 @@ class CanvasView(Gtk.Box):
         if not widget:
             return None
         try:
-            has_point, local_x, local_y = gesture.get_point()
+            point = gesture.get_point()
         except Exception:
             return None
-        if not has_point:
+        parsed_point = self.parse_gesture_point(point)
+        if not parsed_point:
             return None
+        local_x, local_y = parsed_point
         return self.translate_widget_coordinates(
             widget,
             self.fixed,
             float(local_x),
             float(local_y),
         )
+
+    def parse_gesture_point(self, point) -> tuple[float, float] | None:
+        if point is None:
+            return None
+        if isinstance(point, tuple):
+            try:
+                # Common GTK4 pattern: (has_point, x, y)
+                if len(point) >= 3 and isinstance(point[0], bool):
+                    if not point[0]:
+                        return None
+                    return float(point[1]), float(point[2])
+                # Some bindings/platforms may surface (x, y) only.
+                if len(point) >= 2:
+                    return float(point[0]), float(point[1])
+            except (TypeError, ValueError):
+                return None
+        return None
 
     def translate_widget_coordinates(
         self,
@@ -9084,16 +9103,35 @@ class CanvasView(Gtk.Box):
         if translated is None:
             return None
 
-        # GTK introspection can return either:
-        # - `(dest_x, dest_y)` (GTK4 bindings)
-        # - `(success, dest_x, dest_y)` (older bindings / platform variants)
-        if isinstance(translated, tuple):
+        return self.parse_translated_coordinates(translated)
+
+    def parse_translated_coordinates(self, translated) -> tuple[float, float] | None:
+        # GTK introspection can vary by distro/build:
+        # - `(dest_x, dest_y)`
+        # - `(success, dest_x, dest_y)`
+        # - `(success, (dest_x, dest_y))`
+        if translated is None or not isinstance(translated, tuple):
+            return None
+
+        try:
             if len(translated) >= 3 and isinstance(translated[0], bool):
                 if not translated[0]:
                     return None
                 return float(translated[1]), float(translated[2])
+
+            if len(translated) == 2 and isinstance(translated[0], bool):
+                if not translated[0]:
+                    return None
+                nested = translated[1]
+                if isinstance(nested, tuple) and len(nested) >= 2:
+                    return float(nested[0]), float(nested[1])
+                return None
+
             if len(translated) >= 2:
                 return float(translated[0]), float(translated[1])
+        except (TypeError, ValueError, IndexError):
+            return None
+
         return None
 
     def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
