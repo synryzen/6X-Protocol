@@ -445,6 +445,7 @@
           <button id="createSample" class="btn good">Create Sample Workflow</button>
           <button id="startLatest" class="btn primary">Start Selected Workflow</button>
           <button id="cancelActive" class="btn danger">Cancel Active Run</button>
+          <button id="resumeWaiting" class="btn good">Resume Waiting Run</button>
           <button id="retryLatest" class="btn warn">Retry Latest Run</button>
         </div>
         <div class="graph-builder">
@@ -852,6 +853,7 @@
                   <option value="queued">queued</option>
                   <option value="running">running</option>
                   <option value="cancelling">cancelling</option>
+                  <option value="waiting_approval">waiting_approval</option>
                   <option value="success">success</option>
                   <option value="failed">failed</option>
                   <option value="cancelled">cancelled</option>
@@ -866,6 +868,7 @@
               <button id="refreshRuns" class="btn">Refresh Runs</button>
               <button id="clearRunFilters" class="btn">Clear Filters</button>
               <button id="cancelSelectedRun" class="btn danger">Cancel Selected</button>
+              <button id="resumeSelectedRun" class="btn good">Resume Selected</button>
               <button id="retrySelectedRun" class="btn warn">Retry Selected</button>
               <button id="retrySelectedFailedNode" class="btn">Retry Failed Node</button>
               <button id="deleteSelectedRun" class="btn danger">Delete Selected</button>
@@ -1114,7 +1117,7 @@
   </div>
 
   <script>
-    const activeStatuses = new Set(["queued", "running", "cancelling"]);
+    const activeStatuses = new Set(["queued", "running", "cancelling", "waiting_approval"]);
     const terminalStatuses = new Set(["success", "failed", "cancelled"]);
     const actionFastIntegrations = new Set([
       "slack_webhook",
@@ -1780,6 +1783,7 @@
       const attempt = Number.isFinite(Number(run.attempt)) ? Number(run.attempt) : 1;
       const retryCount = Number.isFinite(Number(run.retry_count)) ? Number(run.retry_count) : 0;
       const failedNode = escapeHtml(String(run.last_failed_node_name || run.last_failed_node_id || "—"));
+      const pendingApproval = escapeHtml(String(run.pending_approval_message || ""));
       const timelineCount = Number.isFinite(Number(state.selectedRunTimelineTotal))
         ? Number(state.selectedRunTimelineTotal)
         : 0;
@@ -1788,6 +1792,7 @@
         `<div class="small">Run: ${id}</div>`,
         `<div class="small">Trigger: ${trigger} • Attempt: ${attempt} • Retry Count: ${retryCount}</div>`,
         `<div class="small">Last Failed Node: ${failedNode}</div>`,
+        `<div class="small">Pending Approval: ${pendingApproval || "—"}</div>`,
         `<div class="small">Timeline events: ${timelineCount}</div>`,
         `<div class="small">${summary || "No summary."}</div>`,
       ].join("");
@@ -4023,6 +4028,10 @@
       return state.runs.find((run) => activeStatuses.has(String(run.status || "").toLowerCase())) || null;
     }
 
+    function latestWaitingRun() {
+      return state.runs.find((run) => String(run.status || "").toLowerCase() === "waiting_approval") || null;
+    }
+
     function latestTerminalRun() {
       return state.runs.find((run) => terminalStatuses.has(String(run.status || "").toLowerCase())) || null;
     }
@@ -4057,6 +4066,21 @@
         await refreshAll();
       } catch (error) {
         log(`Retry failed: ${error.message}`, "error");
+      }
+    }
+
+    async function resumeWaitingRun() {
+      const run = latestWaitingRun();
+      if (!run) {
+        log("No waiting approval run to resume.", "warn");
+        return;
+      }
+      try {
+        const resumed = await api(`/api/v1/runs/${run.id}/resume`, { method: "POST" });
+        log(`Resume requested for run ${resumed.id}.`, "info");
+        await refreshAll();
+      } catch (error) {
+        log(`Resume failed: ${error.message}`, "error");
       }
     }
 
@@ -4144,6 +4168,21 @@
         await refreshRuns();
       } catch (error) {
         log(`Retry selected run failed: ${error.message}`, "error");
+      }
+    }
+
+    async function resumeSelectedRun() {
+      const run = selectedRun();
+      if (!run) {
+        log("Select a run first.", "warn");
+        return;
+      }
+      try {
+        await api(`/api/v1/runs/${run.id}/resume`, { method: "POST" });
+        log(`Resume requested for selected run ${run.id}.`, "info");
+        await refreshRuns();
+      } catch (error) {
+        log(`Resume selected run failed: ${error.message}`, "error");
       }
     }
 
@@ -4342,10 +4381,12 @@
       byId("createSample").addEventListener("click", createSampleWorkflow);
       byId("startLatest").addEventListener("click", startLatestWorkflow);
       byId("cancelActive").addEventListener("click", cancelActiveRun);
+      byId("resumeWaiting").addEventListener("click", resumeWaitingRun);
       byId("retryLatest").addEventListener("click", retryLatestRun);
       byId("refreshRuns").addEventListener("click", refreshRuns);
       byId("clearRunFilters").addEventListener("click", clearRunFilters);
       byId("cancelSelectedRun").addEventListener("click", cancelSelectedRun);
+      byId("resumeSelectedRun").addEventListener("click", resumeSelectedRun);
       byId("retrySelectedRun").addEventListener("click", retrySelectedRun);
       byId("retrySelectedFailedNode").addEventListener("click", retrySelectedRunFromFailedNode);
       byId("deleteSelectedRun").addEventListener("click", deleteSelectedRun);

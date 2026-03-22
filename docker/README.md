@@ -68,6 +68,7 @@ Current API routes:
 - `GET/POST/PATCH/DELETE /api/v1/runs`
 - `POST /api/v1/runs/start`
 - `POST /api/v1/runs/{id}/cancel`
+- `POST /api/v1/runs/{id}/resume`
 - `POST /api/v1/runs/{id}/retry`
 - `GET/POST /api/v1/bots`
 - `GET/PATCH/DELETE /api/v1/bots/{id}`
@@ -89,6 +90,7 @@ curl -X POST http://localhost:8787/api/v1/workflows \
 Retry behavior notes:
 - `from_failed_node: true` requires the source run to be `failed`.
 - The source run must include `last_failed_node_id`, otherwise retry-from-failed returns `409`.
+- `approval_gate` actions move a run to `waiting_approval` until resumed via `POST /api/v1/runs/{id}/resume`.
 
 Execution policy controls (per-run):
 - `retry_max`

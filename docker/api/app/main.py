@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import os
+import threading
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
@@ -559,6 +560,16 @@ def cancel_run(run_id: str) -> dict[str, Any]:
     return run
 
 
+@app.post("/api/v1/runs/{run_id}/resume", response_model=RunOut, tags=["runs"])
+def resume_run(run_id: str) -> dict[str, Any]:
+    success, message, run = run_controller.resume(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if not success:
+        raise HTTPException(status_code=409, detail=message)
+    return run
+
+
 @app.post("/api/v1/runs/{run_id}/retry", response_model=RunOut, status_code=201, tags=["runs"])
 def retry_run(run_id: str, payload: RetryRunRequest) -> dict[str, Any]:
     previous = run_controller.get_run(run_id)
@@ -959,10 +970,13 @@ def test_integration(payload: IntegrationTestRequest) -> dict[str, Any]:
     context = {"last_output": input_context}
     try:
         message, output = run_controller._execute_action_integration(
+            run_id="",
+            node={"id": "integration_test", "name": "Integration Test"},
             integration=integration_key,
             config=merged_config,
             context=context,
             timeout_sec=timeout_sec,
+            cancel_event=threading.Event(),
         )
         ok = True
     except Exception as error:

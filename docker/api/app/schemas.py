@@ -39,6 +39,12 @@ class RunIn(BaseModel):
     replay_of_run_id: str = ""
     idempotency_key: str = ""
     cancellation_requested: bool = False
+    approval_required: bool = False
+    pending_approval_node_id: str = ""
+    pending_approval_node_name: str = ""
+    pending_approval_message: str = ""
+    pending_approval_requested_at: str = ""
+    pending_approval_resumed_at: str = ""
     last_failed_node_id: str = ""
     last_failed_node_name: str = ""
     execution_retry_max: int = 0
@@ -52,6 +58,12 @@ class RunPatch(BaseModel):
     summary: str | None = None
     node_results: list[dict[str, Any]] | None = None
     cancellation_requested: bool | None = None
+    approval_required: bool | None = None
+    pending_approval_node_id: str | None = None
+    pending_approval_node_name: str | None = None
+    pending_approval_message: str | None = None
+    pending_approval_requested_at: str | None = None
+    pending_approval_resumed_at: str | None = None
     last_failed_node_id: str | None = None
     last_failed_node_name: str | None = None
 
@@ -252,6 +264,12 @@ def make_run(payload: RunIn) -> dict[str, Any]:
         "replay_of_run_id": payload.replay_of_run_id,
         "idempotency_key": payload.idempotency_key,
         "cancellation_requested": bool(payload.cancellation_requested),
+        "approval_required": bool(payload.approval_required),
+        "pending_approval_node_id": payload.pending_approval_node_id,
+        "pending_approval_node_name": payload.pending_approval_node_name,
+        "pending_approval_message": payload.pending_approval_message,
+        "pending_approval_requested_at": payload.pending_approval_requested_at,
+        "pending_approval_resumed_at": payload.pending_approval_resumed_at,
         "last_failed_node_id": payload.last_failed_node_id,
         "last_failed_node_name": payload.last_failed_node_name,
         "execution_retry_max": max(0, int(payload.execution_retry_max)),

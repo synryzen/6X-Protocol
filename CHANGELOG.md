@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Docker/web runtime now supports real approval-gate control flow: action nodes
+  using `approval_gate` transition runs to `waiting_approval`, and runs resume
+  via the new `POST /api/v1/runs/{id}/resume` endpoint with pending-approval
+  metadata persisted on the run model.
+- Docker/web dashboard run controls now include resume actions (top-level and
+  selected-run) plus waiting-approval status filtering and detail visibility.
+- Docker smoke automation now verifies approval-gate pause/resume end-to-end in
+  compose by asserting `waiting_approval` status and successful post-resume
+  completion.
 - Canvas add-node auto-linking now honors the currently selected node as the
   preferred chain source even when the selected source is a trigger (if it is
   still an open tail), making serial node-building behavior more predictable.

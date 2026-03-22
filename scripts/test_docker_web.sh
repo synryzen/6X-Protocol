@@ -86,6 +86,44 @@ RETRY_RUN_ID="$(echo "$RETRY_JSON" | jq -r '.id')"
 sleep 1
 curl -fsS "http://127.0.0.1:8787/api/v1/runs/$RETRY_RUN_ID" | jq .
 
+echo "[5/12] Validating approval-gate pause + resume..."
+APPROVAL_WORKFLOW_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/workflows \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Docker Approval Workflow","description":"Approval pause/resume validation","graph":{"nodes":[{"id":"a1","name":"Start","type":"trigger","config":{"simulate_delay_ms":0}},{"id":"a2","name":"Approval","type":"action","config":{"integration":"approval_gate","message":"Smoke test approval."}},{"id":"a3","name":"After Approval","type":"action","config":{"simulate_delay_ms":0}}],"edges":[{"source":"a1","target":"a2","type":"next"},{"source":"a2","target":"a3","type":"next"}]}}')"
+APPROVAL_WORKFLOW_ID="$(echo "$APPROVAL_WORKFLOW_JSON" | jq -r '.id')"
+
+APPROVAL_RUN_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/runs/start \
+  -H 'Content-Type: application/json' \
+  -d "{\"workflow_id\":\"$APPROVAL_WORKFLOW_ID\",\"trigger\":\"manual\"}")"
+APPROVAL_RUN_ID="$(echo "$APPROVAL_RUN_JSON" | jq -r '.id')"
+
+APPROVAL_STATUS=""
+for _ in {1..40}; do
+  APPROVAL_STATUS="$(curl -fsS "http://127.0.0.1:8787/api/v1/runs/$APPROVAL_RUN_ID" | jq -r '.status')"
+  if [[ "$APPROVAL_STATUS" == "waiting_approval" ]]; then
+    break
+  fi
+  sleep 0.2
+done
+if [[ "$APPROVAL_STATUS" != "waiting_approval" ]]; then
+  echo "Expected approval run to enter waiting_approval, got '$APPROVAL_STATUS'"
+  exit 1
+fi
+
+curl -fsS -X POST "http://127.0.0.1:8787/api/v1/runs/$APPROVAL_RUN_ID/resume" | jq .
+for _ in {1..40}; do
+  APPROVAL_STATUS="$(curl -fsS "http://127.0.0.1:8787/api/v1/runs/$APPROVAL_RUN_ID" | jq -r '.status')"
+  if [[ "$APPROVAL_STATUS" == "success" || "$APPROVAL_STATUS" == "failed" || "$APPROVAL_STATUS" == "cancelled" ]]; then
+    break
+  fi
+  sleep 0.2
+done
+if [[ "$APPROVAL_STATUS" != "success" ]]; then
+  echo "Expected approval run to resume to success, got '$APPROVAL_STATUS'"
+  exit 1
+fi
+curl -fsS "http://127.0.0.1:8787/api/v1/runs/$APPROVAL_RUN_ID" | jq .
+
 echo "[6/12] Validating retry-from-failed-node flow..."
 FAIL_WORKFLOW_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/workflows \
   -H 'Content-Type: application/json' \

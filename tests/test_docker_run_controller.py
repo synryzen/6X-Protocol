@@ -38,6 +38,16 @@ class DockerRunControllerTests(unittest.TestCase):
             time.sleep(0.02)
         self.fail(f"Timed out waiting for terminal status for run {run_id}")
 
+    def _wait_for_status(self, run_id: str, target_status: str, timeout: float = 3.0) -> dict:
+        expected = str(target_status).strip().lower()
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            run = self.controller.get_run(run_id)
+            if run and str(run.get("status", "")).strip().lower() == expected:
+                return run
+            time.sleep(0.02)
+        self.fail(f"Timed out waiting for status '{expected}' for run {run_id}")
+
     @staticmethod
     def _success_node_order(run: dict) -> list[str]:
         order: list[str] = []
@@ -193,6 +203,77 @@ class DockerRunControllerTests(unittest.TestCase):
 
         self.assertEqual("success", completed.get("status"))
         self.assertEqual(["n2", "n3"], self._success_node_order(completed))
+
+    def test_approval_gate_waits_until_resume(self):
+        workflow = {
+            "id": "wf_approval_wait_resume",
+            "name": "Approval Wait Resume",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Approval Gate",
+                        "type": "action",
+                        "config": {
+                            "integration": "approval_gate",
+                            "message": "Please approve this run step.",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                    {"id": "a2", "name": "Done", "type": "action", "config": {"simulate_delay_ms": 0}},
+                ],
+                "edges": [
+                    {"source": "t1", "target": "a1", "type": "next"},
+                    {"source": "a1", "target": "a2", "type": "next"},
+                ],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        waiting = self._wait_for_status(run["id"], "waiting_approval")
+        self.assertTrue(bool(waiting.get("approval_required")))
+        self.assertEqual("a1", str(waiting.get("pending_approval_node_id", "")).strip())
+
+        resumed_ok, _, resumed_run = self.controller.resume(run["id"])
+        self.assertTrue(resumed_ok)
+        self.assertIsNotNone(resumed_run)
+
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("success", completed.get("status"))
+        self.assertEqual(["t1", "a1", "a2"], self._success_node_order(completed))
+
+    def test_approval_gate_waiting_run_can_be_cancelled(self):
+        workflow = {
+            "id": "wf_approval_cancel",
+            "name": "Approval Cancel",
+            "graph": {
+                "nodes": [
+                    {"id": "t1", "name": "Start", "type": "trigger", "config": {"simulate_delay_ms": 0}},
+                    {
+                        "id": "a1",
+                        "name": "Approval Gate",
+                        "type": "action",
+                        "config": {
+                            "integration": "approval_gate",
+                            "message": "Approval needed before continuing.",
+                            "simulate_delay_ms": 0,
+                        },
+                    },
+                ],
+                "edges": [{"source": "t1", "target": "a1", "type": "next"}],
+            },
+        }
+
+        run = self.controller.start(workflow)
+        self._wait_for_status(run["id"], "waiting_approval")
+
+        cancelled_ok, _, cancelled_run = self.controller.cancel(run["id"])
+        self.assertTrue(cancelled_ok)
+        self.assertIsNotNone(cancelled_run)
+
+        completed = self._wait_for_terminal(run["id"])
+        self.assertEqual("cancelled", completed.get("status"))
 
     def test_parallel_branches_join_before_merge_node(self):
         workflow = {

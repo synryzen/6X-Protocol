@@ -22,7 +22,7 @@ from app.schemas import utc_now_iso
 from app.storage import JsonStore
 
 TERMINAL_STATUSES = {"success", "failed", "cancelled"}
-ACTIVE_STATUSES = {"queued", "running", "cancelling"}
+ACTIVE_STATUSES = {"queued", "running", "cancelling", "waiting_approval"}
 
 
 class NodeExecutionError(RuntimeError):
@@ -100,6 +100,7 @@ class RunController:
         self.store = store
         self._lock = threading.RLock()
         self._cancel_events: dict[str, threading.Event] = {}
+        self._approval_events: dict[str, threading.Event] = {}
         self._active_threads: dict[str, threading.Thread] = {}
         self._type_delay_ms = {
             "trigger": 50,
@@ -171,6 +172,12 @@ class RunController:
                 "replay_of_run_id": replay_of_run_id.strip(),
                 "idempotency_key": key or run_id,
                 "cancellation_requested": False,
+                "approval_required": False,
+                "pending_approval_node_id": "",
+                "pending_approval_node_name": "",
+                "pending_approval_message": "",
+                "pending_approval_requested_at": "",
+                "pending_approval_resumed_at": "",
                 "execution_retry_max": int(run_defaults["retry_max"]),
                 "execution_backoff_ms": int(run_defaults["retry_backoff_ms"]),
                 "execution_timeout_sec": float(run_defaults["timeout_sec"]),
@@ -179,12 +186,14 @@ class RunController:
             self.store.save_runs(runs)
 
             cancel_event = threading.Event()
+            approval_event = threading.Event()
             worker = threading.Thread(
                 target=self._execute_run,
                 args=(run_id, workflow, cancel_event, start_node_id.strip(), run_defaults),
                 daemon=True,
             )
             self._cancel_events[run_id] = cancel_event
+            self._approval_events[run_id] = approval_event
             self._active_threads[run_id] = worker
             worker.start()
             return run
@@ -219,6 +228,35 @@ class RunController:
             if cancel_event:
                 cancel_event.set()
             return True, "Cancel requested.", run
+
+    def resume(self, run_id: str) -> tuple[bool, str, dict[str, Any] | None]:
+        with self._lock:
+            runs = self.store.load_runs()
+            index = self._run_index(runs, run_id)
+            if index < 0:
+                return False, "Run not found.", None
+
+            run = dict(runs[index])
+            status = str(run.get("status", "")).strip().lower()
+            if status in TERMINAL_STATUSES:
+                return False, f"Run already {status}.", run
+            if status != "waiting_approval":
+                return False, "Run is not waiting for approval.", run
+
+            node_name = str(run.get("pending_approval_node_name", "")).strip() or "Approval Gate"
+            now = utc_now_iso()
+            run["status"] = "running"
+            run["summary"] = f"Approval received for node '{node_name}'. Resuming."
+            run["pending_approval_resumed_at"] = now
+            self._clear_pending_approval_fields(run, keep_resumed_at=True)
+            run["updated_at"] = now
+            runs[index] = run
+            self.store.save_runs(runs)
+
+            approval_event = self._approval_events.get(run_id)
+            if approval_event:
+                approval_event.set()
+            return True, "Run resumed.", run
 
     def _execute_run(
         self,
@@ -502,6 +540,7 @@ class RunController:
         finally:
             with self._lock:
                 self._cancel_events.pop(run_id, None)
+                self._approval_events.pop(run_id, None)
                 self._active_threads.pop(run_id, None)
 
     def _execute_node_with_retries(
@@ -540,6 +579,7 @@ class RunController:
             started = time.monotonic()
             try:
                 detail_message, output_preview = self._execute_single_node(
+                    run_id,
                     node,
                     policy,
                     context,
@@ -607,6 +647,7 @@ class RunController:
 
     def _execute_single_node(
         self,
+        run_id: str,
         node: dict[str, Any],
         policy: dict[str, float | int],
         context: dict[str, Any],
@@ -711,10 +752,13 @@ class RunController:
             config.get("integration", config.get("action_type", metadata.get("integration", "standard")))
         ).strip().lower() or "standard"
         detail_message, output = self._execute_action_integration(
+            run_id=run_id,
+            node=node,
             integration=integration,
             config=config,
             context=context,
             timeout_sec=timeout_sec,
+            cancel_event=cancel_event,
         )
         context["last_output"] = output
         return detail_message, output
@@ -722,10 +766,13 @@ class RunController:
     def _execute_action_integration(
         self,
         *,
+        run_id: str,
+        node: dict[str, Any],
         integration: str,
         config: dict[str, Any],
         context: dict[str, Any],
         timeout_sec: float,
+        cancel_event: threading.Event,
     ) -> tuple[str, str]:
         normalized = integration.strip().lower() or "standard"
         output_text = str(
@@ -1310,11 +1357,31 @@ class RunController:
             )
 
         if normalized == "approval_gate":
-            message = str(
-                config.get("message", config.get("approval_message", "Approval gate passed."))
-            ).strip() or "Approval gate passed."
+            node_id = str(node.get("id", "")).strip()
+            node_name = str(node.get("name", "Approval Gate")).strip() or "Approval Gate"
+            message = str(config.get("message", config.get("approval_message", ""))).strip()
+            if not message:
+                message = f"Approval required for node '{node_name}'."
+            if not str(run_id).strip():
+                return (
+                    "Approval gate simulated (no run context).",
+                    f"integration:{normalized} | {self._truncate_text(message, 140)}",
+                )
+            approval_timeout_sec = self._safe_float(
+                config.get("approval_timeout_sec", config.get("timeout_sec", timeout_sec)),
+                timeout_sec,
+            )
+            approval_timeout_sec = max(0.0, float(approval_timeout_sec))
+            self._wait_for_approval(
+                run_id=run_id,
+                node_id=node_id,
+                node_name=node_name,
+                message=message,
+                cancel_event=cancel_event,
+                timeout_sec=approval_timeout_sec,
+            )
             return (
-                "Approval gate acknowledged.",
+                "Approval gate approved.",
                 f"integration:{normalized} | {self._truncate_text(message, 140)}",
             )
 
@@ -1322,6 +1389,114 @@ class RunController:
         if output_text:
             output = f"{output} | {self._truncate_text(output_text, 96)}"
         return f"Action executed via '{normalized}'.", output
+
+    def _wait_for_approval(
+        self,
+        *,
+        run_id: str,
+        node_id: str,
+        node_name: str,
+        message: str,
+        cancel_event: threading.Event,
+        timeout_sec: float,
+    ) -> None:
+        self._set_waiting_approval_state(
+            run_id=run_id,
+            node_id=node_id,
+            node_name=node_name,
+            message=message,
+        )
+        approval_event = self._approval_events.get(run_id)
+        if approval_event is None:
+            approval_event = threading.Event()
+            with self._lock:
+                self._approval_events[run_id] = approval_event
+
+        deadline = time.monotonic() + timeout_sec if timeout_sec > 0 else None
+        while True:
+            if cancel_event.is_set():
+                self._resume_waiting_approval_state(run_id, node_name, due_to_cancel=True)
+                raise RunCancelledError()
+            if approval_event.wait(0.05):
+                approval_event.clear()
+                self._resume_waiting_approval_state(run_id, node_name)
+                return
+            if deadline is not None and time.monotonic() >= deadline:
+                self._resume_waiting_approval_state(run_id, node_name)
+                raise NodeTimeoutError(
+                    f"Approval gate timed out after {timeout_sec:.2f}s."
+                )
+
+    def _set_waiting_approval_state(
+        self,
+        *,
+        run_id: str,
+        node_id: str,
+        node_name: str,
+        message: str,
+    ) -> None:
+        with self._lock:
+            runs = self.store.load_runs()
+            index = self._run_index(runs, run_id)
+            if index < 0:
+                return
+            run = dict(runs[index])
+            status = str(run.get("status", "")).strip().lower()
+            if status in TERMINAL_STATUSES or status == "cancelling":
+                return
+            now = utc_now_iso()
+            run["status"] = "waiting_approval"
+            run["summary"] = f"Waiting for approval at node '{node_name}'."
+            run["approval_required"] = True
+            run["pending_approval_node_id"] = node_id
+            run["pending_approval_node_name"] = node_name
+            run["pending_approval_message"] = message
+            run["pending_approval_requested_at"] = now
+            run["pending_approval_resumed_at"] = ""
+            run["updated_at"] = now
+            runs[index] = run
+            self.store.save_runs(runs)
+            approval_event = self._approval_events.get(run_id)
+            if approval_event:
+                approval_event.clear()
+
+    def _resume_waiting_approval_state(
+        self,
+        run_id: str,
+        node_name: str,
+        *,
+        due_to_cancel: bool = False,
+    ) -> None:
+        with self._lock:
+            runs = self.store.load_runs()
+            index = self._run_index(runs, run_id)
+            if index < 0:
+                return
+            run = dict(runs[index])
+            status = str(run.get("status", "")).strip().lower()
+            if status == "waiting_approval":
+                if due_to_cancel or bool(run.get("cancellation_requested", False)):
+                    run["status"] = "cancelling"
+                    run["summary"] = "Cancel requested."
+                else:
+                    run["status"] = "running"
+                    run["summary"] = f"Approval received for node '{node_name}'. Resuming."
+            if not due_to_cancel:
+                run["pending_approval_resumed_at"] = utc_now_iso()
+            self._clear_pending_approval_fields(run, keep_resumed_at=not due_to_cancel)
+            run["updated_at"] = utc_now_iso()
+            runs[index] = run
+            self.store.save_runs(runs)
+
+    @staticmethod
+    def _clear_pending_approval_fields(run: dict[str, Any], *, keep_resumed_at: bool = False) -> None:
+        run["approval_required"] = False
+        run["pending_approval_node_id"] = ""
+        run["pending_approval_node_name"] = ""
+        run["pending_approval_message"] = ""
+        run["pending_approval_requested_at"] = ""
+        if not keep_resumed_at:
+            run["pending_approval_resumed_at"] = ""
 
     def _http_request(
         self,
@@ -2215,6 +2390,7 @@ class RunController:
             run["summary"] = summary
             run["finished_at"] = utc_now_iso()
             run["updated_at"] = utc_now_iso()
+            self._clear_pending_approval_fields(run)
             if last_failed_node_id:
                 run["last_failed_node_id"] = last_failed_node_id
             if last_failed_node_name:
