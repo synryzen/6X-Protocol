@@ -12,6 +12,12 @@ All notable changes to this project are documented here.
 - Docker Web graph node editor now supports per-node on-error behavior policy
   (`fail`, `continue`, `goto`) with target-node input wiring, helper text
   guidance, and save/load/default persistence into node config.
+- CI now skips GTK canvas translation tests automatically when `gi` is not
+  available in the runner environment, while keeping local GTK coverage active
+  on Linux development machines.
+- Flatpak packaging now installs the scalable SVG app icon in hicolor
+  `scalable/apps`, fixing the GitHub Actions release failure caused by
+  oversized PNG validation in the Flatpak export step.
 - Added `scripts/release_readiness.sh` for one-command release validation
   (compile, unit tests, optional Docker smoke, package build, artifact checks).
 - Docker smoke script step labels are now consistent (`1/12` ... `12/12`) so
