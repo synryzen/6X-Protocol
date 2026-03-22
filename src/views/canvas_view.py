@@ -8608,15 +8608,16 @@ class CanvasView(Gtk.Box):
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         self.suppress_stage_click_once = True
         self.port_drag_just_finished = False
-        success, stage_x, stage_y = output_port.translate_coordinates(
+        translated = self.translate_widget_coordinates(
+            output_port,
             self.fixed,
             float(start_x),
             float(start_y),
         )
         self.begin_output_link_drag(
             node_id,
-            pointer_x=float(stage_x) if success else None,
-            pointer_y=float(stage_y) if success else None,
+            pointer_x=float(translated[0]) if translated else None,
+            pointer_y=float(translated[1]) if translated else None,
         )
 
     def begin_output_link_drag(
@@ -9060,13 +9061,40 @@ class CanvasView(Gtk.Box):
             return None
         if not has_point:
             return None
+        return self.translate_widget_coordinates(
+            widget,
+            self.fixed,
+            float(local_x),
+            float(local_y),
+        )
+
+    def translate_widget_coordinates(
+        self,
+        source_widget: Gtk.Widget | None,
+        dest_widget: Gtk.Widget | None,
+        x: float,
+        y: float,
+    ) -> tuple[float, float] | None:
+        if not source_widget or not dest_widget:
+            return None
         try:
-            translated = widget.translate_coordinates(self.fixed, float(local_x), float(local_y))
+            translated = source_widget.translate_coordinates(dest_widget, float(x), float(y))
         except Exception:
             return None
-        if not translated or not translated[0]:
+        if translated is None:
             return None
-        return float(translated[1]), float(translated[2])
+
+        # GTK introspection can return either:
+        # - `(dest_x, dest_y)` (GTK4 bindings)
+        # - `(success, dest_x, dest_y)` (older bindings / platform variants)
+        if isinstance(translated, tuple):
+            if len(translated) >= 3 and isinstance(translated[0], bool):
+                if not translated[0]:
+                    return None
+                return float(translated[1]), float(translated[2])
+            if len(translated) >= 2:
+                return float(translated[0]), float(translated[1])
+        return None
 
     def on_node_drag_begin(self, gesture, start_x, start_y, node_id: str):
         if self.port_drag_active and self.link_preview_source_id:
@@ -9116,14 +9144,15 @@ class CanvasView(Gtk.Box):
             else:
                 gesture_widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
                 if gesture_widget:
-                    success, translated_x, translated_y = gesture_widget.translate_coordinates(
+                    translated = self.translate_widget_coordinates(
+                        gesture_widget,
                         self.fixed,
                         float(start_x),
                         float(start_y),
                     )
-                    if success:
-                        pointer_stage_x = float(translated_x)
-                        pointer_stage_y = float(translated_y)
+                    if translated:
+                        pointer_stage_x = float(translated[0])
+                        pointer_stage_y = float(translated[1])
                     else:
                         pointer_stage_x = float(self.to_screen(node.x))
                         pointer_stage_y = float(self.to_screen(node.y))
@@ -9146,14 +9175,15 @@ class CanvasView(Gtk.Box):
         else:
             gesture_widget = gesture.get_widget() if hasattr(gesture, "get_widget") else None
             if gesture_widget:
-                success, translated_x, translated_y = gesture_widget.translate_coordinates(
+                translated = self.translate_widget_coordinates(
+                    gesture_widget,
                     self.fixed,
                     float(start_x),
                     float(start_y),
                 )
-                if success:
-                    pointer_stage_x = float(translated_x)
-                    pointer_stage_y = float(translated_y)
+                if translated:
+                    pointer_stage_x = float(translated[0])
+                    pointer_stage_y = float(translated[1])
                 else:
                     pointer_stage_x = float(self.to_screen(node.x))
                     pointer_stage_y = float(self.to_screen(node.y))
@@ -10512,15 +10542,12 @@ class CanvasView(Gtk.Box):
         widget = self.node_widgets.get(node.id)
         if not widget:
             return fallback_x, fallback_y, fallback_w, fallback_h
-        try:
-            translated = widget.translate_coordinates(self.fixed, 0.0, 0.0)
-        except Exception:
-            translated = None
-        if not translated or not translated[0]:
+        translated = self.translate_widget_coordinates(widget, self.fixed, 0.0, 0.0)
+        if not translated:
             return fallback_x, fallback_y, fallback_w, fallback_h
         width = float(widget.get_allocated_width() or int(fallback_w))
         height = float(widget.get_allocated_height() or int(fallback_h))
-        return float(translated[1]), float(translated[2]), max(8.0, width), max(8.0, height)
+        return float(translated[0]), float(translated[1]), max(8.0, width), max(8.0, height)
 
     def node_input_anchor(self, node: CanvasNode) -> tuple[int, int]:
         node_x, node_y, _node_w, node_h = self.node_screen_geometry(node)

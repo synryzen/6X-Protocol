@@ -25,6 +25,12 @@ All notable changes to this project are documented here.
 - GitHub Pages app showcase copy now uses app-specific App Store-aligned
   positioning across NodeSpark, IQPearl, Write JSON, Lexora, and GhostLedger
   cards/pages instead of generic shared text.
+- Canvas coordinate translation now supports both GTK tuple formats
+  (`(x, y)` and `(success, x, y)`), fixing node drag, node hit-testing,
+  inspector selection updates, and link drawing crashes on Linux builds where
+  `translate_coordinates` returns only two values.
+- Added regression tests for canvas coordinate translation parsing so GTK tuple
+  format differences cannot silently break canvas interactions again.
 - Canvas event routing now uses bubble-phase stage click/drag handlers to avoid
   stealing pointer ownership from node gestures, restoring reliable node move,
   click-to-inspector selection, and drag-to-link interactions.
