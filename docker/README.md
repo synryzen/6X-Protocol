@@ -1,4 +1,4 @@
-# Docker Web Edition (Active Preview)
+# Docker Web Edition (Live Self-Hosted)
 
 This directory contains the active self-hosted web preview stack for 6X-Protocol.
 

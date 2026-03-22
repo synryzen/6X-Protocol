@@ -109,7 +109,7 @@ See:
 - PR path label rules: `.github/labeler.yml`
 - Automation workflows: `.github/workflows/labels.yml`, `.github/workflows/triage.yml`
 
-## Docker / Web Edition (Active Preview)
+## Docker / Web Edition (Live Self-Hosted)
 - Status and milestone board: [`docs/DOCKER_WEB_EDITION_PLAN.md`](docs/DOCKER_WEB_EDITION_PLAN.md)
 - Docker quick start: [`docker/README.md`](docker/README.md)
 - Compose stack: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
