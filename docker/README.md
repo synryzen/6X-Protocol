@@ -69,6 +69,9 @@ Current API routes:
 - `POST /api/v1/runs/start`
 - `POST /api/v1/runs/{id}/cancel`
 - `POST /api/v1/runs/{id}/retry`
+- `GET/POST /api/v1/bots`
+- `GET/PATCH/DELETE /api/v1/bots/{id}`
+- `POST /api/v1/bots/test`
 - `GET /api/v1/integrations/catalog`
 - `GET/POST /api/v1/integrations`
 - `GET/PATCH/DELETE /api/v1/integrations/{id}`

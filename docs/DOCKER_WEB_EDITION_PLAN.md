@@ -2,7 +2,7 @@
 
 ## Last Verified Status
 - Date: **March 22, 2026**
-- Overall completion toward first public self-hosted web beta: **~88%**
+- Overall completion toward first public self-hosted web beta: **~89%**
 - Automated smoke status: **passing** via `./scripts/test_docker_web.sh`
 
 ## Product Layout
@@ -104,6 +104,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Web preview runs panel now supports timeline querying (status/search/node/limit/order) via API-backed timeline endpoints.
 - Web preview runs panel now supports selected-run delete and richer run detail refresh workflow.
 - Web preview settings panel now supports local backend selection, local/cloud API keys, local runtime enable toggle, theme preset selection, and reduce-motion toggle.
+- Docker/web integration catalog now matches the full runtime-supported connector set (including handoff, Google Calendar API, Drive/Dropbox, Shopify/Webflow, Supabase, OpenRouter, Resend, and Mailgun).
 
 ## Remaining To Reach First Public Web Beta
 1. Replace web preview dashboard with production web UI modules.

@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Docker Web API integration catalog now includes the full supported
+  integration set (handoff, Google Calendar API, Drive/Dropbox, Shopify,
+  Webflow, Supabase, OpenRouter, Resend, Mailgun, and more) so web graph node
+  integration selectors match runtime capabilities instead of exposing a
+  partial subset.
 - Canvas drag/select interaction handling was hardened again: stage-level drag
   fallback now starts from native stage drag-begin coordinates, node drag-begin
   stage pointers now derive from deterministic local offsets when GTK
@@ -48,6 +53,9 @@ All notable changes to this project are documented here.
   format differences cannot silently break canvas interactions again.
 - Added regression tests for node drag-begin stage pointer fallback behavior so
   node movement remains reliable when translation APIs return incomplete values.
+- Added a Docker integration catalog regression test to prevent runtime/catalog
+  drift (ensures web API catalog keeps all supported integration keys and
+  well-formed metadata).
 - Canvas event routing now uses bubble-phase stage click/drag handlers to avoid
   stealing pointer ownership from node gestures, restoring reliable node move,
   click-to-inspector selection, and drag-to-link interactions.
