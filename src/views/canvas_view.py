@@ -5788,7 +5788,7 @@ class CanvasView(Gtk.Box):
         # Mirror active inspector edits so requirement hints are live while typing.
         endpoint = self.action_endpoint_entry.get_text().strip()
         message = self.action_message_entry.get_text().strip()
-        payload = self.action_payload_text().strip()
+        payload = self.get_action_payload_text().strip()
         api_key = self.action_api_key_entry.get_text().strip()
         path = self.action_path_entry.get_text().strip()
         command = self.action_command_entry.get_text().strip()

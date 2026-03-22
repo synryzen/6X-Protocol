@@ -17,6 +17,8 @@ All notable changes to this project are documented here.
   gesture ownership is missed, and frame drag handlers no longer cancel active
   output-port drag sessions, restoring click-hold move reliability and drag-to-
   wire linking on stricter GTK gesture stacks.
+- Fixed an action-inspector runtime regression (`action_payload_text` typo) that
+  could break node selection/inspector refresh when an Action node was focused.
 - Canvas event routing now uses bubble-phase stage click/drag handlers to avoid
   stealing pointer ownership from node gestures, restoring reliable node move,
   click-to-inspector selection, and drag-to-link interactions.
