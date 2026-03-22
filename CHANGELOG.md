@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Canvas add-node auto-linking now honors the currently selected node as the
+  preferred chain source even when the selected source is a trigger (if it is
+  still an open tail), making serial node-building behavior more predictable.
+- Added regression tests for canvas auto-link source selection so selected
+  trigger chaining and fallback tail selection do not regress.
 - Docker Web API integration catalog now includes the full supported
   integration set (handoff, Google Calendar API, Drive/Dropbox, Shopify,
   Webflow, Supabase, OpenRouter, Resend, Mailgun, and more) so web graph node

@@ -4,10 +4,14 @@ import time
 
 try:
     from src.views.canvas_view import CanvasView, Gdk
+    from src.models.canvas_node import CanvasNode
+    from src.models.canvas_edge import CanvasEdge
     CANVAS_IMPORT_ERROR = None
 except Exception as exc:  # pragma: no cover - CI fallback when gi is unavailable
     CanvasView = None  # type: ignore[assignment]
     Gdk = None  # type: ignore[assignment]
+    CanvasNode = None  # type: ignore[assignment]
+    CanvasEdge = None  # type: ignore[assignment]
     CANVAS_IMPORT_ERROR = exc
 
 
@@ -322,6 +326,80 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertEqual([], reset_calls)
         self.assertFalse(gesture.claimed)
         self.assertIsNone(self.view.stage_drag_node_id)
+
+    def test_default_auto_link_source_prefers_selected_trigger_when_tail_open(self):
+        trigger = CanvasNode(
+            id="t1",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=80,
+            y=80,
+        )
+        action = CanvasNode(
+            id="a1",
+            name="Action",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=320,
+            y=80,
+        )
+        self.view.nodes = [trigger, action]
+        self.view.edges = []
+        self.view.selected_node_id = "t1"
+        self.assertEqual("t1", self.view.default_auto_link_source_id("Action"))
+
+    def test_default_auto_link_source_ignores_for_incoming_trigger(self):
+        trigger = CanvasNode(
+            id="t1",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=80,
+            y=80,
+        )
+        self.view.nodes = [trigger]
+        self.view.edges = []
+        self.view.selected_node_id = "t1"
+        self.assertEqual("", self.view.default_auto_link_source_id("Trigger"))
+
+    def test_default_auto_link_source_falls_back_to_open_non_trigger_tail(self):
+        trigger = CanvasNode(
+            id="t1",
+            name="Trigger",
+            node_type="Trigger",
+            detail="",
+            summary="",
+            x=80,
+            y=80,
+        )
+        action_one = CanvasNode(
+            id="a1",
+            name="Action 1",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=320,
+            y=80,
+        )
+        action_two = CanvasNode(
+            id="a2",
+            name="Action 2",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=560,
+            y=80,
+        )
+        self.view.nodes = [trigger, action_one, action_two]
+        self.view.edges = [
+            CanvasEdge(id="e1", source_node_id="t1", target_node_id="a1", condition=""),
+        ]
+        self.view.selected_node_id = "t1"
+        self.assertEqual("a2", self.view.default_auto_link_source_id("Action"))
 
 
 if __name__ == "__main__":

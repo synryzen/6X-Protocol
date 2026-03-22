@@ -7385,8 +7385,9 @@ class CanvasView(Gtk.Box):
             return any(edge.source_node_id == node_id for edge in self.edges)
 
         selected = self.find_node(self.selected_node_id) if self.selected_node_id else None
-        if selected and self.node_type_key(selected.node_type) != "trigger":
-            # Prefer selected node when it is still an open chain tail.
+        if selected:
+            # Prefer the explicitly selected node when it is still an open chain tail,
+            # even if it is a trigger. This keeps add-node chaining predictable.
             if not has_outgoing(selected.id):
                 return selected.id
 
@@ -7401,6 +7402,11 @@ class CanvasView(Gtk.Box):
         # Fallback to the most recent non-trigger node.
         for node in reversed(self.nodes):
             if self.node_type_key(node.node_type) != "trigger":
+                return node.id
+
+        # Final tail fallback allows trigger-only graphs to continue wiring.
+        for node in reversed(self.nodes):
+            if not has_outgoing(node.id):
                 return node.id
 
         if self.nodes:
