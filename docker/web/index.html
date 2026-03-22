@@ -764,6 +764,25 @@
                 <label class="label" for="graphEditorTimeout">Timeout s</label>
                 <input id="graphEditorTimeout" class="input" type="number" min="0" max="120" step="0.5" />
               </div>
+              <div class="row">
+                <label class="label" for="graphEditorOnError">On Error</label>
+                <select class="select" id="graphEditorOnError">
+                  <option value="fail">Fail Run</option>
+                  <option value="continue">Continue</option>
+                  <option value="goto">Goto Node</option>
+                </select>
+              </div>
+            </div>
+            <div class="graph-editor-grid" id="graphEditorOnErrorTargetRow">
+              <div class="row">
+                <label class="label" for="graphEditorOnErrorTarget">Goto Node ID</label>
+                <input id="graphEditorOnErrorTarget" class="input" type="text" placeholder="Target node id when on-error is goto" />
+              </div>
+              <div class="row">
+                <div class="hint-line">Use a node ID from this graph. Empty target keeps preflight warnings active.</div>
+              </div>
+            </div>
+            <div class="graph-editor-grid">
               <div class="actions" style="justify-content:flex-end;align-items:flex-end;">
                 <button id="graphApplyNodeDefaults" class="btn">Apply Defaults</button>
                 <button id="graphSaveNode" class="btn good">Save Node</button>
@@ -2716,6 +2735,76 @@
       return raw || "always_true";
     }
 
+    function normalizeNodeErrorMode(value) {
+      const normalized = String(value || "").trim().toLowerCase();
+      if (!normalized || normalized === "fail" || normalized === "stop" || normalized === "error") {
+        return "fail";
+      }
+      if (normalized === "continue" || normalized === "next" || normalized === "skip") {
+        return "continue";
+      }
+      if (normalized === "goto" || normalized === "route" || normalized === "target") {
+        return "goto";
+      }
+      return "fail";
+    }
+
+    function parseNodeErrorPolicy(config) {
+      const cfg = config && typeof config === "object" ? config : {};
+      const rawMode = String(
+        cfg.on_error
+        || cfg.error_mode
+        || cfg.error_policy
+        || cfg.onError
+        || ""
+      ).trim();
+      const rawTarget = String(
+        cfg.error_target_node_id
+        || cfg.on_error_target
+        || cfg.error_target
+        || ""
+      ).trim();
+      let mode = normalizeNodeErrorMode(rawMode);
+      let targetNodeId = rawTarget;
+      if (rawMode.includes(":")) {
+        const [prefix, suffix] = rawMode.split(":", 2);
+        mode = normalizeNodeErrorMode(prefix);
+        if (mode === "goto" && !targetNodeId) {
+          targetNodeId = String(suffix || "").trim();
+        }
+      }
+      if (mode !== "goto") {
+        targetNodeId = "";
+      }
+      return { mode, targetNodeId };
+    }
+
+    function updateGraphEditorOnErrorTargetVisibility(modeRaw) {
+      const mode = normalizeNodeErrorMode(modeRaw);
+      setElementVisible("graphEditorOnErrorTargetRow", mode === "goto");
+    }
+
+    function applyGraphEditorNodeErrorFields(config) {
+      const policy = parseNodeErrorPolicy(config);
+      byId("graphEditorOnError").value = policy.mode;
+      byId("graphEditorOnErrorTarget").value = policy.targetNodeId;
+      updateGraphEditorOnErrorTargetVisibility(policy.mode);
+    }
+
+    function currentGraphNodeErrorPolicyLabel() {
+      const mode = normalizeNodeErrorMode(byId("graphEditorOnError")?.value || "fail");
+      if (mode === "goto") {
+        const target = String(byId("graphEditorOnErrorTarget")?.value || "").trim();
+        return target
+          ? `On error: goto '${target}'.`
+          : "On error: goto requires a target node id.";
+      }
+      if (mode === "continue") {
+        return "On error: continue to downstream edges.";
+      }
+      return "On error: fail run.";
+    }
+
     function refreshGraphNodeBehaviorHelper(nodeType, integrationKey, triggerMode) {
       const helper = byId("graphEditorNodeHelper");
       if (!helper) return;
@@ -2723,7 +2812,7 @@
       if (kind === "trigger") {
         const mode = String(triggerMode || "manual").trim().toLowerCase();
         const target = triggerModeDefaults[mode] || triggerModeDefaults.manual;
-        helper.textContent = `Trigger mode '${mode}' configured. ${target.placeholder}`;
+        helper.textContent = `Trigger mode '${mode}' configured. ${target.placeholder} ${currentGraphNodeErrorPolicyLabel()}`;
         return;
       }
       if (kind === "action") {
@@ -2731,36 +2820,36 @@
         const catalog = integrationCatalogItem(integration);
         const name = catalog ? String(catalog.name || integration) : integration;
         if (integrationUsesBotChain.has(integration)) {
-          helper.textContent = `Action integration '${name}' selected. Configure bot chain order (Bot A > Bot B) or a single bot fallback.`;
+          helper.textContent = `Action integration '${name}' selected. Configure bot chain order (Bot A > Bot B) or a single bot fallback. ${currentGraphNodeErrorPolicyLabel()}`;
           return;
         }
         if (integrationUsesAccountSid.has(integration)) {
-          helper.textContent = `Action integration '${name}' selected. Configure account SID, auth token, and to/from delivery values.`;
+          helper.textContent = `Action integration '${name}' selected. Configure account SID, auth token, and to/from delivery values. ${currentGraphNodeErrorPolicyLabel()}`;
           return;
         }
         if (integrationUsesSubject.has(integration) || integrationUsesDomain.has(integration)) {
-          helper.textContent = `Action integration '${name}' selected. Configure sender/recipient envelope fields and message subject/domain.`;
+          helper.textContent = `Action integration '${name}' selected. Configure sender/recipient envelope fields and message subject/domain. ${currentGraphNodeErrorPolicyLabel()}`;
           return;
         }
-        helper.textContent = `Action integration '${name}' selected. Apply node defaults to reset execution policy.`;
+        helper.textContent = `Action integration '${name}' selected. Apply node defaults to reset execution policy. ${currentGraphNodeErrorPolicyLabel()}`;
         return;
       }
       if (kind === "ai") {
-        helper.textContent = "AI nodes support per-node model and prompt plus retry/backoff/timeout tuning.";
+        helper.textContent = `AI nodes support per-node model and prompt plus retry/backoff/timeout tuning. ${currentGraphNodeErrorPolicyLabel()}`;
         return;
       }
       if (kind === "condition") {
         const mode = String(byId("graphEditorConditionMode")?.value || "contains").trim().toLowerCase() || "contains";
         const expression = buildConditionExpressionFromControls();
         if (mode === "regex") {
-          helper.textContent = `Condition mode '${mode}' evaluates JavaScript-style regex against last output. Expression: ${expression}`;
+          helper.textContent = `Condition mode '${mode}' evaluates JavaScript-style regex against last output. Expression: ${expression}. ${currentGraphNodeErrorPolicyLabel()}`;
           return;
         }
         if (mode === "min_len") {
-          helper.textContent = `Condition mode '${mode}' checks output length threshold. Expression: ${expression}`;
+          helper.textContent = `Condition mode '${mode}' checks output length threshold. Expression: ${expression}. ${currentGraphNodeErrorPolicyLabel()}`;
           return;
         }
-        helper.textContent = `Condition mode '${mode}' configured. Expression: ${expression}`;
+        helper.textContent = `Condition mode '${mode}' configured. Expression: ${expression}. ${currentGraphNodeErrorPolicyLabel()}`;
         return;
       }
       helper.textContent = "Choose a node to configure behavior defaults, execution policy, and integration details.";
@@ -3213,6 +3302,9 @@
         byId("graphEditorRetry").value = "0";
         byId("graphEditorBackoff").value = "0";
         byId("graphEditorTimeout").value = "0";
+        byId("graphEditorOnError").value = "fail";
+        byId("graphEditorOnErrorTarget").value = "";
+        updateGraphEditorOnErrorTargetVisibility("fail");
         setGraphEditorVisibilityForType("action");
         updateGraphEditorIntegrationRequirements("standard");
         setGraphEditorActionFieldVisibility("standard");
@@ -3254,6 +3346,7 @@
       byId("graphEditorTimeout").value = String(
         Number.isFinite(Number(config.timeout_sec)) ? Number(config.timeout_sec) : defaults.timeout_sec
       );
+      applyGraphEditorNodeErrorFields(config);
       const presetRaw = String(config.execution_preset || "").trim().toLowerCase();
       if (["safe", "balanced", "aggressive", "custom"].includes(presetRaw)) {
         byId("graphEditorExecutionPreset").value = presetRaw;
@@ -3282,6 +3375,9 @@
       const preset = recommendedExecutionPreset(type, integration, triggerMode);
       applyNodeExecutionPresetInputs(type, integration, preset, triggerMode);
       byId("graphEditorExecutionPreset").value = preset;
+      byId("graphEditorOnError").value = "fail";
+      byId("graphEditorOnErrorTarget").value = "";
+      updateGraphEditorOnErrorTargetVisibility("fail");
       if (type === "trigger") {
         byId("graphEditorTriggerMode").value = "manual";
         applyTriggerModeDefaults("manual", { forceValue: true });
@@ -3319,6 +3415,8 @@
       const backoffMs = Math.max(0, Math.min(30000, Number(byId("graphEditorBackoff").value || 0)));
       const timeoutSec = Math.max(0, Math.min(120, Number(byId("graphEditorTimeout").value || 0)));
       const executionPreset = String(byId("graphEditorExecutionPreset").value || "custom").trim().toLowerCase();
+      const onErrorMode = normalizeNodeErrorMode(byId("graphEditorOnError").value || "fail");
+      const onErrorTarget = String(byId("graphEditorOnErrorTarget").value || "").trim();
 
       node.type = nextType;
       node.name = nextName;
@@ -3351,6 +3449,16 @@
       nextConfig.retry_backoff_ms = Number.isFinite(backoffMs) ? backoffMs : 0;
       nextConfig.timeout_sec = Number.isFinite(timeoutSec) ? timeoutSec : 0;
       nextConfig.execution_preset = executionPreset;
+      if (onErrorMode === "fail") {
+        nextConfig.on_error = "";
+        nextConfig.error_target_node_id = "";
+      } else if (onErrorMode === "goto") {
+        nextConfig.on_error = "goto";
+        nextConfig.error_target_node_id = onErrorTarget;
+      } else {
+        nextConfig.on_error = "continue";
+        nextConfig.error_target_node_id = "";
+      }
       node.config = nextConfig;
       state.graphDirty = true;
       renderGraphDraftLists();
@@ -4455,6 +4563,25 @@
         const integration = normalizeActionIntegration(byId("graphEditorIntegration").value || "standard");
         const triggerMode = String(byId("graphEditorTriggerMode").value || "manual").trim().toLowerCase() || "manual";
         applyNodeExecutionPresetInputs(type, integration, preset, triggerMode);
+      });
+      byId("graphEditorOnError").addEventListener("change", () => {
+        const mode = normalizeNodeErrorMode(byId("graphEditorOnError").value || "fail");
+        updateGraphEditorOnErrorTargetVisibility(mode);
+        refreshGraphNodeBehaviorHelper(
+          byId("graphEditorType").value || "action",
+          byId("graphEditorIntegration").value || "standard",
+          byId("graphEditorTriggerMode").value || "manual"
+        );
+      });
+      byId("graphEditorOnErrorTarget").addEventListener("input", () => {
+        if (normalizeNodeErrorMode(byId("graphEditorOnError").value || "fail") !== "goto") {
+          return;
+        }
+        refreshGraphNodeBehaviorHelper(
+          byId("graphEditorType").value || "action",
+          byId("graphEditorIntegration").value || "standard",
+          byId("graphEditorTriggerMode").value || "manual"
+        );
       });
       const executionInputIds = ["graphEditorRetry", "graphEditorBackoff", "graphEditorTimeout"];
       for (const inputId of executionInputIds) {

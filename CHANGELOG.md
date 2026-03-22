@@ -9,6 +9,9 @@ All notable changes to this project are documented here.
   Webflow, Supabase, OpenRouter, Resend, Mailgun, and more) so web graph node
   integration selectors match runtime capabilities instead of exposing a
   partial subset.
+- Docker Web graph node editor now supports per-node on-error behavior policy
+  (`fail`, `continue`, `goto`) with target-node input wiring, helper text
+  guidance, and save/load/default persistence into node config.
 - Canvas drag/select interaction handling was hardened again: stage-level drag
   fallback now starts from native stage drag-begin coordinates, node drag-begin
   stage pointers now derive from deterministic local offsets when GTK
@@ -52,6 +55,9 @@ All notable changes to this project are documented here.
 - Canvas gesture/translation parsing now handles additional GTK binding variants
   (including nested success tuples and two-value gesture points) to prevent
   drag/click regressions across distro-specific GI wrappers.
+- Canvas link drawing and node geometry now guard against transient widget
+  lifecycle/layout failures during redraw, preventing repeated draw exceptions
+  from destabilizing drag/select/link interaction loops.
 - Added regression tests for canvas coordinate translation parsing so GTK tuple
   format differences cannot silently break canvas interactions again.
 - Added regression tests for node drag-begin stage pointer fallback behavior so
