@@ -29,6 +29,10 @@ All notable changes to this project are documented here.
   (`(x, y)` and `(success, x, y)`), fixing node drag, node hit-testing,
   inspector selection updates, and link drawing crashes on Linux builds where
   `translate_coordinates` returns only two values.
+- Canvas node geometry now uses logical model coordinates for node X/Y
+  hit-testing and link anchors (while still using live widget size), preventing
+  transient GTK translation jitter from breaking click-to-select and drag
+  behavior.
 - Added regression tests for canvas coordinate translation parsing so GTK tuple
   format differences cannot silently break canvas interactions again.
 - Canvas event routing now uses bubble-phase stage click/drag handlers to avoid

@@ -10542,12 +10542,13 @@ class CanvasView(Gtk.Box):
         widget = self.node_widgets.get(node.id)
         if not widget:
             return fallback_x, fallback_y, fallback_w, fallback_h
-        translated = self.translate_widget_coordinates(widget, self.fixed, 0.0, 0.0)
-        if not translated:
-            return fallback_x, fallback_y, fallback_w, fallback_h
+
+        # Use node logical coordinates as the source of truth for X/Y.
+        # We place/move node widgets from these values, so this stays stable even when
+        # GTK widget coordinate translation reports transient or toolkit-specific values.
         width = float(widget.get_allocated_width() or int(fallback_w))
         height = float(widget.get_allocated_height() or int(fallback_h))
-        return float(translated[0]), float(translated[1]), max(8.0, width), max(8.0, height)
+        return fallback_x, fallback_y, max(8.0, width), max(8.0, height)
 
     def node_input_anchor(self, node: CanvasNode) -> tuple[int, int]:
         node_x, node_y, _node_w, node_h = self.node_screen_geometry(node)
