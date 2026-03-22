@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Canvas event routing now uses bubble-phase stage click/drag handlers to avoid
+  stealing pointer ownership from node gestures, restoring reliable node move,
+  click-to-inspector selection, and drag-to-link interactions.
+- Canvas auto-link source selection now prefers open tail nodes so repeatedly
+  adding modules forms a stable serial chain by default.
 - Canvas drag ownership now prefers per-node gestures; stage box-select no
   longer claims normal node drags, and stage-motion fallback updates run only
   for stage-owned drags. This removes competing drag updates that caused

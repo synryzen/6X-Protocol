@@ -612,9 +612,9 @@ class CanvasView(Gtk.Box):
 
         stage_click = Gtk.GestureClick()
         stage_click.set_button(Gdk.BUTTON_PRIMARY)
-        # Capture phase keeps node selection fallback reliable even if child widgets
-        # consume primary-button events.
-        stage_click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        # Bubble phase avoids competing with per-node click/drag gestures.
+        # Stage click still handles empty-space deselection and fallback sync.
+        stage_click.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         stage_click.set_exclusive(False)
         stage_click.connect("released", self.on_canvas_stage_clicked)
         self.fixed.add_controller(stage_click)
@@ -626,7 +626,8 @@ class CanvasView(Gtk.Box):
 
         stage_select_drag = Gtk.GestureDrag()
         stage_select_drag.set_button(Gdk.BUTTON_PRIMARY)
-        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        # Keep box-select on stage only, without stealing node drag ownership.
+        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         stage_select_drag.set_exclusive(False)
         stage_select_drag.connect("drag-begin", self.on_stage_select_drag_begin)
         stage_select_drag.connect("drag-update", self.on_stage_select_drag_update)
@@ -2040,22 +2041,15 @@ class CanvasView(Gtk.Box):
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active:
-            gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
         if self.port_drag_active:
-            gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
         hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
         if hit_node and not bool(state & selection_modifiers):
-            # Node widgets own click/drag/link interactions. If stage drag claims these
-            # sequences too, GTK can dispatch competing updates that cause jitter and
-            # can leave nodes effectively "stuck". Deny here so per-node controllers
-            # are the single source of truth for node dragging and selection.
-            gesture.set_state(Gtk.EventSequenceState.DENIED)
+            # Node widgets own pointer interactions.
             return
         if not bool(state & selection_modifiers):
-            # Node drags are handled by per-node drag gestures.
-            gesture.set_state(Gtk.EventSequenceState.DENIED)
+            # Stage box-select is explicit (Shift+drag) to avoid fighting node dragging.
             return
         additive = bool(state & selection_modifiers)
         self.selection_rect_active = True
@@ -7279,11 +7273,29 @@ class CanvasView(Gtk.Box):
     def default_auto_link_source_id(self, incoming_node_type: str) -> str:
         if self.node_type_key(incoming_node_type) == "trigger":
             return ""
-        if self.selected_node_id and self.find_node(self.selected_node_id):
-            return self.selected_node_id
+
+        def has_outgoing(node_id: str) -> bool:
+            return any(edge.source_node_id == node_id for edge in self.edges)
+
+        selected = self.find_node(self.selected_node_id) if self.selected_node_id else None
+        if selected and self.node_type_key(selected.node_type) != "trigger":
+            # Prefer selected node when it is still an open chain tail.
+            if not has_outgoing(selected.id):
+                return selected.id
+
+        # Default to the most recent non-trigger node without an outgoing link so
+        # newly-added nodes naturally form a left-to-right sequence.
+        for node in reversed(self.nodes):
+            if self.node_type_key(node.node_type) == "trigger":
+                continue
+            if not has_outgoing(node.id):
+                return node.id
+
+        # Fallback to the most recent non-trigger node.
         for node in reversed(self.nodes):
             if self.node_type_key(node.node_type) != "trigger":
                 return node.id
+
         if self.nodes:
             return self.nodes[-1].id
         return ""
