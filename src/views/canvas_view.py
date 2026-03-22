@@ -2059,12 +2059,22 @@ class CanvasView(Gtk.Box):
             local_x = float(pointer_x) - float(node_x)
             local_y = float(pointer_y) - float(node_y)
             if (
-                self.hovered_port_kind == "out"
-                and str(self.hovered_port_node_id or "").strip() == hit_node.id
+                (
+                    self.hovered_port_kind == "out"
+                    and str(self.hovered_port_node_id or "").strip() == hit_node.id
+                )
+                or self.is_output_handle_grab(local_x, local_y, hit_node.id)
             ):
-                # Respect explicit output-port drags for link wiring.
-                return
-            if self.is_output_handle_grab(local_x, local_y, hit_node.id):
+                # Start link drag directly from the stage fallback so drag-to-wire
+                # keeps working even when child-port drag controllers are flaky.
+                self.port_drag_just_finished = False
+                self.begin_output_link_drag(
+                    hit_node.id,
+                    pointer_x=float(pointer_x),
+                    pointer_y=float(pointer_y),
+                )
+                self.suppress_stage_click_once = True
+                gesture.set_state(Gtk.EventSequenceState.CLAIMED)
                 return
             previous_selected = self.selected_node_id
             previous_selection_set = set(self.selected_node_ids)
