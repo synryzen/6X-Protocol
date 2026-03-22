@@ -9116,14 +9116,23 @@ class CanvasView(Gtk.Box):
         if self.is_node_drag_stale():
             self.reset_node_drag_state()
             return
-        if self.node_drag_driver and self.node_drag_driver != "stage":
-            return
         if not self.drag_origin:
             self.reset_node_drag_state()
             return
         active_node_id = str(self.drag_origin.get("node_id", "")).strip()
         if not active_node_id:
             return
+
+        # Some GTK stacks intermittently skip node-gesture drag-update callbacks.
+        # Keep dragging responsive by letting stage motion drive node drag only when
+        # node-owned drag activity has gone quiet briefly.
+        if self.node_drag_driver and self.node_drag_driver != "stage":
+            if self.node_drag_driver != "node":
+                return
+            last_activity = float(self.node_drag_last_activity_monotonic or 0.0)
+            if last_activity > 0.0 and (time.monotonic() - last_activity) < 0.05:
+                return
+
         state = (
             _controller.get_current_event_state()
             if hasattr(_controller, "get_current_event_state")
@@ -10851,13 +10860,45 @@ class CanvasView(Gtk.Box):
         y: int,
         exclude_node_id: str | None = None,
     ) -> CanvasNode | None:
-        for node in reversed(self.nodes):
-            if exclude_node_id and node.id == exclude_node_id:
-                continue
-            node_x, node_y, node_width, node_height = self.node_screen_geometry(node)
-            if node_x <= x <= (node_x + node_width) and node_y <= y <= (node_y + node_height):
-                return node
+        for stage_x, stage_y in self.node_hit_test_candidates(int(x), int(y)):
+            for node in reversed(self.nodes):
+                if exclude_node_id and node.id == exclude_node_id:
+                    continue
+                node_x, node_y, node_width, node_height = self.node_screen_geometry(node)
+                if (
+                    node_x <= stage_x <= (node_x + node_width)
+                    and node_y <= stage_y <= (node_y + node_height)
+                ):
+                    return node
         return None
+
+    def node_hit_test_candidates(self, x: int, y: int) -> list[tuple[float, float]]:
+        # Keep the literal stage point first.
+        candidates: list[tuple[float, float]] = [(float(x), float(y))]
+        if not self.canvas_scroll:
+            return candidates
+        try:
+            hadj = self.canvas_scroll.get_hadjustment()
+            vadj = self.canvas_scroll.get_vadjustment()
+        except Exception:
+            return candidates
+        if not hadj or not vadj:
+            return candidates
+        try:
+            dx = float(hadj.get_value())
+            dy = float(vadj.get_value())
+        except Exception:
+            return candidates
+        if abs(dx) < 0.001 and abs(dy) < 0.001:
+            return candidates
+
+        forward = (float(x) + dx, float(y) + dy)
+        reverse = (float(x) - dx, float(y) - dy)
+        if forward not in candidates:
+            candidates.append(forward)
+        if reverse not in candidates:
+            candidates.append(reverse)
+        return candidates
 
     def get_selected_node(self) -> CanvasNode | None:
         if self.selected_node_id:

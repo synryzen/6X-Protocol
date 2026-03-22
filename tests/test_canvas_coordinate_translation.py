@@ -57,6 +57,26 @@ class _BrokenSizeWidget:
         raise RuntimeError("height unavailable")
 
 
+class _FakeAdjustment:
+    def __init__(self, value: float):
+        self._value = float(value)
+
+    def get_value(self):
+        return self._value
+
+
+class _FakeScroll:
+    def __init__(self, hadj: float, vadj: float):
+        self._hadj = _FakeAdjustment(hadj)
+        self._vadj = _FakeAdjustment(vadj)
+
+    def get_hadjustment(self):
+        return self._hadj
+
+    def get_vadjustment(self):
+        return self._vadj
+
+
 class CanvasCoordinateTranslationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -326,6 +346,68 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertEqual([], reset_calls)
         self.assertFalse(gesture.claimed)
         self.assertIsNone(self.view.stage_drag_node_id)
+
+    def test_find_node_at_point_uses_viewport_offset_candidate_when_needed(self):
+        node = CanvasNode(
+            id="n1",
+            name="Node",
+            node_type="Action",
+            detail="",
+            summary="",
+            x=300,
+            y=200,
+        )
+        self.view.nodes = [node]
+        self.view.node_widgets = {}
+        self.view.to_screen = lambda value: int(round(value))
+        self.view.card_screen_width = lambda: 120
+        self.view.card_screen_height = lambda: 80
+        self.view.canvas_scroll = _FakeScroll(100, 50)
+
+        # Viewport-relative pointer coordinates should still hit node bounds by
+        # trying stage candidates with scroll-offset adjustments.
+        hit = self.view.find_node_at_point(200, 150)
+        self.assertIsNotNone(hit)
+        self.assertEqual("n1", hit.id if hit else "")
+
+    def test_stage_pointer_motion_fallback_updates_stalled_node_drag(self):
+        self.view.port_drag_active = False
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "node"
+        self.view.drag_origin = {"node_id": "n1"}
+        self.view.node_drag_last_activity_monotonic = time.monotonic() - 0.2
+        self.view.is_node_drag_stale = lambda: False
+        calls: list[tuple[str, float, float, bool]] = []
+
+        self.view.apply_active_node_drag_position = (
+            lambda node_id, x, y, live_snap_enabled=False: calls.append(
+                (node_id, float(x), float(y), bool(live_snap_enabled))
+            )
+        )
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
+
+        self.assertEqual(1, len(calls))
+        self.assertEqual(("n1", 440.0, 320.0, False), calls[0])
+
+    def test_stage_pointer_motion_does_not_duplicate_recent_node_drag_updates(self):
+        self.view.port_drag_active = False
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "node"
+        self.view.drag_origin = {"node_id": "n1"}
+        self.view.node_drag_last_activity_monotonic = time.monotonic()
+        self.view.is_node_drag_stale = lambda: False
+        calls: list[tuple[str, float, float, bool]] = []
+
+        self.view.apply_active_node_drag_position = (
+            lambda node_id, x, y, live_snap_enabled=False: calls.append(
+                (node_id, float(x), float(y), bool(live_snap_enabled))
+            )
+        )
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
+
+        self.assertEqual([], calls)
 
     def test_default_auto_link_source_prefers_selected_trigger_when_tail_open(self):
         trigger = CanvasNode(
