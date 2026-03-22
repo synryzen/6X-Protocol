@@ -2,7 +2,13 @@ import unittest
 from types import SimpleNamespace
 import time
 
-from src.views.canvas_view import CanvasView, Gdk
+try:
+    from src.views.canvas_view import CanvasView, Gdk
+    CANVAS_IMPORT_ERROR = None
+except Exception as exc:  # pragma: no cover - CI fallback when gi is unavailable
+    CanvasView = None  # type: ignore[assignment]
+    Gdk = None  # type: ignore[assignment]
+    CANVAS_IMPORT_ERROR = exc
 
 
 class _FakeWidget:
@@ -48,6 +54,13 @@ class _BrokenSizeWidget:
 
 
 class CanvasCoordinateTranslationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if CanvasView is None:
+            raise unittest.SkipTest(
+                f"Canvas GTK tests require gi runtime; unavailable in this environment ({CANVAS_IMPORT_ERROR})"
+            )
+
     def setUp(self):
         # Exercise the helper directly without bootstrapping full GTK view state.
         self.view = CanvasView.__new__(CanvasView)
