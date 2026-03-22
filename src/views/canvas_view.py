@@ -40,6 +40,13 @@ class CanvasView(Gtk.Box):
     LINK_TYPES = ["next", "true", "false"]
     PROVIDER_OPTIONS = ["inherit", "local", "openai", "anthropic"]
     TRIGGER_MODE_OPTIONS = ["manual", "schedule_interval", "webhook", "file_watch", "cron"]
+    TRIGGER_MODE_LABELS = {
+        "manual": "Manual",
+        "schedule_interval": "On Interval",
+        "webhook": "On Webhook",
+        "file_watch": "On File Change",
+        "cron": "On Cron",
+    }
     CONDITION_MODE_OPTIONS = ["contains", "equals", "not_contains", "regex", "min_len", "true", "false", "raw"]
     TRIGGER_MODE_EXECUTION_PROFILES = {
         "manual": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 15.0},
@@ -836,7 +843,11 @@ class CanvasView(Gtk.Box):
             "Trigger Configuration",
             "media-playback-start-symbolic",
         )
-        self.trigger_mode_dropdown = Gtk.DropDown.new_from_strings(self.TRIGGER_MODE_OPTIONS)
+        trigger_mode_labels = [
+            self.TRIGGER_MODE_LABELS.get(mode, mode.replace("_", " ").title())
+            for mode in self.TRIGGER_MODE_OPTIONS
+        ]
+        self.trigger_mode_dropdown = Gtk.DropDown.new_from_strings(trigger_mode_labels)
         self.trigger_mode_dropdown.set_selected(0)
         self.trigger_mode_dropdown.connect("notify::selected", self.on_trigger_mode_changed)
         self.trigger_mode_row, self.trigger_mode_label = self.build_inspector_field_row(
