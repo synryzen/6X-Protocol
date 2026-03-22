@@ -628,9 +628,10 @@ class CanvasView(Gtk.Box):
 
         stage_select_drag = Gtk.GestureDrag()
         stage_select_drag.set_button(Gdk.BUTTON_PRIMARY)
-        # Capture phase gives us a reliable stage-level fallback when some
-        # widget stacks do not bubble drag gestures consistently from node cards.
-        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        # Bubble phase lets node/card/output-port gestures take precedence.
+        # We still keep stage-level fallback drag behavior when child gestures
+        # do not claim the sequence.
+        stage_select_drag.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
         stage_select_drag.set_exclusive(False)
         stage_select_drag.connect("drag-begin", self.on_stage_select_drag_begin)
         stage_select_drag.connect("drag-update", self.on_stage_select_drag_update)
