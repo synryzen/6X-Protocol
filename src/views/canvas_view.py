@@ -9112,21 +9112,7 @@ class CanvasView(Gtk.Box):
         )
 
     def parse_gesture_point(self, point) -> tuple[float, float] | None:
-        if point is None:
-            return None
-        if isinstance(point, tuple):
-            try:
-                # Common GTK4 pattern: (has_point, x, y)
-                if len(point) >= 3 and isinstance(point[0], bool):
-                    if not point[0]:
-                        return None
-                    return float(point[1]), float(point[2])
-                # Some bindings/platforms may surface (x, y) only.
-                if len(point) >= 2:
-                    return float(point[0]), float(point[1])
-            except (TypeError, ValueError):
-                return None
-        return None
+        return self.extract_coordinate_pair(point)
 
     def translate_widget_coordinates(
         self,
@@ -9147,31 +9133,105 @@ class CanvasView(Gtk.Box):
         return self.parse_translated_coordinates(translated)
 
     def parse_translated_coordinates(self, translated) -> tuple[float, float] | None:
+        return self.extract_coordinate_pair(translated)
+
+    def coerce_float_value(self, value) -> float | None:
+        try:
+            number = float(value)
+        except Exception:
+            return None
+        if math.isnan(number) or math.isinf(number):
+            return None
+        return number
+
+    def extract_coordinate_pair(self, value) -> tuple[float, float] | None:
         # GTK introspection can vary by distro/build:
-        # - `(dest_x, dest_y)`
-        # - `(success, dest_x, dest_y)`
-        # - `(success, (dest_x, dest_y))`
-        if translated is None or not isinstance(translated, tuple):
+        # - `(x, y)`
+        # - `(success, x, y)`
+        # - `(success, (x, y))`
+        # - `(success, Graphene.Point)`
+        # - `Graphene.Point`
+        if value is None:
             return None
 
         try:
-            if len(translated) >= 3 and isinstance(translated[0], bool):
-                if not translated[0]:
-                    return None
-                return float(translated[1]), float(translated[2])
+            point_x = getattr(value, "x", None)
+            point_y = getattr(value, "y", None)
+        except Exception:
+            point_x = None
+            point_y = None
+        if point_x is not None and point_y is not None:
+            parsed_x = self.coerce_float_value(point_x)
+            parsed_y = self.coerce_float_value(point_y)
+            if parsed_x is not None and parsed_y is not None:
+                return parsed_x, parsed_y
 
-            if len(translated) == 2 and isinstance(translated[0], bool):
-                if not translated[0]:
-                    return None
-                nested = translated[1]
-                if isinstance(nested, tuple) and len(nested) >= 2:
-                    return float(nested[0]), float(nested[1])
+        if not isinstance(value, (tuple, list)):
+            return None
+
+        try:
+            size = len(value)
+        except Exception:
+            return None
+        if size <= 0:
+            return None
+
+        try:
+            head = value[0]
+        except Exception:
+            return None
+
+        if isinstance(head, bool):
+            if not head:
                 return None
 
-            if len(translated) >= 2:
-                return float(translated[0]), float(translated[1])
-        except (TypeError, ValueError, IndexError):
+            # Legacy GTK shape: `(True, x, y)`.
+            if size >= 3:
+                try:
+                    parsed_x = self.coerce_float_value(value[1])
+                    parsed_y = self.coerce_float_value(value[2])
+                except Exception:
+                    parsed_x = None
+                    parsed_y = None
+                if parsed_x is not None and parsed_y is not None:
+                    return parsed_x, parsed_y
+
+            # GTK shape: `(True, (x, y))` or `(True, Graphene.Point)`.
+            if size >= 2:
+                try:
+                    nested = value[1]
+                except Exception:
+                    nested = None
+                nested_pair = self.extract_coordinate_pair(nested)
+                if nested_pair:
+                    return nested_pair
             return None
+
+        # Common GTK4 shape: `(x, y)`.
+        if size >= 2:
+            try:
+                parsed_x = self.coerce_float_value(value[0])
+                parsed_y = self.coerce_float_value(value[1])
+            except Exception:
+                parsed_x = None
+                parsed_y = None
+            if parsed_x is not None and parsed_y is not None:
+                return parsed_x, parsed_y
+
+        # Rare shape where coordinate pair appears as first/second nested item.
+        try:
+            first_nested = self.extract_coordinate_pair(value[0])
+        except Exception:
+            first_nested = None
+        if first_nested:
+            return first_nested
+        if size >= 2:
+            try:
+                second_nested = self.extract_coordinate_pair(value[1])
+            except Exception:
+                second_nested = None
+            if second_nested:
+                return second_nested
 
         return None
 

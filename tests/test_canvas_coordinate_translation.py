@@ -51,6 +51,21 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         result = self.view.translate_widget_coordinates(source, object(), 1.0, 2.0)
         self.assertEqual((11.0, 19.0), result)
 
+    def test_translate_widget_coordinates_accepts_success_point_object(self):
+        source = _FakeWidget((True, SimpleNamespace(x=14.0, y=26.5)))
+        result = self.view.translate_widget_coordinates(source, object(), 1.0, 2.0)
+        self.assertEqual((14.0, 26.5), result)
+
+    def test_translate_widget_coordinates_accepts_list_shape(self):
+        source = _FakeWidget([77.0, 31.25])
+        result = self.view.translate_widget_coordinates(source, object(), 1.0, 2.0)
+        self.assertEqual((77.0, 31.25), result)
+
+    def test_translate_widget_coordinates_handles_short_success_tuple(self):
+        source = _FakeWidget((True, 17.0))
+        result = self.view.translate_widget_coordinates(source, object(), 1.0, 2.0)
+        self.assertIsNone(result)
+
     def test_translate_widget_coordinates_handles_errors(self):
         source = _FailingWidget()
         result = self.view.translate_widget_coordinates(source, object(), 1.0, 2.0)
@@ -63,6 +78,10 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
     def test_parse_gesture_point_accepts_two_value_shape(self):
         result = self.view.parse_gesture_point((25.0, 31.0))
         self.assertEqual((25.0, 31.0), result)
+
+    def test_parse_gesture_point_accepts_point_object(self):
+        result = self.view.parse_gesture_point(SimpleNamespace(x=9.5, y=12.25))
+        self.assertEqual((9.5, 12.25), result)
 
     def test_parse_gesture_point_rejects_false_flag(self):
         result = self.view.parse_gesture_point((False, 25.0, 31.0))
