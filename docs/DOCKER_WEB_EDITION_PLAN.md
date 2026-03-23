@@ -64,7 +64,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Expanded settings controls (`local_ai_enabled`, `local_ai_backend`, API keys, `theme_preset`, `reduce_motion`) in web preview
 - [x] Workflow list/editor parity
 - [x] Runs timeline parity
-- [ ] Settings parity
+- [x] Settings parity
 - [ ] Production web canvas builder
 
 ### M4: Compose quality and docs
@@ -104,6 +104,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Web preview runs panel now supports timeline querying (status/search/node/limit/order) via API-backed timeline endpoints.
 - Web preview runs panel now supports selected-run delete and richer run detail refresh workflow.
 - Web preview settings panel now supports local backend selection, local/cloud API keys, local runtime enable toggle, theme preset selection, and reduce-motion toggle.
+- Web preview settings panel now includes automation defaults (auto-save, daemon autostart, tray toggle), minimap placement persistence fields, and reset-to-default controls.
 - Docker/web integration catalog now matches the full runtime-supported connector set (including handoff, Google Calendar API, Drive/Dropbox, Shopify/Webflow, Supabase, OpenRouter, Resend, and Mailgun).
 - Web preview node editor now supports per-node on-error behavior policy (`fail`, `continue`, `goto` + target node id).
 

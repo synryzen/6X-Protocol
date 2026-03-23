@@ -101,6 +101,12 @@ class SettingsPatch(BaseModel):
     theme_preset: str | None = None
     ui_density: str | None = None
     reduce_motion: bool | None = None
+    auto_save_workflows: bool | None = None
+    daemon_autostart: bool | None = None
+    tray_enabled: bool | None = None
+    canvas_minimap_x: int | None = None
+    canvas_minimap_y: int | None = None
+    canvas_minimap_user_placed: bool | None = None
 
 
 class IntegrationProfileIn(BaseModel):
@@ -233,11 +239,27 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "theme_preset": "graphite",
     "ui_density": "comfortable",
     "reduce_motion": False,
+    "auto_save_workflows": True,
+    "daemon_autostart": False,
+    "tray_enabled": False,
+    "canvas_minimap_x": 0,
+    "canvas_minimap_y": 0,
+    "canvas_minimap_user_placed": False,
 }
 
 ALLOWED_THEME = {"system", "light", "dark"}
 ALLOWED_DENSITY = {"comfortable", "compact"}
 ALLOWED_PROVIDER = {"local", "openai", "anthropic"}
+ALLOWED_THEME_PRESETS = {
+    "graphite",
+    "indigo",
+    "carbon",
+    "aurora",
+    "frost",
+    "sunset",
+    "rose",
+    "amber",
+}
 ALLOWED_LOCAL_BACKENDS = {
     "ollama",
     "lm_studio",
@@ -358,18 +380,92 @@ def normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
     merged["theme"] = theme if theme in ALLOWED_THEME else DEFAULT_SETTINGS["theme"]
 
     theme_preset = str(merged.get("theme_preset", "graphite")).strip().lower()
-    merged["theme_preset"] = theme_preset or DEFAULT_SETTINGS["theme_preset"]
+    merged["theme_preset"] = (
+        theme_preset
+        if theme_preset in ALLOWED_THEME_PRESETS
+        else DEFAULT_SETTINGS["theme_preset"]
+    )
 
     density = str(merged.get("ui_density", "comfortable")).strip().lower()
     merged["ui_density"] = density if density in ALLOWED_DENSITY else DEFAULT_SETTINGS["ui_density"]
 
-    merged["local_ai_enabled"] = bool(merged.get("local_ai_enabled", True))
-    merged["reduce_motion"] = bool(merged.get("reduce_motion", False))
+    merged["local_ai_enabled"] = coerce_bool(merged.get("local_ai_enabled", True), True)
+    merged["reduce_motion"] = coerce_bool(merged.get("reduce_motion", False), False)
+    merged["auto_save_workflows"] = coerce_bool(
+        merged.get("auto_save_workflows", DEFAULT_SETTINGS["auto_save_workflows"])
+    )
+    merged["daemon_autostart"] = coerce_bool(
+        merged.get("daemon_autostart", DEFAULT_SETTINGS["daemon_autostart"])
+    )
+    merged["tray_enabled"] = coerce_bool(
+        merged.get("tray_enabled", DEFAULT_SETTINGS["tray_enabled"])
+    )
+    try:
+        minimap_x = int(merged.get("canvas_minimap_x", DEFAULT_SETTINGS["canvas_minimap_x"]))
+    except (TypeError, ValueError):
+        minimap_x = int(DEFAULT_SETTINGS["canvas_minimap_x"])
+    try:
+        minimap_y = int(merged.get("canvas_minimap_y", DEFAULT_SETTINGS["canvas_minimap_y"]))
+    except (TypeError, ValueError):
+        minimap_y = int(DEFAULT_SETTINGS["canvas_minimap_y"])
+    merged["canvas_minimap_x"] = max(0, minimap_x)
+    merged["canvas_minimap_y"] = max(0, minimap_y)
+    merged["canvas_minimap_user_placed"] = coerce_bool(
+        merged.get(
+            "canvas_minimap_user_placed",
+            DEFAULT_SETTINGS["canvas_minimap_user_placed"],
+        )
+    )
     local_backend = str(merged.get("local_ai_backend", "ollama")).strip().lower()
     merged["local_ai_backend"] = local_backend if local_backend in ALLOWED_LOCAL_BACKENDS else "ollama"
-    merged["local_ai_endpoint"] = str(merged.get("local_ai_endpoint", "")).strip() or DEFAULT_SETTINGS["local_ai_endpoint"]
+    local_endpoint = str(merged.get("local_ai_endpoint", "")).strip()
+    if not local_endpoint:
+        local_endpoint = default_endpoint_for_backend(merged["local_ai_backend"])
+    merged["local_ai_endpoint"] = local_endpoint.rstrip("/")
     merged["local_ai_api_key"] = str(merged.get("local_ai_api_key", "")).strip()
-    merged["default_local_model"] = str(merged.get("default_local_model", "")).strip()
+    merged["default_local_model"] = sanitize_model_name(str(merged.get("default_local_model", "")).strip())
     merged["openai_api_key"] = str(merged.get("openai_api_key", "")).strip()
     merged["anthropic_api_key"] = str(merged.get("anthropic_api_key", "")).strip()
     return merged
+
+
+def default_endpoint_for_backend(backend: str) -> str:
+    normalized = str(backend).strip().lower()
+    if normalized == "lm_studio":
+        return "http://localhost:1234/v1"
+    if normalized in {"openai_compatible", "vllm"}:
+        return "http://localhost:8000/v1"
+    if normalized == "llama_cpp":
+        return "http://localhost:8080/v1"
+    if normalized == "text_generation_webui":
+        return "http://localhost:5000/v1"
+    if normalized == "jan":
+        return "http://localhost:1337/v1"
+    return "http://localhost:11434"
+
+
+def sanitize_model_name(model: str) -> str:
+    value = str(model).strip().strip("/")
+    if not value:
+        return ""
+    lowered = value.lower()
+    for suffix in ("v1/chat/completions", "chat/completions", "v1/completions", "completions"):
+        if lowered.endswith(suffix):
+            value = value[: -len(suffix)].rstrip("/")
+            break
+    return value
+
+
+def coerce_bool(value: Any, fallback: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return bool(fallback)
+    if isinstance(value, (int, float)):
+        return value != 0
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "y", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "n", "off", ""}:
+        return False
+    return bool(fallback)

@@ -228,6 +228,12 @@
       gap: 8px;
     }
 
+    .grid3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
     .settings {
       border: 1px solid var(--line);
       border-radius: 10px;
@@ -412,6 +418,8 @@
       .graph-toolbar { grid-template-columns: 1fr; }
       .graph-actions { justify-content: flex-start; }
       .graph-editor-grid { grid-template-columns: 1fr; }
+      .grid2 { grid-template-columns: 1fr; }
+      .grid3 { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -1002,17 +1010,60 @@
             <label class="label" for="themePreset">Theme Preset</label>
             <select id="themePreset" class="select">
               <option value="graphite">graphite</option>
+              <option value="indigo">indigo</option>
+              <option value="carbon">carbon</option>
+              <option value="aurora">aurora</option>
               <option value="frost">frost</option>
               <option value="sunset">sunset</option>
-              <option value="ember">ember</option>
-              <option value="midnight">midnight</option>
-              <option value="solar">solar</option>
-              <option value="neon">neon</option>
+              <option value="rose">rose</option>
+              <option value="amber">amber</option>
             </select>
+          </div>
+          <h2 class="mini-title">Automation Defaults</h2>
+          <div class="grid3">
+            <div class="row">
+              <label class="label" for="autoSaveWorkflows">Auto Save Workflows</label>
+              <select id="autoSaveWorkflows" class="select">
+                <option value="true">true</option>
+                <option value="false">false</option>
+              </select>
+            </div>
+            <div class="row">
+              <label class="label" for="daemonAutostart">Daemon Autostart</label>
+              <select id="daemonAutostart" class="select">
+                <option value="false">false</option>
+                <option value="true">true</option>
+              </select>
+            </div>
+            <div class="row">
+              <label class="label" for="trayEnabled">Tray Enabled</label>
+              <select id="trayEnabled" class="select">
+                <option value="false">false</option>
+                <option value="true">true</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid3">
+            <div class="row">
+              <label class="label" for="canvasMinimapX">Canvas Minimap X</label>
+              <input id="canvasMinimapX" class="input" type="number" min="0" step="1" value="0" />
+            </div>
+            <div class="row">
+              <label class="label" for="canvasMinimapY">Canvas Minimap Y</label>
+              <input id="canvasMinimapY" class="input" type="number" min="0" step="1" value="0" />
+            </div>
+            <div class="row">
+              <label class="label" for="canvasMinimapUserPlaced">Minimap User Placed</label>
+              <select id="canvasMinimapUserPlaced" class="select">
+                <option value="false">false</option>
+                <option value="true">true</option>
+              </select>
+            </div>
           </div>
           <div class="actions" style="justify-content:flex-start;">
             <button id="loadSettings" class="btn">Load Settings</button>
             <button id="saveSettings" class="btn primary">Save Settings</button>
+            <button id="resetSettings" class="btn">Reset Defaults</button>
           </div>
         </div>
 
@@ -1420,6 +1471,17 @@
 
     function byId(id) {
       return document.getElementById(id);
+    }
+
+    function parseBoolInput(value, fallback = false) {
+      const normalized = String(value ?? String(fallback)).trim().toLowerCase();
+      return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
+    }
+
+    function parseNonNegativeIntInput(value, fallback = 0) {
+      const parsed = Number.parseInt(String(value ?? fallback), 10);
+      if (!Number.isFinite(parsed)) return fallback;
+      return Math.max(0, parsed);
     }
 
     function log(message, level = "info") {
@@ -4279,6 +4341,18 @@
       byId("themePreset").value = settings.theme_preset || "graphite";
       byId("density").value = settings.ui_density || "comfortable";
       byId("reduceMotion").value = String(Boolean(settings.reduce_motion));
+      byId("autoSaveWorkflows").value = String(
+        settings.auto_save_workflows === undefined ? true : Boolean(settings.auto_save_workflows)
+      );
+      byId("daemonAutostart").value = String(Boolean(settings.daemon_autostart));
+      byId("trayEnabled").value = String(Boolean(settings.tray_enabled));
+      byId("canvasMinimapX").value = String(
+        Number.isFinite(Number(settings.canvas_minimap_x)) ? Math.max(0, Number(settings.canvas_minimap_x)) : 0
+      );
+      byId("canvasMinimapY").value = String(
+        Number.isFinite(Number(settings.canvas_minimap_y)) ? Math.max(0, Number(settings.canvas_minimap_y)) : 0
+      );
+      byId("canvasMinimapUserPlaced").value = String(Boolean(settings.canvas_minimap_user_placed));
     }
 
     async function loadSettings() {
@@ -4294,7 +4368,7 @@
     async function saveSettings() {
       const payload = {
         preferred_provider: byId("preferredProvider").value,
-        local_ai_enabled: String(byId("localAiEnabled").value || "true").trim().toLowerCase() === "true",
+        local_ai_enabled: parseBoolInput(byId("localAiEnabled").value, true),
         local_ai_backend: byId("localBackend").value,
         local_ai_endpoint: byId("localEndpoint").value.trim(),
         local_ai_api_key: byId("localRuntimeApiKey").value.trim(),
@@ -4304,7 +4378,13 @@
         theme: byId("theme").value,
         theme_preset: byId("themePreset").value,
         ui_density: byId("density").value,
-        reduce_motion: String(byId("reduceMotion").value || "false").trim().toLowerCase() === "true",
+        reduce_motion: parseBoolInput(byId("reduceMotion").value, false),
+        auto_save_workflows: parseBoolInput(byId("autoSaveWorkflows").value, true),
+        daemon_autostart: parseBoolInput(byId("daemonAutostart").value, false),
+        tray_enabled: parseBoolInput(byId("trayEnabled").value, false),
+        canvas_minimap_x: parseNonNegativeIntInput(byId("canvasMinimapX").value, 0),
+        canvas_minimap_y: parseNonNegativeIntInput(byId("canvasMinimapY").value, 0),
+        canvas_minimap_user_placed: parseBoolInput(byId("canvasMinimapUserPlaced").value, false),
       };
       try {
         const saved = await api("/api/v1/settings", {
@@ -4315,6 +4395,16 @@
         log("Settings saved.", "info");
       } catch (error) {
         log(`Save settings failed: ${error.message}`, "error");
+      }
+    }
+
+    async function resetSettings() {
+      try {
+        const saved = await api("/api/v1/settings/reset", { method: "POST" });
+        applySettingsToForm(saved);
+        log("Settings reset to defaults.", "info");
+      } catch (error) {
+        log(`Reset settings failed: ${error.message}`, "error");
       }
     }
 
@@ -4739,6 +4829,7 @@
       byId("graphSaveNode").addEventListener("click", saveGraphNodeEditor);
       byId("loadSettings").addEventListener("click", loadSettings);
       byId("saveSettings").addEventListener("click", saveSettings);
+      byId("resetSettings").addEventListener("click", resetSettings);
       byId("newIntegrationProfile").addEventListener("click", () => {
         clearIntegrationProfileForm();
         renderIntegrationProfiles();
