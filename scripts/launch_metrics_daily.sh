@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ADD_SCRIPT="${ROOT_DIR}/scripts/launch_metrics_add.py"
 SUMMARY_SCRIPT="${ROOT_DIR}/scripts/launch_metrics_summary.py"
+SYNC_SCRIPT="${ROOT_DIR}/scripts/launch_metrics_sync_github.py"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 if [[ ! -f "${ADD_SCRIPT}" ]]; then
@@ -13,6 +14,11 @@ fi
 
 if [[ ! -f "${SUMMARY_SCRIPT}" ]]; then
   echo "Missing summary script: ${SUMMARY_SCRIPT}"
+  exit 1
+fi
+
+if [[ ! -f "${SYNC_SCRIPT}" ]]; then
+  echo "Missing GitHub sync script: ${SYNC_SCRIPT}"
   exit 1
 fi
 
@@ -53,6 +59,20 @@ prompt_yes_no() {
   fi
 }
 
+sync_from_github() {
+  local entry_date="$1"
+  local mode="$2"
+  local sync_mode
+  if [[ "${mode}" == "yes" ]]; then
+    sync_mode="add"
+  else
+    sync_mode="set"
+  fi
+  echo
+  echo "Syncing stars/downloads from GitHub..."
+  "${PYTHON_BIN}" "${SYNC_SCRIPT}" --date "${entry_date}" --mode "${sync_mode}"
+}
+
 echo
 echo "6X-Protocol Launch Metrics Daily Update"
 echo "---------------------------------------"
@@ -60,6 +80,7 @@ echo "---------------------------------------"
 default_date="$(date +%F)"
 entry_date="$(prompt_default "Date (YYYY-MM-DD)" "${default_date}")"
 add_mode="$(prompt_yes_no "Add numeric values to existing row?" "no")"
+auto_sync="$(prompt_yes_no "Auto-sync stars/downloads from GitHub release?" "yes")"
 
 day_label="$(prompt_optional "Day label (example: Day 1)")"
 channel_focus="$(prompt_optional "Channel focus (example: Launch)")"
@@ -118,6 +139,10 @@ echo
 echo "Updating launch metrics..."
 "${PYTHON_BIN}" "${ADD_SCRIPT}" "${args[@]}"
 
+if [[ "${auto_sync}" == "yes" ]]; then
+  sync_from_github "${entry_date}" "${add_mode}"
+fi
+
 summary_format="$(prompt_yes_no "Print markdown summary?" "no")"
 echo
 echo "Current launch summary:"
@@ -126,4 +151,3 @@ if [[ "${summary_format}" == "yes" ]]; then
 else
   "${PYTHON_BIN}" "${SUMMARY_SCRIPT}"
 fi
-

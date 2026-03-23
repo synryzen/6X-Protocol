@@ -20,13 +20,18 @@ Track each day in a simple note:
 
 Use the included tracker + summary command:
 - CSV tracker: `docs/launch_metrics.csv`
+- GitHub totals snapshot tracker: `docs/launch_metrics_totals.csv`
 - Quick upsert helper: `./scripts/launch_metrics_add.py`
 - Interactive daily wrapper: `./scripts/launch_metrics_daily.sh`
+- GitHub sync helper: `./scripts/launch_metrics_sync_github.py`
 - Summary (text): `./scripts/launch_metrics_summary.py`
 - Summary (markdown): `./scripts/launch_metrics_summary.py --markdown`
 
 Example update command:
 `./scripts/launch_metrics_add.py --posts 2 --clicks 140 --downloads 51 --stars 11 --channel-focus "Launch"`
+
+Example GitHub sync command:
+`./scripts/launch_metrics_sync_github.py --date 2026-03-23 --mode set`
 
 ---
 
