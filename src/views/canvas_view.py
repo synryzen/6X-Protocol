@@ -1995,6 +1995,10 @@ class CanvasView(Gtk.Box):
     def mark_node_drag_activity(self):
         self.node_drag_last_activity_monotonic = float(time.monotonic())
 
+    def primary_button_down(self, state) -> bool:
+        button1_mask = getattr(Gdk.ModifierType, "BUTTON1_MASK", Gdk.ModifierType(0))
+        return bool(state & button1_mask)
+
     def is_port_drag_stale(self, max_age_sec: float = 1.4) -> bool:
         if not self.port_drag_active:
             return False
@@ -8962,15 +8966,25 @@ class CanvasView(Gtk.Box):
     def on_node_clicked(self, gesture: Gtk.GestureClick, _n_press, _x, _y, node_id: str):
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         self.grab_focus()
+        state = (
+            gesture.get_current_event_state()
+            if hasattr(gesture, "get_current_event_state")
+            else Gdk.ModifierType(0)
+        )
+        primary_button_down = self.primary_button_down(state)
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active:
             if self.is_node_drag_stale():
                 self.reset_node_drag_state()
+            elif not primary_button_down:
+                # Drag state should never remain active after button release.
+                # Recover immediately so click selection/inspector updates keep working.
+                self.reset_node_drag_state()
             # Let drag-end own state cleanup. Resetting here can interrupt active drags.
             elif self.drag_origin.get("node_id") == node_id:
                 return
-            if not self.drag_origin:
+            if self.node_drag_active and not self.drag_origin:
                 self.reset_node_drag_state()
         if self.suppress_next_node_click:
             self.suppress_next_node_click = False
@@ -9143,8 +9157,7 @@ class CanvasView(Gtk.Box):
             if hasattr(_controller, "get_current_event_state")
             else Gdk.ModifierType(0)
         )
-        button1_mask = getattr(Gdk.ModifierType, "BUTTON1_MASK", Gdk.ModifierType(0))
-        primary_button_down = bool(state & button1_mask)
+        primary_button_down = self.primary_button_down(state)
 
         if self.port_drag_active:
             if not primary_button_down:
