@@ -58,6 +58,11 @@ Optional API auth baseline:
   - `Authorization: Bearer <token>`
 - The web dashboard now includes an API token field in the top bar and sends `X-6X-API-Key` when set.
 
+Storage schema baseline:
+- JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
+- Migration history is recorded in `/data/6x-protocol/schema_migrations.json`.
+- Legacy payloads are normalized automatically on startup (v1 -> v2).
+
 Automated smoke test from repo root:
 ```bash
 ./scripts/test_docker_web.sh
@@ -121,6 +126,6 @@ Execution routing behavior:
 
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
-2. Add DB migration/versioning workflow and stronger persistence boundaries.
+2. Expand DB migration/versioning from JSON baseline toward relational persistence boundaries.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Add backup, observability, and deployment hardening.

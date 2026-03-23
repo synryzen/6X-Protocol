@@ -140,7 +140,7 @@ Self-hosted web preview status: **Live and smoke-validated**.
 
 Remaining high-value items:
 - Replace the preview web panel with production-grade web UX modules.
-- Add DB migration strategy and tighten persistence/versioning.
+- Expand migration strategy from JSON baseline to relational DB workflows.
 - Expand secrets hardening baseline for team/hosted deployment paths.
 
 ## Package Build Commands
