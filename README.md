@@ -115,6 +115,7 @@ See:
 - 7-day launch plan: [`docs/LAUNCH_CALENDAR_7D_v0.1.7.md`](docs/LAUNCH_CALENDAR_7D_v0.1.7.md)
 - Launch metrics tracker: [`docs/launch_metrics.csv`](docs/launch_metrics.csv)
 - Launch metrics quick updater: [`scripts/launch_metrics_add.py`](scripts/launch_metrics_add.py)
+- Launch metrics interactive wrapper: [`scripts/launch_metrics_daily.sh`](scripts/launch_metrics_daily.sh)
 - Launch metrics summary script: [`scripts/launch_metrics_summary.py`](scripts/launch_metrics_summary.py)
 - Latest release notes: [`docs/RELEASE_NOTES_v0.1.7.md`](docs/RELEASE_NOTES_v0.1.7.md)
 - Announcement copy kit: [`docs/ANNOUNCEMENT_KIT_v0.1.7.md`](docs/ANNOUNCEMENT_KIT_v0.1.7.md)
@@ -170,6 +171,7 @@ Useful flags:
 - `SKIP_DOCKER_SMOKE=1 ./scripts/release_readiness.sh`
 - `REQUIRE_DOCKER_SMOKE=1 ./scripts/release_readiness.sh`
 - `./scripts/launch_metrics_add.py --posts 2 --clicks 140 --downloads 51 --stars 11 --channel-focus "Launch"`
+- `./scripts/launch_metrics_daily.sh`
 - `./scripts/launch_metrics_summary.py --markdown`
 
 ## License

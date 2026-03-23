@@ -21,6 +21,7 @@ Track each day in a simple note:
 Use the included tracker + summary command:
 - CSV tracker: `docs/launch_metrics.csv`
 - Quick upsert helper: `./scripts/launch_metrics_add.py`
+- Interactive daily wrapper: `./scripts/launch_metrics_daily.sh`
 - Summary (text): `./scripts/launch_metrics_summary.py`
 - Summary (markdown): `./scripts/launch_metrics_summary.py --markdown`
 
