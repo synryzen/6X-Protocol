@@ -20,8 +20,12 @@ Track each day in a simple note:
 
 Use the included tracker + summary command:
 - CSV tracker: `docs/launch_metrics.csv`
+- Quick upsert helper: `./scripts/launch_metrics_add.py`
 - Summary (text): `./scripts/launch_metrics_summary.py`
 - Summary (markdown): `./scripts/launch_metrics_summary.py --markdown`
+
+Example update command:
+`./scripts/launch_metrics_add.py --posts 2 --clicks 140 --downloads 51 --stars 11 --channel-focus "Launch"`
 
 ---
 
