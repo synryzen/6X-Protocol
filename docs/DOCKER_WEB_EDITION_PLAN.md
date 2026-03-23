@@ -105,6 +105,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Web preview runs panel now supports selected-run delete and richer run detail refresh workflow.
 - Web preview settings panel now supports local backend selection, local/cloud API keys, local runtime enable toggle, theme preset selection, and reduce-motion toggle.
 - Web preview settings panel now includes automation defaults (auto-save, daemon autostart, tray toggle), minimap placement persistence fields, and reset-to-default controls.
+- Web preview graph builder now includes an interactive visual stage (draggable node cards, live link rendering, click-to-edit sync, auto-arrange, fit-view).
 - Docker/web integration catalog now matches the full runtime-supported connector set (including handoff, Google Calendar API, Drive/Dropbox, Shopify/Webflow, Supabase, OpenRouter, Resend, and Mailgun).
 - Web preview node editor now supports per-node on-error behavior policy (`fail`, `continue`, `goto` + target node id).
 

@@ -119,6 +119,7 @@ See:
 - Execution behavior implemented: timeout/retry/backoff and graph-aware branch routing
 - Parallel DAG behavior implemented: ready-node fan-out + join with skipped-branch pruning
 - Web graph editor supports node/link draft editing, link inspector, run timeline filters, per-node behavior presets, and on-error behavior policy (`fail`/`continue`/`goto`)
+- Web graph editor now includes an interactive visual stage with draggable node cards, live SVG links, click-to-edit selection sync, auto-arrange, and fit-view actions
 - Web settings panel includes local/cloud AI fields, theme controls, automation defaults, minimap placement persistence, and reset-to-default action
 - Smoke test validated (March 22, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, timeline/log filters, integrations, bots, and settings patch flows
 

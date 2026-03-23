@@ -368,6 +368,156 @@
       gap: 8px;
     }
 
+    .graph-canvas-shell {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(116, 186, 255, 0.12), transparent 45%),
+        radial-gradient(circle at 80% 65%, rgba(190, 112, 255, 0.08), transparent 50%),
+        rgba(5, 14, 28, 0.84);
+    }
+
+    .graph-canvas-toolbar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .graph-canvas-viewport {
+      position: relative;
+      border: 1px solid rgba(122, 155, 207, 0.35);
+      border-radius: 10px;
+      overflow: auto;
+      min-height: 320px;
+      max-height: 420px;
+      background:
+        linear-gradient(rgba(131, 186, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(131, 186, 255, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at center, rgba(131, 186, 255, 0.24) 1.2px, transparent 1.2px),
+        rgba(4, 12, 24, 0.92);
+      background-size: 44px 44px, 44px 44px, 22px 22px, auto;
+      background-position: 0 0, 0 0, 0 0, 0 0;
+    }
+
+    .graph-canvas-stage {
+      position: relative;
+      min-width: 1024px;
+      min-height: 620px;
+    }
+
+    .graph-canvas-links {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .graph-canvas-nodes {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+    }
+
+    .graph-canvas-node {
+      position: absolute;
+      width: 192px;
+      min-height: 88px;
+      border-radius: 12px;
+      border: 1px solid rgba(131, 186, 255, 0.46);
+      background: linear-gradient(160deg, rgba(18, 45, 79, 0.92), rgba(8, 27, 52, 0.9));
+      box-shadow:
+        0 8px 18px rgba(0, 0, 0, 0.35),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+      padding: 9px 10px;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .graph-canvas-node.dragging {
+      cursor: grabbing;
+      box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.42),
+        0 0 0 1px rgba(126, 199, 255, 0.45),
+        0 0 18px rgba(88, 167, 255, 0.35);
+    }
+
+    .graph-canvas-node.selected {
+      border-color: rgba(153, 210, 255, 0.9);
+      box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.42),
+        0 0 0 1px rgba(126, 199, 255, 0.5),
+        0 0 20px rgba(92, 177, 255, 0.42);
+    }
+
+    .graph-canvas-node.type-trigger {
+      border-color: rgba(92, 228, 173, 0.7);
+      background: linear-gradient(160deg, rgba(14, 63, 57, 0.9), rgba(8, 33, 38, 0.9));
+    }
+
+    .graph-canvas-node.type-action {
+      border-color: rgba(118, 193, 255, 0.72);
+      background: linear-gradient(160deg, rgba(19, 56, 85, 0.92), rgba(9, 30, 53, 0.9));
+    }
+
+    .graph-canvas-node.type-ai {
+      border-color: rgba(186, 152, 255, 0.72);
+      background: linear-gradient(160deg, rgba(48, 40, 90, 0.92), rgba(25, 22, 56, 0.9));
+    }
+
+    .graph-canvas-node.type-condition {
+      border-color: rgba(255, 195, 110, 0.72);
+      background: linear-gradient(160deg, rgba(88, 57, 26, 0.9), rgba(54, 34, 16, 0.9));
+    }
+
+    .graph-canvas-node .node-kicker {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 10px;
+      border: 1px solid rgba(188, 217, 255, 0.4);
+      color: #cfe2ff;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .graph-canvas-node .node-name {
+      font-size: 13px;
+      color: #f0f6ff;
+      font-weight: 650;
+      line-height: 1.35;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .graph-canvas-node .node-meta {
+      font-size: 11px;
+      color: #a9bfde;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .graph-canvas-link {
+      fill: none;
+      stroke: rgba(131, 199, 255, 0.9);
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 4px rgba(103, 183, 255, 0.45));
+    }
+
+    .graph-canvas-link.link-true {
+      stroke: rgba(109, 232, 176, 0.92);
+    }
+
+    .graph-canvas-link.link-false {
+      stroke: rgba(255, 191, 108, 0.92);
+    }
+
     .run-detail {
       border: 1px dashed rgba(131, 186, 255, 0.55);
       border-radius: 10px;
@@ -517,6 +667,19 @@
                 </div>
               </div>
             </div>
+          </div>
+          <div class="graph-canvas-shell">
+            <div class="graph-canvas-toolbar">
+              <button id="graphAutoArrange" class="btn">Auto Arrange</button>
+              <button id="graphFitCanvas" class="btn">Fit View</button>
+            </div>
+            <div class="graph-canvas-viewport" id="graphCanvasViewport">
+              <div class="graph-canvas-stage" id="graphCanvasStage">
+                <svg class="graph-canvas-links" id="graphCanvasLinks"></svg>
+                <div class="graph-canvas-nodes" id="graphCanvasNodes"></div>
+              </div>
+            </div>
+            <div class="hint-line">Drag nodes to reposition. Click a node to edit it. Link colors: next (blue), true (green), false (amber).</div>
           </div>
           <div class="graph-grid">
             <div>
@@ -1447,6 +1610,11 @@
       file_watch: { retry_max: 1, retry_backoff_ms: 150, timeout_sec: 45 },
     };
     const conditionModesUsingValue = new Set(["contains", "equals", "not_contains", "regex"]);
+    const GRAPH_NODE_WIDTH = 192;
+    const GRAPH_NODE_HEIGHT = 88;
+    const GRAPH_STAGE_MIN_WIDTH = 1024;
+    const GRAPH_STAGE_MIN_HEIGHT = 620;
+    const GRAPH_STAGE_MARGIN = 120;
 
     const state = {
       apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
@@ -1467,6 +1635,7 @@
       selectedIntegrationProfileId: "",
       bots: [],
       selectedBotProfileId: "",
+      graphCanvasDrag: null,
     };
 
     function byId(id) {
@@ -1720,6 +1889,7 @@
           state.graphEditorEdgeIndex = -1;
           state.graphDraft = { nodes: [], edges: [] };
           state.graphDirty = false;
+          state.graphCanvasDrag = null;
         }
         if (state.workflowEditorWorkflowId === String(workflow.id || "")) {
           clearWorkflowEditor();
@@ -2021,6 +2191,357 @@
       const type = typeRaw === "true" || typeRaw === "false" ? typeRaw : "next";
       if (!source || !target) return null;
       return { source, target, type };
+    }
+
+    function graphCanvasBounds() {
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      if (!nodes.length) {
+        return {
+          minX: 0,
+          minY: 0,
+          maxX: GRAPH_STAGE_MIN_WIDTH - GRAPH_NODE_WIDTH,
+          maxY: GRAPH_STAGE_MIN_HEIGHT - GRAPH_NODE_HEIGHT,
+          width: GRAPH_STAGE_MIN_WIDTH,
+          height: GRAPH_STAGE_MIN_HEIGHT,
+        };
+      }
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+      for (const node of nodes) {
+        const x = Number.isFinite(Number(node.x)) ? Number(node.x) : 0;
+        const y = Number.isFinite(Number(node.y)) ? Number(node.y) : 0;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+      const width = Math.max(
+        GRAPH_STAGE_MIN_WIDTH,
+        Math.ceil(maxX + GRAPH_NODE_WIDTH + GRAPH_STAGE_MARGIN)
+      );
+      const height = Math.max(
+        GRAPH_STAGE_MIN_HEIGHT,
+        Math.ceil(maxY + GRAPH_NODE_HEIGHT + GRAPH_STAGE_MARGIN)
+      );
+      return { minX, minY, maxX, maxY, width, height };
+    }
+
+    function graphNodeCenterPoint(node) {
+      const x = Number.isFinite(Number(node?.x)) ? Number(node.x) : 0;
+      const y = Number.isFinite(Number(node?.y)) ? Number(node.y) : 0;
+      return {
+        inputX: x + 8,
+        inputY: y + (GRAPH_NODE_HEIGHT * 0.58),
+        outputX: x + GRAPH_NODE_WIDTH - 8,
+        outputY: y + (GRAPH_NODE_HEIGHT * 0.58),
+      };
+    }
+
+    function renderGraphCanvasLinks() {
+      const svg = byId("graphCanvasLinks");
+      if (!svg) return;
+      const nodeMap = new Map(
+        (Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [])
+          .map((node) => [String(node.id || ""), node])
+      );
+      const edges = Array.isArray(state.graphDraft.edges) ? state.graphDraft.edges : [];
+      const paths = [];
+      for (const edge of edges) {
+        const sourceId = String(edge.source || "").trim();
+        const targetId = String(edge.target || "").trim();
+        if (!sourceId || !targetId || sourceId === targetId) continue;
+        const sourceNode = nodeMap.get(sourceId);
+        const targetNode = nodeMap.get(targetId);
+        if (!sourceNode || !targetNode) continue;
+        const source = graphNodeCenterPoint(sourceNode);
+        const target = graphNodeCenterPoint(targetNode);
+        const distance = Math.max(48, Math.abs(target.inputX - source.outputX));
+        const control = Math.min(180, Math.max(60, distance * 0.45));
+        const path = [
+          `M ${source.outputX.toFixed(2)} ${source.outputY.toFixed(2)}`,
+          `C ${(source.outputX + control).toFixed(2)} ${source.outputY.toFixed(2)}`,
+          `${(target.inputX - control).toFixed(2)} ${target.inputY.toFixed(2)}`,
+          `${target.inputX.toFixed(2)} ${target.inputY.toFixed(2)}`,
+        ].join(" ");
+        const kind = String(edge.type || "next").trim().toLowerCase();
+        const klass = kind === "true" ? "link-true" : kind === "false" ? "link-false" : "link-next";
+        paths.push(`<path class="graph-canvas-link ${klass}" d="${path}" />`);
+      }
+      svg.innerHTML = paths.join("");
+    }
+
+    function renderGraphVisualCanvas() {
+      const stage = byId("graphCanvasStage");
+      const svg = byId("graphCanvasLinks");
+      const nodesLayer = byId("graphCanvasNodes");
+      if (!stage || !svg || !nodesLayer) return;
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      const bounds = graphCanvasBounds();
+      stage.style.width = `${Math.max(GRAPH_STAGE_MIN_WIDTH, bounds.width)}px`;
+      stage.style.height = `${Math.max(GRAPH_STAGE_MIN_HEIGHT, bounds.height)}px`;
+      svg.setAttribute("viewBox", `0 0 ${Math.max(GRAPH_STAGE_MIN_WIDTH, bounds.width)} ${Math.max(GRAPH_STAGE_MIN_HEIGHT, bounds.height)}`);
+      svg.setAttribute("width", String(Math.max(GRAPH_STAGE_MIN_WIDTH, bounds.width)));
+      svg.setAttribute("height", String(Math.max(GRAPH_STAGE_MIN_HEIGHT, bounds.height)));
+
+      if (!nodes.length) {
+        nodesLayer.innerHTML = `<div class="item" style="margin:12px;max-width:280px;">No nodes yet. Add a node to start the graph.</div>`;
+        svg.innerHTML = "";
+        return;
+      }
+
+      nodesLayer.innerHTML = nodes
+        .map((node) => {
+          const id = String(node.id || "");
+          const selected = id === String(state.graphEditorNodeId || "") ? "selected" : "";
+          const type = normalizeNodeType(node.type);
+          const kicker = escapeHtml(nodeTypeLabel(type));
+          const name = escapeHtml(node.name || id || "Node");
+          const detail = escapeHtml(String(node.detail || "").trim() || String(node.id || ""));
+          const left = Math.round(Number.isFinite(Number(node.x)) ? Number(node.x) : 0);
+          const top = Math.round(Number.isFinite(Number(node.y)) ? Number(node.y) : 0);
+          return (
+            `<div class="graph-canvas-node type-${type} ${selected}" data-graph-canvas-node="${escapeHtml(id)}"`
+            + ` style="left:${left}px;top:${top}px;">`
+            + `<div class="node-kicker">${kicker}</div>`
+            + `<div class="node-name">${name}</div>`
+            + `<div class="node-meta">${detail}</div>`
+            + `</div>`
+          );
+        })
+        .join("");
+      renderGraphCanvasLinks();
+    }
+
+    function updateGraphCanvasNodeElementPosition(nodeId, x, y) {
+      const nodesLayer = byId("graphCanvasNodes");
+      if (!nodesLayer) return;
+      const targetId = String(nodeId || "").trim();
+      const cards = nodesLayer.querySelectorAll("[data-graph-canvas-node]");
+      for (const card of cards) {
+        if (String(card.getAttribute("data-graph-canvas-node") || "").trim() !== targetId) continue;
+        card.style.left = `${Math.round(Number(x) || 0)}px`;
+        card.style.top = `${Math.round(Number(y) || 0)}px`;
+        break;
+      }
+    }
+
+    function graphNodeOverlapsExisting(x, y, excludeId = "") {
+      const probeX = Number.isFinite(Number(x)) ? Number(x) : 0;
+      const probeY = Number.isFinite(Number(y)) ? Number(y) : 0;
+      const ignoreId = String(excludeId || "").trim();
+      for (const node of state.graphDraft.nodes || []) {
+        const nodeId = String(node.id || "").trim();
+        if (ignoreId && nodeId === ignoreId) continue;
+        const nodeX = Number.isFinite(Number(node.x)) ? Number(node.x) : 0;
+        const nodeY = Number.isFinite(Number(node.y)) ? Number(node.y) : 0;
+        const intersects = (
+          probeX < (nodeX + GRAPH_NODE_WIDTH)
+          && (probeX + GRAPH_NODE_WIDTH) > nodeX
+          && probeY < (nodeY + GRAPH_NODE_HEIGHT)
+          && (probeY + GRAPH_NODE_HEIGHT) > nodeY
+        );
+        if (intersects) return true;
+      }
+      return false;
+    }
+
+    function resolveGraphNodeSpawnPosition(preferredX, preferredY) {
+      const bounds = graphCanvasBounds();
+      const maxX = Math.max(0, bounds.width - GRAPH_NODE_WIDTH - 24);
+      const maxY = Math.max(0, bounds.height - GRAPH_NODE_HEIGHT - 24);
+      let x = Math.max(0, Math.min(maxX, Number(preferredX) || 0));
+      let y = Math.max(0, Math.min(maxY, Number(preferredY) || 0));
+      if (!graphNodeOverlapsExisting(x, y)) {
+        return { x, y };
+      }
+      const stepX = 228;
+      const stepY = 132;
+      for (let ring = 1; ring <= 10; ring += 1) {
+        const probes = [
+          [ring, 0], [-ring, 0], [0, ring], [0, -ring],
+          [ring, ring], [-ring, ring], [ring, -ring], [-ring, -ring],
+        ];
+        for (const [dx, dy] of probes) {
+          const px = Math.max(0, Math.min(maxX, x + (dx * stepX)));
+          const py = Math.max(0, Math.min(maxY, y + (dy * stepY)));
+          if (!graphNodeOverlapsExisting(px, py)) {
+            return { x: px, y: py };
+          }
+        }
+      }
+      return { x, y };
+    }
+
+    function graphEdgeExists(source, target, type = "next") {
+      const sourceId = String(source || "").trim();
+      const targetId = String(target || "").trim();
+      const edgeType = String(type || "next").trim().toLowerCase() || "next";
+      return (state.graphDraft.edges || []).some(
+        (edge) => String(edge.source || "").trim() === sourceId
+          && String(edge.target || "").trim() === targetId
+          && String(edge.type || "next").trim().toLowerCase() === edgeType
+      );
+    }
+
+    function defaultGraphAutoLinkSourceId(incomingNodeType) {
+      const incomingType = normalizeNodeType(incomingNodeType);
+      if (incomingType === "trigger") return "";
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      const hasOutgoing = (nodeId) => (state.graphDraft.edges || []).some(
+        (edge) => String(edge.source || "").trim() === String(nodeId || "").trim()
+      );
+      const selected = graphNodeById(state.graphEditorNodeId);
+      if (selected && !hasOutgoing(selected.id)) {
+        return String(selected.id || "");
+      }
+      for (let index = nodes.length - 1; index >= 0; index -= 1) {
+        const node = nodes[index];
+        if (normalizeNodeType(node.type) === "trigger") continue;
+        if (!hasOutgoing(node.id)) return String(node.id || "");
+      }
+      for (let index = nodes.length - 1; index >= 0; index -= 1) {
+        const node = nodes[index];
+        if (normalizeNodeType(node.type) !== "trigger") return String(node.id || "");
+      }
+      return "";
+    }
+
+    function graphCanvasPointerToStage(event) {
+      const viewport = byId("graphCanvasViewport");
+      if (!viewport) return null;
+      const rect = viewport.getBoundingClientRect();
+      return {
+        x: Number(event.clientX - rect.left + viewport.scrollLeft),
+        y: Number(event.clientY - rect.top + viewport.scrollTop),
+      };
+    }
+
+    function selectGraphNodeFromCanvas(nodeId) {
+      const id = String(nodeId || "").trim();
+      if (!id || !graphNodeById(id)) return;
+      state.graphEditorNodeId = id;
+      renderGraphNodeEditor();
+      renderGraphVisualCanvas();
+    }
+
+    function onGraphCanvasNodePointerDown(event) {
+      if (!event || event.button !== 0) return;
+      const target = event.target && typeof event.target.closest === "function"
+        ? event.target.closest("[data-graph-canvas-node]")
+        : null;
+      if (!target) return;
+      const nodeId = String(target.getAttribute("data-graph-canvas-node") || "").trim();
+      const node = graphNodeById(nodeId);
+      const pointer = graphCanvasPointerToStage(event);
+      if (!node || !pointer) return;
+      state.graphCanvasDrag = {
+        nodeId,
+        pointerId: event.pointerId,
+        startX: pointer.x,
+        startY: pointer.y,
+        originX: Number.isFinite(Number(node.x)) ? Number(node.x) : 0,
+        originY: Number.isFinite(Number(node.y)) ? Number(node.y) : 0,
+      };
+      target.classList.add("dragging");
+      if (typeof target.setPointerCapture === "function") {
+        try {
+          target.setPointerCapture(event.pointerId);
+        } catch (_error) {
+          // Best-effort only.
+        }
+      }
+      event.preventDefault();
+    }
+
+    function onGraphCanvasNodeClick(event) {
+      if (!event) return;
+      const target = event.target && typeof event.target.closest === "function"
+        ? event.target.closest("[data-graph-canvas-node]")
+        : null;
+      if (!target) return;
+      const nodeId = String(target.getAttribute("data-graph-canvas-node") || "").trim();
+      if (!nodeId) return;
+      selectGraphNodeFromCanvas(nodeId);
+    }
+
+    function onGraphCanvasPointerMove(event) {
+      const drag = state.graphCanvasDrag;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const pointer = graphCanvasPointerToStage(event);
+      const node = graphNodeById(drag.nodeId);
+      if (!pointer || !node) return;
+      const bounds = graphCanvasBounds();
+      const maxX = Math.max(0, bounds.width - GRAPH_NODE_WIDTH - 12);
+      const maxY = Math.max(0, bounds.height - GRAPH_NODE_HEIGHT - 12);
+      const nextX = Math.max(0, Math.min(maxX, drag.originX + (pointer.x - drag.startX)));
+      const nextY = Math.max(0, Math.min(maxY, drag.originY + (pointer.y - drag.startY)));
+      node.x = Math.round(nextX);
+      node.y = Math.round(nextY);
+      state.graphDirty = true;
+      updateGraphCanvasNodeElementPosition(node.id, node.x, node.y);
+      renderGraphCanvasLinks();
+    }
+
+    function endGraphCanvasDrag(event) {
+      const drag = state.graphCanvasDrag;
+      if (!drag) return;
+      if (event && event.pointerId !== undefined && event.pointerId !== drag.pointerId) {
+        return;
+      }
+      const nodesLayer = byId("graphCanvasNodes");
+      if (nodesLayer) {
+        const cards = nodesLayer.querySelectorAll("[data-graph-canvas-node]");
+        for (const card of cards) {
+          card.classList.remove("dragging");
+        }
+      }
+      state.graphCanvasDrag = null;
+      renderGraphVisualCanvas();
+    }
+
+    function autoArrangeGraphNodes() {
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      if (!nodes.length) {
+        log("No nodes to arrange.", "warn");
+        return;
+      }
+      const ordered = [...nodes].sort((a, b) => {
+        const typeA = normalizeNodeType(a.type);
+        const typeB = normalizeNodeType(b.type);
+        const weight = (type) => (type === "trigger" ? 0 : type === "condition" ? 1 : type === "ai" ? 2 : 3);
+        const diff = weight(typeA) - weight(typeB);
+        if (diff !== 0) return diff;
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      });
+      const columns = Math.max(2, Math.min(4, Math.ceil(Math.sqrt(ordered.length))));
+      const spacingX = 230;
+      const spacingY = 138;
+      ordered.forEach((node, index) => {
+        node.x = 96 + ((index % columns) * spacingX);
+        node.y = 84 + (Math.floor(index / columns) * spacingY);
+      });
+      state.graphDirty = true;
+      renderGraphDraftLists();
+      fitGraphCanvasView();
+      log("Auto-arranged graph nodes.", "info");
+    }
+
+    function fitGraphCanvasView() {
+      const viewport = byId("graphCanvasViewport");
+      if (!viewport) return;
+      const nodes = Array.isArray(state.graphDraft.nodes) ? state.graphDraft.nodes : [];
+      if (!nodes.length) {
+        viewport.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+        return;
+      }
+      const bounds = graphCanvasBounds();
+      const centerX = (bounds.minX + bounds.maxX + GRAPH_NODE_WIDTH) / 2;
+      const centerY = (bounds.minY + bounds.maxY + GRAPH_NODE_HEIGHT) / 2;
+      const targetLeft = Math.max(0, centerX - (viewport.clientWidth / 2));
+      const targetTop = Math.max(0, centerY - (viewport.clientHeight / 2));
+      viewport.scrollTo({ left: targetLeft, top: targetTop, behavior: "smooth" });
     }
 
     function ensureWorkflowSelection() {
@@ -2448,6 +2969,7 @@
       renderGraphNodeOptions();
       renderGraphNodeEditor();
       renderGraphEdgeEditor();
+      renderGraphVisualCanvas();
       renderGraphPreflightStatus(runGraphPreflight());
     }
 
@@ -2457,6 +2979,7 @@
         state.graphDraft = { version: 1, nodes: [], edges: [] };
         state.graphEditorNodeId = "";
         state.graphEditorEdgeIndex = -1;
+        state.graphCanvasDrag = null;
         renderGraphDraftLists();
         renderWorkflowSelect();
         renderWorkflows();
@@ -2479,6 +3002,7 @@
       state.graphEditorNodeId = state.graphDraft.nodes.length ? String(state.graphDraft.nodes[0].id || "") : "";
       state.graphEditorEdgeIndex = state.graphDraft.edges.length ? 0 : -1;
       state.graphDirty = false;
+      state.graphCanvasDrag = null;
       renderWorkflowSelect();
       renderWorkflows();
       renderGraphDraftLists();
@@ -3399,6 +3923,7 @@
         setGraphEditorActionFieldVisibility("standard");
         updateConditionFieldVisibility("contains");
         refreshGraphNodeBehaviorHelper("action", "standard", "manual");
+        renderGraphVisualCanvas();
         return;
       }
       nodeSelect.innerHTML = nodes
@@ -3450,6 +3975,7 @@
         actionIntegration,
         byId("graphEditorTriggerMode").value || "manual"
       );
+      renderGraphVisualCanvas();
     }
 
     function applyGraphNodeEditorDefaults() {
@@ -3563,7 +4089,6 @@
       const customName = byId("graphNodeName").value.trim();
       const name = customName || fallbackName;
       const id = makeGraphNodeId();
-      const idx = state.graphDraft.nodes.length;
       const detailByType = {
         trigger: "trigger:manual",
         action: "integration:standard",
@@ -3576,23 +4101,40 @@
         ai: defaultConfigForNodeType("ai"),
         condition: defaultConfigForNodeType("condition"),
       };
+      const idx = state.graphDraft.nodes.length;
+      const fallbackX = 120 + (idx % 4) * 180;
+      const fallbackY = 120 + Math.floor(idx / 4) * 120;
+      const spawn = resolveGraphNodeSpawnPosition(fallbackX, fallbackY);
+      const autoLinkSourceId = defaultGraphAutoLinkSourceId(type);
       const node = {
         id,
         name,
         type,
         detail: detailByType[type] || "",
         summary: "",
-        x: 120 + (idx % 4) * 180,
-        y: 120 + Math.floor(idx / 4) * 120,
+        x: Math.round(spawn.x),
+        y: Math.round(spawn.y),
         config: configByType[type] || {},
       };
       state.graphDraft.nodes.push(node);
+      let autoLinked = false;
+      if (type !== "trigger" && autoLinkSourceId && autoLinkSourceId !== id && graphNodeById(autoLinkSourceId)) {
+        if (!graphEdgeExists(autoLinkSourceId, id, "next")) {
+          state.graphDraft.edges.push({ source: autoLinkSourceId, target: id, type: "next" });
+          autoLinked = true;
+          state.graphEditorEdgeIndex = state.graphDraft.edges.length - 1;
+        }
+      }
       state.graphEditorNodeId = id;
       state.graphDirty = true;
       byId("graphNodeName").value = "";
       renderGraphDraftLists();
       renderGraphNodeEditor();
-      log(`Node added: ${name} (${id})`, "info");
+      if (autoLinked) {
+        log(`Node added + auto-linked: ${name} (${id})`, "info");
+      } else {
+        log(`Node added: ${name} (${id})`, "info");
+      }
     }
 
     function addGraphEdge() {
@@ -3627,6 +4169,9 @@
       const id = String(nodeId || "").trim();
       if (!id) return;
       const beforeNodes = state.graphDraft.nodes.length;
+      if (state.graphCanvasDrag && String(state.graphCanvasDrag.nodeId || "") === id) {
+        state.graphCanvasDrag = null;
+      }
       state.graphDraft.nodes = state.graphDraft.nodes.filter((node) => String(node.id || "") !== id);
       state.graphDraft.edges = state.graphDraft.edges.filter(
         (edge) => String(edge.source || "") !== id && String(edge.target || "") !== id
@@ -4587,6 +5132,13 @@
       });
       byId("addGraphNode").addEventListener("click", addGraphNode);
       byId("addGraphEdge").addEventListener("click", addGraphEdge);
+      byId("graphAutoArrange").addEventListener("click", autoArrangeGraphNodes);
+      byId("graphFitCanvas").addEventListener("click", fitGraphCanvasView);
+      byId("graphCanvasNodes").addEventListener("click", onGraphCanvasNodeClick);
+      byId("graphCanvasNodes").addEventListener("pointerdown", onGraphCanvasNodePointerDown);
+      window.addEventListener("pointermove", onGraphCanvasPointerMove);
+      window.addEventListener("pointerup", endGraphCanvasDrag);
+      window.addEventListener("pointercancel", endGraphCanvasDrag);
       byId("workflowList").addEventListener("click", (event) => {
         const target = event.target && typeof event.target.closest === "function"
           ? event.target.closest("[data-workflow-id]")
