@@ -324,6 +324,43 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertEqual([("n1", 220.0, 320.0)], link_drag_calls)
         self.assertEqual([], drag_calls)
 
+    def test_stage_drag_begin_normalizes_pointer_to_stage_for_scrolled_canvas(self):
+        self.view.STAGE_WIDTH = 4000
+        self.view.STAGE_HEIGHT = 2400
+        self.view.port_drag_active = False
+        self.view.link_preview_source_id = None
+        self.view.node_drag_active = False
+        self.view.selected_node_id = None
+        self.view.selected_node_ids = set()
+        self.view.stage_drag_node_id = None
+        self.view.stage_drag_origin = {}
+        self.view.hovered_port_kind = None
+        self.view.hovered_port_node_id = None
+        self.view.suppress_stage_click_once = False
+        self.view.canvas_scroll = _FakeScroll(100, 50)
+        self.view.is_port_drag_stale = lambda: False
+        self.view.reset_port_drag_state = lambda: None
+        self.view.reset_node_drag_state = lambda: None
+        self.view.gesture_stage_point = lambda _gesture: None
+        node = SimpleNamespace(id="n1", node_type="Action", x=300, y=340)
+        self.view.find_node_at_point = lambda _x, _y, exclude_node_id=None: node
+        self.view.node_screen_geometry = lambda _node: (300.0, 340.0, 320.0, 160.0)
+        self.view.is_output_handle_grab = lambda _x, _y, _node_id=None: False
+        drag_calls: list[dict] = []
+        self.view.start_node_drag = lambda node_id, **kwargs: drag_calls.append(
+            {"node_id": node_id, **kwargs}
+        )
+
+        gesture = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_select_drag_begin(gesture, 220.0, 320.0)
+
+        self.assertTrue(gesture.claimed)
+        self.assertEqual("n1", self.view.stage_drag_node_id)
+        self.assertEqual({"start_x": 320.0, "start_y": 370.0}, self.view.stage_drag_origin)
+        self.assertEqual(1, len(drag_calls))
+        self.assertEqual(320.0, drag_calls[0]["pointer_stage_x"])
+        self.assertEqual(370.0, drag_calls[0]["pointer_stage_y"])
+
     def test_stage_drag_begin_does_not_interrupt_active_node_owned_drag(self):
         self.view.STAGE_WIDTH = 4000
         self.view.STAGE_HEIGHT = 2400

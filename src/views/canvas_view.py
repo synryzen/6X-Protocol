@@ -2115,6 +2115,11 @@ class CanvasView(Gtk.Box):
             return
         hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
         if hit_node and not bool(state & selection_modifiers):
+            pointer_x, pointer_y = self.resolve_stage_point_for_node(
+                hit_node,
+                float(pointer_x),
+                float(pointer_y),
+            )
             # Stage fallback drag path:
             # If a per-node drag gesture fails to claim ownership on some systems,
             # keep node movement functional by allowing the stage gesture to drive
@@ -9262,6 +9267,29 @@ class CanvasView(Gtk.Box):
         return min(
             candidates,
             key=lambda item: abs(float(item[0]) - ref_x) + abs(float(item[1]) - ref_y),
+        )
+
+    def resolve_stage_point_for_node(
+        self,
+        node: CanvasNode,
+        x: float,
+        y: float,
+    ) -> tuple[float, float]:
+        candidates = self.stage_coordinate_candidates(float(x), float(y))
+        if not candidates:
+            return float(x), float(y)
+        node_x, node_y, node_width, node_height = self.node_screen_geometry(node)
+        for candidate_x, candidate_y in candidates:
+            if (
+                (node_x - 2.0) <= float(candidate_x) <= (node_x + node_width + 2.0)
+                and (node_y - 2.0) <= float(candidate_y) <= (node_y + node_height + 2.0)
+            ):
+                return float(candidate_x), float(candidate_y)
+        center_x = float(node_x + (node_width * 0.5))
+        center_y = float(node_y + (node_height * 0.5))
+        return min(
+            candidates,
+            key=lambda item: abs(float(item[0]) - center_x) + abs(float(item[1]) - center_y),
         )
 
     def coerce_float_value(self, value) -> float | None:
