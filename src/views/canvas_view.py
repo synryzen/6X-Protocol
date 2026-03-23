@@ -224,6 +224,7 @@ class CanvasView(Gtk.Box):
         self.node_drag_last_activity_monotonic = 0.0
         self.node_drag_last_pointer_stage: tuple[float, float] | None = None
         self.node_drag_driver: str | None = None
+        self.sidebar_mode: str | None = None
         self.stage_drag_node_id: str | None = None
         self.stage_drag_origin: dict[str, float] = {}
         self.suppress_next_node_click = False
@@ -9292,15 +9293,10 @@ class CanvasView(Gtk.Box):
         if not active_node_id:
             return
 
-        # Some GTK stacks intermittently skip node-gesture drag-update callbacks.
-        # Keep dragging responsive by letting stage motion drive node drag only when
-        # node-owned drag activity has gone quiet briefly.
+        # Avoid mixed drag drivers: node-owned drag updates and stage motion updates
+        # should never both try to reposition the same node, otherwise jitter occurs.
         if self.node_drag_driver and self.node_drag_driver != "stage":
-            if self.node_drag_driver != "node":
-                return
-            last_activity = float(self.node_drag_last_activity_monotonic or 0.0)
-            if last_activity > 0.0 and (time.monotonic() - last_activity) < 0.05:
-                return
+            return
 
         drag_reference = self.node_drag_last_pointer_stage
         if not drag_reference:
@@ -11993,12 +11989,16 @@ class CanvasView(Gtk.Box):
 
     def update_sidebar_mode(self):
         has_selected = self.current_selected_node_for_sidebar() is not None
+        mode = "node" if has_selected else "workflow"
         self.workflow_mode_scroll.set_visible(not has_selected)
         self.node_mode_scroll.set_visible(has_selected)
-        if has_selected:
-            self.scroll_scroller_to_top(self.node_mode_scroll)
-        else:
-            self.scroll_scroller_to_top(self.workflow_mode_scroll)
+        previous_mode = getattr(self, "sidebar_mode", None)
+        if mode != previous_mode:
+            if has_selected:
+                self.scroll_scroller_to_top(self.node_mode_scroll)
+            else:
+                self.scroll_scroller_to_top(self.workflow_mode_scroll)
+            self.sidebar_mode = mode
 
     def current_selected_node_for_sidebar(self) -> CanvasNode | None:
         selected_id = str(self.selected_node_id or "").strip()

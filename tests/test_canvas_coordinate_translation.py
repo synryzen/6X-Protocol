@@ -463,7 +463,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertIsNotNone(hit)
         self.assertEqual("n1", hit.id if hit else "")
 
-    def test_stage_pointer_motion_fallback_updates_stalled_node_drag(self):
+    def test_stage_pointer_motion_ignores_node_owned_drag_driver(self):
         self.view.port_drag_active = False
         self.view.node_drag_active = True
         self.view.node_drag_driver = "node"
@@ -480,8 +480,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
         self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
 
-        self.assertEqual(1, len(calls))
-        self.assertEqual(("n1", 440.0, 320.0, False), calls[0])
+        self.assertEqual([], calls)
 
     def test_stage_pointer_motion_resolves_scrolled_stage_coordinates(self):
         self.view.port_drag_active = False
@@ -566,6 +565,27 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
 
         self.assertEqual([True], reset_calls)
+
+    def test_update_sidebar_mode_scrolls_only_on_mode_change(self):
+        self.view.workflow_mode_scroll = _VisibleStub()
+        self.view.node_mode_scroll = _VisibleStub()
+        self.view.sidebar_mode = None
+        calls: list[str] = []
+        self.view.scroll_scroller_to_top = (
+            lambda scroller: calls.append("node" if scroller is self.view.node_mode_scroll else "workflow")
+        )
+
+        self.view.current_selected_node_for_sidebar = lambda: object()
+        self.view.update_sidebar_mode()
+        self.view.update_sidebar_mode()
+
+        self.view.current_selected_node_for_sidebar = lambda: None
+        self.view.update_sidebar_mode()
+        self.view.update_sidebar_mode()
+
+        self.assertEqual(["node", "workflow"], calls)
+        self.assertFalse(bool(self.view.node_mode_scroll.visible))
+        self.assertTrue(bool(self.view.workflow_mode_scroll.visible))
 
     def test_node_drag_update_uses_offset_based_stage_pointer(self):
         self.view.port_drag_active = False
