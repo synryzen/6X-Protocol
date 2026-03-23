@@ -222,6 +222,7 @@ class CanvasView(Gtk.Box):
         self.node_drag_active = False
         self.node_drag_moved = False
         self.node_drag_last_activity_monotonic = 0.0
+        self.node_drag_last_pointer_stage: tuple[float, float] | None = None
         self.node_drag_driver: str | None = None
         self.stage_drag_node_id: str | None = None
         self.stage_drag_origin: dict[str, float] = {}
@@ -1968,6 +1969,7 @@ class CanvasView(Gtk.Box):
         self.node_drag_active = False
         self.node_drag_moved = False
         self.node_drag_last_activity_monotonic = 0.0
+        self.node_drag_last_pointer_stage = None
         self.node_drag_driver = None
         self.drag_history_captured = False
         self.drag_guide_x = None
@@ -9138,10 +9140,21 @@ class CanvasView(Gtk.Box):
             if hasattr(_controller, "get_current_event_state")
             else Gdk.ModifierType(0)
         )
-        self.apply_active_node_drag_position(
-            active_node_id,
+        drag_reference = self.node_drag_last_pointer_stage
+        if not drag_reference:
+            drag_reference = (
+                float(self.drag_origin.get("pointer_stage_x", float(x))),
+                float(self.drag_origin.get("pointer_stage_y", float(y))),
+            )
+        resolved_stage_x, resolved_stage_y = self.resolve_stage_motion_point(
             float(x),
             float(y),
+            reference=drag_reference,
+        )
+        self.apply_active_node_drag_position(
+            active_node_id,
+            resolved_stage_x,
+            resolved_stage_y,
             live_snap_enabled=bool(state & Gdk.ModifierType.CONTROL_MASK),
         )
 
@@ -9206,6 +9219,50 @@ class CanvasView(Gtk.Box):
 
     def parse_translated_coordinates(self, translated) -> tuple[float, float] | None:
         return self.extract_coordinate_pair(translated)
+
+    def stage_coordinate_candidates(self, x: float, y: float) -> list[tuple[float, float]]:
+        candidates: list[tuple[float, float]] = [(float(x), float(y))]
+        if not self.canvas_scroll:
+            return candidates
+        try:
+            hadj = self.canvas_scroll.get_hadjustment()
+            vadj = self.canvas_scroll.get_vadjustment()
+        except Exception:
+            return candidates
+        if not hadj or not vadj:
+            return candidates
+        try:
+            dx = float(hadj.get_value())
+            dy = float(vadj.get_value())
+        except Exception:
+            return candidates
+        if abs(dx) < 0.001 and abs(dy) < 0.001:
+            return candidates
+        forward = (float(x) + dx, float(y) + dy)
+        reverse = (float(x) - dx, float(y) - dy)
+        if forward not in candidates:
+            candidates.append(forward)
+        if reverse not in candidates:
+            candidates.append(reverse)
+        return candidates
+
+    def resolve_stage_motion_point(
+        self,
+        x: float,
+        y: float,
+        *,
+        reference: tuple[float, float] | None = None,
+    ) -> tuple[float, float]:
+        candidates = self.stage_coordinate_candidates(float(x), float(y))
+        if not candidates:
+            return float(x), float(y)
+        if not reference:
+            return candidates[0]
+        ref_x, ref_y = float(reference[0]), float(reference[1])
+        return min(
+            candidates,
+            key=lambda item: abs(float(item[0]) - ref_x) + abs(float(item[1]) - ref_y),
+        )
 
     def coerce_float_value(self, value) -> float | None:
         try:
@@ -9425,6 +9482,7 @@ class CanvasView(Gtk.Box):
             self.set_selection(set(self.selected_node_ids), primary_id=node_id)
         self.node_drag_active = True
         self.mark_node_drag_activity()
+        self.node_drag_last_pointer_stage = (float(pointer_stage_x), float(pointer_stage_y))
         self.node_drag_driver = str(drag_driver or "node").strip().lower() or "node"
         self.node_drag_moved = False
         self.drag_origin = {
@@ -9470,6 +9528,7 @@ class CanvasView(Gtk.Box):
         if node_id not in self.drag_group_origins:
             return
         self.mark_node_drag_activity()
+        self.node_drag_last_pointer_stage = (float(pointer_stage_x), float(pointer_stage_y))
 
         start_x, start_y = self.drag_group_origins[node_id]
         start_pointer_x = float(self.drag_origin.get("pointer_stage_x", self.to_screen(start_x)))
@@ -10873,32 +10932,7 @@ class CanvasView(Gtk.Box):
         return None
 
     def node_hit_test_candidates(self, x: int, y: int) -> list[tuple[float, float]]:
-        # Keep the literal stage point first.
-        candidates: list[tuple[float, float]] = [(float(x), float(y))]
-        if not self.canvas_scroll:
-            return candidates
-        try:
-            hadj = self.canvas_scroll.get_hadjustment()
-            vadj = self.canvas_scroll.get_vadjustment()
-        except Exception:
-            return candidates
-        if not hadj or not vadj:
-            return candidates
-        try:
-            dx = float(hadj.get_value())
-            dy = float(vadj.get_value())
-        except Exception:
-            return candidates
-        if abs(dx) < 0.001 and abs(dy) < 0.001:
-            return candidates
-
-        forward = (float(x) + dx, float(y) + dy)
-        reverse = (float(x) - dx, float(y) - dy)
-        if forward not in candidates:
-            candidates.append(forward)
-        if reverse not in candidates:
-            candidates.append(reverse)
-        return candidates
+        return self.stage_coordinate_candidates(float(x), float(y))
 
     def get_selected_node(self) -> CanvasNode | None:
         if self.selected_node_id:

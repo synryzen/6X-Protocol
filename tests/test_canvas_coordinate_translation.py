@@ -88,6 +88,8 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
     def setUp(self):
         # Exercise the helper directly without bootstrapping full GTK view state.
         self.view = CanvasView.__new__(CanvasView)
+        self.view.canvas_scroll = None
+        self.view.node_drag_last_pointer_stage = None
 
     def test_translate_widget_coordinates_accepts_gtk4_two_tuple(self):
         source = _FakeWidget((42.5, 64.0))
@@ -389,6 +391,33 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
 
         self.assertEqual(1, len(calls))
         self.assertEqual(("n1", 440.0, 320.0, False), calls[0])
+
+    def test_stage_pointer_motion_resolves_scrolled_stage_coordinates(self):
+        self.view.port_drag_active = False
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "stage"
+        self.view.drag_origin = {
+            "node_id": "n1",
+            "pointer_stage_x": 340.0,
+            "pointer_stage_y": 280.0,
+        }
+        self.view.node_drag_last_pointer_stage = (340.0, 280.0)
+        self.view.canvas_scroll = _FakeScroll(100, 50)
+        self.view.is_node_drag_stale = lambda: False
+        calls: list[tuple[str, float, float, bool]] = []
+
+        self.view.apply_active_node_drag_position = (
+            lambda node_id, x, y, live_snap_enabled=False: calls.append(
+                (node_id, float(x), float(y), bool(live_snap_enabled))
+            )
+        )
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_pointer_motion(controller, 260.0, 230.0)
+
+        self.assertEqual(1, len(calls))
+        # Raw motion (260,230) is viewport-like; with scroll offsets this should map
+        # to stage coordinates near previous drag pointer (360,280).
+        self.assertEqual(("n1", 360.0, 280.0, False), calls[0])
 
     def test_stage_pointer_motion_does_not_duplicate_recent_node_drag_updates(self):
         self.view.port_drag_active = False
