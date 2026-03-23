@@ -161,6 +161,17 @@ All notable changes to this project are documented here.
   and integration profile create/test/delete lifecycle.
 - README Docker progress updated to reflect active preview completion at ~84%.
 
+## [0.1.7] - 2026-03-23
+### Added
+- Public launch checklist for app + Docker publishing, including preflight,
+  GitHub Pages, release artifact, and post-launch triage steps.
+
+### Changed
+- Version bumped to `0.1.7` across package metadata and site release links.
+- GitHub Pages release/download links now target `v0.1.7` artifacts.
+- Docker web canvas visual graph builder now supports direct port-to-port wire
+  dragging with live preview paths and duplicate-link guardrails.
+
 ## [0.1.4] - 2026-03-19
 ### Added
 - In-app About page with creator/support identity and direct links:
