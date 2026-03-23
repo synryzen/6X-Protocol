@@ -1056,6 +1056,28 @@
             <button id="testIntegrationProfile" class="btn good">Run Test</button>
             <button id="refreshIntegrationProfiles" class="btn">Refresh Profiles</button>
           </div>
+          <div class="grid2">
+            <div class="row">
+              <label class="label" for="integrationBundlePath">Profile Bundle Path</label>
+              <input
+                id="integrationBundlePath"
+                class="input"
+                type="text"
+                placeholder="/data/6x-protocol/integration-profiles-bundle.json"
+              />
+            </div>
+            <div class="row">
+              <label class="label" for="integrationImportMode">Import Mode</label>
+              <select class="select" id="integrationImportMode">
+                <option value="merge">merge existing profiles</option>
+                <option value="replace">replace all profiles</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions" style="justify-content:flex-start;">
+            <button id="exportIntegrationProfiles" class="btn">Export Bundle</button>
+            <button id="importIntegrationProfiles" class="btn">Import Bundle</button>
+          </div>
           <div class="list" id="integrationProfileList"></div>
         </div>
         <div class="settings">
@@ -4364,6 +4386,55 @@
       }
     }
 
+    function integrationBundlePath() {
+      return String(byId("integrationBundlePath").value || "").trim();
+    }
+
+    async function exportIntegrationProfileBundle() {
+      const path = integrationBundlePath();
+      const params = new URLSearchParams();
+      if (path) params.set("destination_path", path);
+      const endpoint = params.toString()
+        ? `/api/v1/integrations/export?${params.toString()}`
+        : "/api/v1/integrations/export";
+      try {
+        const result = await api(endpoint, { method: "POST" });
+        if (!path && result.path) {
+          byId("integrationBundlePath").value = String(result.path || "");
+        }
+        log(
+          `Exported ${Number(result.count || 0)} integration profile(s) to ${String(result.path || "bundle")}.`,
+          "info"
+        );
+      } catch (error) {
+        log(`Export integration bundle failed: ${error.message}`, "error");
+      }
+    }
+
+    async function importIntegrationProfileBundle() {
+      const mode = String(byId("integrationImportMode").value || "merge").trim().toLowerCase();
+      const merge = mode !== "replace";
+      const payload = {
+        source_path: integrationBundlePath(),
+        merge,
+      };
+      try {
+        const result = await api("/api/v1/integrations/import", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        const importedCount = Number(result.imported_count || 0);
+        const totalCount = Number(result.total_count || 0);
+        log(
+          `Imported ${importedCount} profile(s) from ${String(result.source_path || "bundle")} (${totalCount} total).`,
+          "info"
+        );
+        await refreshIntegrationProfiles();
+      } catch (error) {
+        log(`Import integration bundle failed: ${error.message}`, "error");
+      }
+    }
+
     function bindEvents() {
       byId("saveApiBase").addEventListener("click", () => {
         const nextBase = byId("apiBase").value.trim().replace(/\/$/, "");
@@ -4678,6 +4749,8 @@
         await refreshIntegrationCatalog();
         await refreshIntegrationProfiles();
       });
+      byId("exportIntegrationProfiles").addEventListener("click", exportIntegrationProfileBundle);
+      byId("importIntegrationProfiles").addEventListener("click", importIntegrationProfileBundle);
       byId("integrationProfileList").addEventListener("click", (event) => {
         const target = event.target && typeof event.target.closest === "function"
           ? event.target.closest("[data-profile-id]")
@@ -4715,6 +4788,7 @@
 
     function init() {
       byId("apiBase").value = state.apiBase;
+      byId("integrationBundlePath").value = "/data/6x-protocol/integration-profiles-bundle.json";
       byId("botTestPrompt").value = "Give me a short confirmation that this bot profile is configured.";
       byId("botTestOutput").textContent = "No bot test output yet.";
       renderWorkflowSelect();

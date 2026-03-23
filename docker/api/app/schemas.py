@@ -147,6 +147,24 @@ class IntegrationTestResult(BaseModel):
     tested_at: str
 
 
+class IntegrationProfileImportRequest(BaseModel):
+    source_path: str = ""
+    merge: bool = True
+
+
+class IntegrationProfileImportResult(BaseModel):
+    imported_count: int
+    total_count: int
+    source_path: str
+    merge: bool
+
+
+class IntegrationProfileExportResult(BaseModel):
+    path: str
+    count: int
+    exported_at: str
+
+
 class BotProfileIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     role: str = ""

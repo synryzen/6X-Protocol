@@ -115,7 +115,7 @@ See:
 - Compose stack: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
 - Live API runtime: `docker/api` (FastAPI CRUD for workflows/runs/settings + run controls)
 - Run controls implemented: `start`, `cancel`, `retry` with state transitions
-- Integration profile endpoints implemented: catalog, CRUD, and connector test execution
+- Integration profile endpoints implemented: catalog, CRUD, connector test execution, and bundle import/export
 - Execution behavior implemented: timeout/retry/backoff and graph-aware branch routing
 - Parallel DAG behavior implemented: ready-node fan-out + join with skipped-branch pruning
 - Web graph editor supports node/link draft editing, link inspector, run timeline filters, per-node behavior presets, and on-error behavior policy (`fail`/`continue`/`goto`)

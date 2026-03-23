@@ -20,8 +20,11 @@ from app.schemas import (
     BotTestResult,
     DEFAULT_SETTINGS,
     IntegrationProfileIn,
+    IntegrationProfileImportRequest,
+    IntegrationProfileImportResult,
     IntegrationProfileOut,
     IntegrationProfilePatch,
+    IntegrationProfileExportResult,
     IntegrationTestRequest,
     IntegrationTestResult,
     RunIn,
@@ -1003,6 +1006,58 @@ def test_integration(payload: IntegrationTestRequest) -> dict[str, Any]:
         "message": str(message).strip(),
         "output": str(output).strip(),
         "tested_at": tested_at,
+    }
+
+
+@app.post(
+    "/api/v1/integrations/export",
+    response_model=IntegrationProfileExportResult,
+    tags=["integrations"],
+)
+def export_integration_profiles(
+    destination_path: str | None = Query(
+        default=None,
+        description="Optional filesystem path for exported integration profile bundle",
+    ),
+) -> dict[str, Any]:
+    try:
+        export_path, count = store.export_integrations(destination_path)
+    except Exception as error:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to export integration profile bundle: {error}",
+        ) from error
+    return {
+        "path": str(export_path),
+        "count": int(count),
+        "exported_at": utc_now_iso(),
+    }
+
+
+@app.post(
+    "/api/v1/integrations/import",
+    response_model=IntegrationProfileImportResult,
+    tags=["integrations"],
+)
+def import_integration_profiles(payload: IntegrationProfileImportRequest) -> dict[str, Any]:
+    source_path = str(payload.source_path or "").strip() or str(store.default_integration_bundle_path())
+    merge = bool(payload.merge)
+    try:
+        imported_count, total_count = store.import_integrations(source_path, merge=merge)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to import integration profile bundle: {error}",
+        ) from error
+    return {
+        "imported_count": int(imported_count),
+        "total_count": int(total_count),
+        "source_path": source_path,
+        "merge": merge,
     }
 
 
