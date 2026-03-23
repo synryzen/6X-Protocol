@@ -438,6 +438,34 @@
       user-select: none;
     }
 
+    .graph-canvas-node .node-port {
+      position: absolute;
+      top: calc(58% - 8px);
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(163, 214, 255, 0.92);
+      box-shadow: 0 0 0 1px rgba(9, 27, 54, 0.9), 0 0 12px rgba(104, 186, 255, 0.36);
+      background: radial-gradient(circle at 35% 35%, rgba(227, 243, 255, 0.95), rgba(70, 151, 255, 0.86));
+      cursor: crosshair;
+      z-index: 3;
+    }
+
+    .graph-canvas-node .node-port.input {
+      left: -8px;
+    }
+
+    .graph-canvas-node .node-port.output {
+      right: -8px;
+    }
+
+    .graph-canvas-node .node-port.target {
+      border-color: rgba(134, 242, 182, 0.96);
+      background: radial-gradient(circle at 35% 35%, rgba(221, 255, 240, 0.98), rgba(71, 194, 132, 0.9));
+      box-shadow: 0 0 0 1px rgba(10, 33, 27, 0.92), 0 0 14px rgba(87, 236, 164, 0.44);
+      transform: scale(1.12);
+    }
+
     .graph-canvas-node.dragging {
       cursor: grabbing;
       box-shadow:
@@ -516,6 +544,13 @@
 
     .graph-canvas-link.link-false {
       stroke: rgba(255, 191, 108, 0.92);
+    }
+
+    .graph-canvas-link.link-preview {
+      stroke: rgba(151, 208, 255, 0.95);
+      stroke-dasharray: 5 5;
+      stroke-width: 2;
+      filter: drop-shadow(0 0 5px rgba(106, 197, 255, 0.52));
     }
 
     .run-detail {
@@ -679,7 +714,7 @@
                 <div class="graph-canvas-nodes" id="graphCanvasNodes"></div>
               </div>
             </div>
-            <div class="hint-line">Drag nodes to reposition. Click a node to edit it. Link colors: next (blue), true (green), false (amber).</div>
+            <div class="hint-line">Drag nodes to reposition. Click a node to edit it. Drag from a node's right port to a target node's left port to link.</div>
           </div>
           <div class="graph-grid">
             <div>
@@ -1636,6 +1671,7 @@
       bots: [],
       selectedBotProfileId: "",
       graphCanvasDrag: null,
+      graphCanvasLinkDrag: null,
     };
 
     function byId(id) {
@@ -1889,6 +1925,8 @@
           state.graphEditorEdgeIndex = -1;
           state.graphDraft = { nodes: [], edges: [] };
           state.graphDirty = false;
+          clearGraphCanvasLinkDragTarget();
+          state.graphCanvasLinkDrag = null;
           state.graphCanvasDrag = null;
         }
         if (state.workflowEditorWorkflowId === String(workflow.id || "")) {
@@ -2232,9 +2270,9 @@
       const x = Number.isFinite(Number(node?.x)) ? Number(node.x) : 0;
       const y = Number.isFinite(Number(node?.y)) ? Number(node.y) : 0;
       return {
-        inputX: x + 8,
+        inputX: x,
         inputY: y + (GRAPH_NODE_HEIGHT * 0.58),
-        outputX: x + GRAPH_NODE_WIDTH - 8,
+        outputX: x + GRAPH_NODE_WIDTH,
         outputY: y + (GRAPH_NODE_HEIGHT * 0.58),
       };
     }
@@ -2268,6 +2306,32 @@
         const kind = String(edge.type || "next").trim().toLowerCase();
         const klass = kind === "true" ? "link-true" : kind === "false" ? "link-false" : "link-next";
         paths.push(`<path class="graph-canvas-link ${klass}" d="${path}" />`);
+      }
+      const drag = state.graphCanvasLinkDrag;
+      if (drag && drag.sourceNodeId) {
+        const sourceNode = nodeMap.get(String(drag.sourceNodeId || ""));
+        if (sourceNode) {
+          const source = graphNodeCenterPoint(sourceNode);
+          let targetX = Number.isFinite(Number(drag.targetX)) ? Number(drag.targetX) : source.outputX;
+          let targetY = Number.isFinite(Number(drag.targetY)) ? Number(drag.targetY) : source.outputY;
+          if (drag.targetNodeId) {
+            const targetNode = nodeMap.get(String(drag.targetNodeId || ""));
+            if (targetNode) {
+              const target = graphNodeCenterPoint(targetNode);
+              targetX = target.inputX;
+              targetY = target.inputY;
+            }
+          }
+          const distance = Math.max(48, Math.abs(targetX - source.outputX));
+          const control = Math.min(180, Math.max(60, distance * 0.45));
+          const dragPath = [
+            `M ${source.outputX.toFixed(2)} ${source.outputY.toFixed(2)}`,
+            `C ${(source.outputX + control).toFixed(2)} ${source.outputY.toFixed(2)}`,
+            `${(targetX - control).toFixed(2)} ${targetY.toFixed(2)}`,
+            `${targetX.toFixed(2)} ${targetY.toFixed(2)}`,
+          ].join(" ");
+          paths.push(`<path class="graph-canvas-link link-preview" d="${dragPath}" />`);
+        }
       }
       svg.innerHTML = paths.join("");
     }
@@ -2304,6 +2368,8 @@
           return (
             `<div class="graph-canvas-node type-${type} ${selected}" data-graph-canvas-node="${escapeHtml(id)}"`
             + ` style="left:${left}px;top:${top}px;">`
+            + `<button type="button" class="node-port input" data-graph-port data-port-direction="in" data-node-id="${escapeHtml(id)}" aria-label="Input port for ${escapeHtml(name)}"></button>`
+            + `<button type="button" class="node-port output" data-graph-port data-port-direction="out" data-node-id="${escapeHtml(id)}" aria-label="Output port for ${escapeHtml(name)}"></button>`
             + `<div class="node-kicker">${kicker}</div>`
             + `<div class="node-name">${name}</div>`
             + `<div class="node-meta">${detail}</div>`
@@ -2418,6 +2484,95 @@
       };
     }
 
+    function graphLinkTypeForDrag() {
+      const condition = byId("graphEdgeCondition");
+      const value = condition ? String(condition.value || "next").trim().toLowerCase() : "next";
+      return value || "next";
+    }
+
+    function clearGraphCanvasLinkDragTarget() {
+      const drag = state.graphCanvasLinkDrag;
+      if (!drag) return;
+      if (drag.targetInputElement && drag.targetInputElement.classList) {
+        drag.targetInputElement.classList.remove("target");
+      }
+      drag.targetInputElement = null;
+      drag.targetNodeId = "";
+    }
+
+    function updateGraphCanvasLinkDragTarget(event) {
+      const drag = state.graphCanvasLinkDrag;
+      if (!drag || !event) return;
+      clearGraphCanvasLinkDragTarget();
+      const underPointer = document.elementFromPoint(event.clientX, event.clientY);
+      const port = underPointer && typeof underPointer.closest === "function"
+        ? underPointer.closest("[data-graph-port][data-port-direction='in']")
+        : null;
+      if (!port || !port.classList) return;
+      const nodeId = String(port.getAttribute("data-node-id") || "").trim();
+      if (!nodeId || nodeId === drag.sourceNodeId) return;
+      drag.targetNodeId = nodeId;
+      drag.targetInputElement = port;
+      port.classList.add("target");
+    }
+
+    function startGraphCanvasLinkDrag(event, sourceNodeId) {
+      if (!event || event.button !== 0) return;
+      const sourceId = String(sourceNodeId || "").trim();
+      const node = graphNodeById(sourceId);
+      if (!sourceId || !node) return;
+      const source = graphNodeCenterPoint(node);
+      state.graphCanvasLinkDrag = {
+        pointerId: event.pointerId,
+        sourceNodeId: sourceId,
+        sourceX: source.outputX,
+        sourceY: source.outputY,
+        targetX: source.outputX,
+        targetY: source.outputY,
+        targetNodeId: "",
+        targetInputElement: null,
+        type: graphLinkTypeForDrag(),
+      };
+      state.graphEditorNodeId = sourceId;
+      renderGraphNodeEditor();
+      renderGraphVisualCanvas();
+      updateGraphCanvasLinkDragTarget(event);
+      event.preventDefault();
+    }
+
+    function updateGraphCanvasLinkDrag(event) {
+      const drag = state.graphCanvasLinkDrag;
+      if (!drag || !event || event.pointerId !== drag.pointerId) return;
+      const pointer = graphCanvasPointerToStage(event);
+      if (!pointer) return;
+      drag.targetX = Number(pointer.x);
+      drag.targetY = Number(pointer.y);
+      updateGraphCanvasLinkDragTarget(event);
+      renderGraphCanvasLinks();
+      event.preventDefault();
+    }
+
+    function endGraphCanvasLinkDrag(event) {
+      const drag = state.graphCanvasLinkDrag;
+      if (!drag) return false;
+      if (event && event.pointerId !== undefined && event.pointerId !== drag.pointerId) {
+        return false;
+      }
+      const targetId = String(drag.targetNodeId || "").trim();
+      const type = String(drag.type || "next").trim().toLowerCase() || "next";
+      const sourceId = String(drag.sourceNodeId || "").trim();
+      const created = targetId
+        ? createGraphEdge(sourceId, targetId, type, { quiet: false })
+        : false;
+      clearGraphCanvasLinkDragTarget();
+      state.graphCanvasLinkDrag = null;
+      renderGraphCanvasLinks();
+      if (created) {
+        renderGraphVisualCanvas();
+      }
+      return true;
+    }
+
     function selectGraphNodeFromCanvas(nodeId) {
       const id = String(nodeId || "").trim();
       if (!id || !graphNodeById(id)) return;
@@ -2428,10 +2583,22 @@
 
     function onGraphCanvasNodePointerDown(event) {
       if (!event || event.button !== 0) return;
+      const port = event.target && typeof event.target.closest === "function"
+        ? event.target.closest("[data-graph-port]")
+        : null;
+      if (port) {
+        const direction = String(port.getAttribute("data-port-direction") || "").trim().toLowerCase();
+        if (direction === "out") {
+          const sourceNodeId = String(port.getAttribute("data-node-id") || "").trim();
+          startGraphCanvasLinkDrag(event, sourceNodeId);
+        }
+        return;
+      }
       const target = event.target && typeof event.target.closest === "function"
         ? event.target.closest("[data-graph-canvas-node]")
         : null;
       if (!target) return;
+      if (state.graphCanvasLinkDrag) return;
       const nodeId = String(target.getAttribute("data-graph-canvas-node") || "").trim();
       const node = graphNodeById(nodeId);
       const pointer = graphCanvasPointerToStage(event);
@@ -2457,6 +2624,10 @@
 
     function onGraphCanvasNodeClick(event) {
       if (!event) return;
+      const port = event.target && typeof event.target.closest === "function"
+        ? event.target.closest("[data-graph-port]")
+        : null;
+      if (port) return;
       const target = event.target && typeof event.target.closest === "function"
         ? event.target.closest("[data-graph-canvas-node]")
         : null;
@@ -2467,6 +2638,10 @@
     }
 
     function onGraphCanvasPointerMove(event) {
+      if (state.graphCanvasLinkDrag) {
+        updateGraphCanvasLinkDrag(event);
+        return;
+      }
       const drag = state.graphCanvasDrag;
       if (!drag || event.pointerId !== drag.pointerId) return;
       const pointer = graphCanvasPointerToStage(event);
@@ -2485,6 +2660,9 @@
     }
 
     function endGraphCanvasDrag(event) {
+      if (endGraphCanvasLinkDrag(event)) {
+        return;
+      }
       const drag = state.graphCanvasDrag;
       if (!drag) return;
       if (event && event.pointerId !== undefined && event.pointerId !== drag.pointerId) {
@@ -2979,6 +3157,8 @@
         state.graphDraft = { version: 1, nodes: [], edges: [] };
         state.graphEditorNodeId = "";
         state.graphEditorEdgeIndex = -1;
+        clearGraphCanvasLinkDragTarget();
+        state.graphCanvasLinkDrag = null;
         state.graphCanvasDrag = null;
         renderGraphDraftLists();
         renderWorkflowSelect();
@@ -3002,6 +3182,8 @@
       state.graphEditorNodeId = state.graphDraft.nodes.length ? String(state.graphDraft.nodes[0].id || "") : "";
       state.graphEditorEdgeIndex = state.graphDraft.edges.length ? 0 : -1;
       state.graphDirty = false;
+      clearGraphCanvasLinkDragTarget();
+      state.graphCanvasLinkDrag = null;
       state.graphCanvasDrag = null;
       renderWorkflowSelect();
       renderWorkflows();
@@ -4137,17 +4319,21 @@
       }
     }
 
-    function addGraphEdge() {
-      const source = String(byId("graphEdgeSource").value || "").trim();
-      const target = String(byId("graphEdgeTarget").value || "").trim();
-      const type = String(byId("graphEdgeCondition").value || "next").trim().toLowerCase() || "next";
+    function createGraphEdge(sourceRaw, targetRaw, typeRaw, { quiet = true } = {}) {
+      const source = String(sourceRaw || "").trim();
+      const target = String(targetRaw || "").trim();
+      const type = String(typeRaw || "next").trim().toLowerCase() || "next";
       if (!source || !target) {
-        log("Select both source and target nodes.", "warn");
-        return;
+        if (!quiet) log("Select both source and target nodes.", "warn");
+        return false;
       }
       if (source === target) {
-        log("A node cannot link to itself.", "warn");
-        return;
+        if (!quiet) log("A node cannot link to itself.", "warn");
+        return false;
+      }
+      if (!graphNodeById(source) || !graphNodeById(target)) {
+        if (!quiet) log("Could not add link because source or target node is missing.", "warn");
+        return false;
       }
       const duplicate = state.graphDraft.edges.some(
         (edge) => String(edge.source) === source
@@ -4155,20 +4341,36 @@
           && String(edge.type || "next") === type
       );
       if (duplicate) {
-        log("That link already exists.", "warn");
-        return;
+        if (!quiet) log("That link already exists.", "warn");
+        return false;
       }
       state.graphDraft.edges.push({ source, target, type });
       state.graphEditorEdgeIndex = state.graphDraft.edges.length - 1;
       state.graphDirty = true;
       renderGraphDraftLists();
-      log(`Link added: ${source} -> ${target} (${type})`, "info");
+      if (!quiet) log(`Link added: ${source} -> ${target} (${type})`, "info");
+      return true;
+    }
+
+    function addGraphEdge() {
+      const source = String(byId("graphEdgeSource").value || "").trim();
+      const target = String(byId("graphEdgeTarget").value || "").trim();
+      const type = String(byId("graphEdgeCondition").value || "next").trim().toLowerCase() || "next";
+      createGraphEdge(source, target, type, { quiet: false });
     }
 
     function removeGraphNode(nodeId) {
       const id = String(nodeId || "").trim();
       if (!id) return;
       const beforeNodes = state.graphDraft.nodes.length;
+      if (state.graphCanvasLinkDrag) {
+        const sourceId = String(state.graphCanvasLinkDrag.sourceNodeId || "").trim();
+        const targetId = String(state.graphCanvasLinkDrag.targetNodeId || "").trim();
+        if (id === sourceId || id === targetId) {
+          clearGraphCanvasLinkDragTarget();
+          state.graphCanvasLinkDrag = null;
+        }
+      }
       if (state.graphCanvasDrag && String(state.graphCanvasDrag.nodeId || "") === id) {
         state.graphCanvasDrag = null;
       }
