@@ -77,6 +77,14 @@ class _FakeScroll:
         return self._vadj
 
 
+class _VisibleStub:
+    def __init__(self):
+        self.visible = None
+
+    def set_visible(self, value):
+        self.visible = bool(value)
+
+
 class CanvasCoordinateTranslationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -722,6 +730,84 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         ]
         self.view.selected_node_id = "t1"
         self.assertEqual("a2", self.view.default_auto_link_source_id("Action"))
+
+    def test_node_overlaps_existing_respects_spacing_buffer(self):
+        self.view.CARD_WIDTH = 200
+        self.view.CARD_HEIGHT = 120
+        self.view.nodes = [SimpleNamespace(id="n1", x=100, y=100)]
+
+        self.assertTrue(self.view.node_overlaps_existing(310, 100))
+        self.assertFalse(self.view.node_overlaps_existing(320, 100))
+
+    def test_resolve_node_spawn_position_uses_ring_search_when_anchor_overlaps(self):
+        self.view.CARD_WIDTH = 220
+        self.view.CARD_HEIGHT = 120
+        self.view.STAGE_WIDTH = 1800
+        self.view.STAGE_HEIGHT = 1200
+        self.view.layout_service = SimpleNamespace(step_x=320, step_y=220)
+        self.view.get_selected_node = lambda: SimpleNamespace(id="s1", x=100, y=100)
+        # Preferred selected-node anchor resolves to (330, 179) and is blocked.
+        self.view.nodes = [SimpleNamespace(id="blocked", x=330, y=179)]
+
+        spawn_x, spawn_y = self.view.resolve_node_spawn_position(0, 0)
+
+        self.assertNotEqual((330, 179), (spawn_x, spawn_y))
+        self.assertFalse(self.view.node_overlaps_existing(spawn_x, spawn_y))
+        self.assertGreaterEqual(spawn_x, 0)
+        self.assertGreaterEqual(spawn_y, 0)
+
+    def test_auto_link_source_candidates_prioritizes_preferred_and_open_tails(self):
+        self.view.nodes = [
+            CanvasNode(id="t1", name="Trigger", node_type="Trigger", detail="", summary="", x=80, y=80),
+            CanvasNode(id="a1", name="Action 1", node_type="Action", detail="", summary="", x=320, y=80),
+            CanvasNode(id="a2", name="Action 2", node_type="Action", detail="", summary="", x=560, y=80),
+            CanvasNode(id="a3", name="Action 3", node_type="Action", detail="", summary="", x=800, y=80),
+        ]
+        self.view.edges = [
+            CanvasEdge(id="e1", source_node_id="t1", target_node_id="a1", condition=""),
+            CanvasEdge(id="e2", source_node_id="a1", target_node_id="a2", condition=""),
+        ]
+        self.view.default_auto_link_source_id = lambda _incoming: "a1"
+
+        ordered = self.view.auto_link_source_candidates("Action")
+
+        self.assertGreaterEqual(len(ordered), 4)
+        self.assertEqual("a1", ordered[0])
+        # Open non-trigger tails (most recent first) should come next.
+        self.assertIn("a3", ordered[1:3])
+        self.assertIn("a2", ordered[1:3])
+        self.assertEqual(1, ordered.count("a1"))
+
+    def test_current_selected_node_for_sidebar_falls_back_without_mutating_selected_id(self):
+        node = SimpleNamespace(id="n2")
+        self.view.selected_node_id = "missing"
+        self.view.selected_node_ids = {"n2"}
+        self.view.find_node = lambda node_id: node if node_id == "n2" else None
+
+        selected = self.view.current_selected_node_for_sidebar()
+
+        self.assertIs(node, selected)
+        self.assertEqual("missing", self.view.selected_node_id)
+
+    def test_update_sidebar_mode_switches_between_workflow_and_node_modes(self):
+        workflow_scroll = _VisibleStub()
+        node_scroll = _VisibleStub()
+        scroll_calls = []
+        self.view.workflow_mode_scroll = workflow_scroll
+        self.view.node_mode_scroll = node_scroll
+        self.view.scroll_scroller_to_top = lambda widget: scroll_calls.append(widget)
+
+        self.view.current_selected_node_for_sidebar = lambda: None
+        self.view.update_sidebar_mode()
+        self.assertTrue(workflow_scroll.visible)
+        self.assertFalse(node_scroll.visible)
+        self.assertIs(workflow_scroll, scroll_calls[-1])
+
+        self.view.current_selected_node_for_sidebar = lambda: SimpleNamespace(id="n1")
+        self.view.update_sidebar_mode()
+        self.assertFalse(workflow_scroll.visible)
+        self.assertTrue(node_scroll.visible)
+        self.assertIs(node_scroll, scroll_calls[-1])
 
 
 if __name__ == "__main__":

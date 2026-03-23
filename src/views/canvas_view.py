@@ -7324,12 +7324,30 @@ class CanvasView(Gtk.Box):
         *,
         ignore_node_id: str | None = None,
     ) -> bool:
-        overlap_w = max(24, int(self.CARD_WIDTH * 0.82))
-        overlap_h = max(20, int(self.CARD_HEIGHT * 0.82))
+        # Treat overlap using full card bounds plus a small buffer so newly-added
+        # cards do not appear stacked or touching.
+        gap_x = max(14, int(self.CARD_WIDTH * 0.08))
+        gap_y = max(12, int(self.CARD_HEIGHT * 0.08))
+        candidate_left = int(x)
+        candidate_top = int(y)
+        candidate_right = int(x + self.CARD_WIDTH)
+        candidate_bottom = int(y + self.CARD_HEIGHT)
         for node in self.nodes:
             if ignore_node_id and node.id == ignore_node_id:
                 continue
-            if abs(int(node.x) - int(x)) < overlap_w and abs(int(node.y) - int(y)) < overlap_h:
+            node_left = int(node.x)
+            node_top = int(node.y)
+            node_right = int(node.x + self.CARD_WIDTH)
+            node_bottom = int(node.y + self.CARD_HEIGHT)
+            intersects_x = (
+                candidate_left < (node_right + gap_x)
+                and (candidate_right + gap_x) > node_left
+            )
+            intersects_y = (
+                candidate_top < (node_bottom + gap_y)
+                and (candidate_bottom + gap_y) > node_top
+            )
+            if intersects_x and intersects_y:
                 return True
         return False
 
@@ -7354,10 +7372,10 @@ class CanvasView(Gtk.Box):
         step_x = max(80, int(self.layout_service.step_x))
         step_y = max(60, int(self.layout_service.step_y))
 
-        # First probe around the preferred spawn anchor in expanding rings so
-        # newly added nodes appear near context without piling on the same spot.
-        for ring in range(1, 10):
-            for dx, dy in (
+        # Probe around the preferred spawn anchor in expanding rings so newly
+        # added nodes stay near context without piling on the same spot.
+        for ring in range(1, 16):
+            ring_offsets: list[tuple[int, int]] = [
                 (ring, 0),
                 (-ring, 0),
                 (0, ring),
@@ -7366,7 +7384,24 @@ class CanvasView(Gtk.Box):
                 (-ring, ring),
                 (ring, -ring),
                 (-ring, -ring),
-            ):
+            ]
+            # Include full perimeter points to find the nearest available slot in
+            # dense graphs where cardinal/diagonal slots are occupied.
+            if ring > 1:
+                for delta in range(1, ring):
+                    ring_offsets.extend(
+                        [
+                            (ring, delta),
+                            (ring, -delta),
+                            (-ring, delta),
+                            (-ring, -delta),
+                            (delta, ring),
+                            (-delta, ring),
+                            (delta, -ring),
+                            (-delta, -ring),
+                        ]
+                    )
+            for dx, dy in ring_offsets:
                 probe_x = max(0, min(max_x, int(x + (dx * step_x))))
                 probe_y = max(0, min(max_y, int(y + (dy * step_y))))
                 if not self.node_overlaps_existing(probe_x, probe_y):
@@ -7434,6 +7469,45 @@ class CanvasView(Gtk.Box):
             return self.nodes[-1].id
         return ""
 
+    def auto_link_source_candidates(self, incoming_node_type: str) -> list[str]:
+        if self.node_type_key(incoming_node_type) == "trigger":
+            return []
+
+        def has_outgoing(node_id: str) -> bool:
+            return any(edge.source_node_id == node_id for edge in self.edges)
+
+        candidates: list[str] = []
+        preferred = self.default_auto_link_source_id(incoming_node_type)
+        if preferred:
+            candidates.append(preferred)
+
+        open_non_trigger = [
+            node.id
+            for node in reversed(self.nodes)
+            if self.node_type_key(node.node_type) != "trigger" and not has_outgoing(node.id)
+        ]
+        busy_non_trigger = [
+            node.id
+            for node in reversed(self.nodes)
+            if self.node_type_key(node.node_type) != "trigger" and has_outgoing(node.id)
+        ]
+        open_triggers = [
+            node.id
+            for node in reversed(self.nodes)
+            if self.node_type_key(node.node_type) == "trigger" and not has_outgoing(node.id)
+        ]
+        remaining = [node.id for node in reversed(self.nodes)]
+
+        ordered = [*candidates, *open_non_trigger, *busy_non_trigger, *open_triggers, *remaining]
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for node_id in ordered:
+            if not node_id or node_id in seen:
+                continue
+            seen.add(node_id)
+            deduped.append(node_id)
+        return deduped
+
     def add_node(
         self,
         name: str,
@@ -7445,7 +7519,6 @@ class CanvasView(Gtk.Box):
         config: dict[str, str] | None = None,
     ):
         x, y = self.resolve_node_spawn_position(x, y)
-        previous_selected = self.default_auto_link_source_id(node_type)
         merged_config = dict(config or {})
         node_key = self.node_type_key(node_type)
         context_key = ""
@@ -7484,22 +7557,12 @@ class CanvasView(Gtk.Box):
         )
         self.nodes.append(node)
         auto_linked = False
-        if previous_selected and previous_selected != node.id:
-            if self.node_type_key(node.node_type) != "trigger":
-                auto_linked = self.add_edge(
-                    previous_selected,
-                    node.id,
-                    condition_override="",
-                    push_history=False,
-                    auto_save=False,
-                    show_status_on_duplicate=False,
-                )
-        if not auto_linked and self.node_type_key(node.node_type) != "trigger":
-            for fallback_source in reversed(self.nodes[:-1]):
-                if fallback_source.id == node.id:
+        if self.node_type_key(node.node_type) != "trigger":
+            for source_id in self.auto_link_source_candidates(node.node_type):
+                if source_id == node.id:
                     continue
                 if self.add_edge(
-                    fallback_source.id,
+                    source_id,
                     node.id,
                     condition_override="",
                     push_history=False,
@@ -11905,13 +11968,25 @@ class CanvasView(Gtk.Box):
         self.update_sidebar_mode()
 
     def update_sidebar_mode(self):
-        has_selected = self.get_selected_node() is not None
+        has_selected = self.current_selected_node_for_sidebar() is not None
         self.workflow_mode_scroll.set_visible(not has_selected)
         self.node_mode_scroll.set_visible(has_selected)
         if has_selected:
             self.scroll_scroller_to_top(self.node_mode_scroll)
         else:
             self.scroll_scroller_to_top(self.workflow_mode_scroll)
+
+    def current_selected_node_for_sidebar(self) -> CanvasNode | None:
+        selected_id = str(self.selected_node_id or "").strip()
+        if selected_id:
+            selected = self.find_node(selected_id)
+            if selected:
+                return selected
+        for node_id in self.selected_node_ids:
+            candidate = self.find_node(str(node_id))
+            if candidate:
+                return candidate
+        return None
 
     def update_action_integration_section_visibility(self, node_type: str | None):
         node_key = self.node_type_key(node_type or "")
