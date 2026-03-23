@@ -18,6 +18,11 @@ Track each day in a simple note:
 - Traffic source that performed best
 - Top 3 user requests
 
+Use the included tracker + summary command:
+- CSV tracker: `docs/launch_metrics.csv`
+- Summary (text): `./scripts/launch_metrics_summary.py`
+- Summary (markdown): `./scripts/launch_metrics_summary.py --markdown`
+
 ---
 
 ## Day 1 — Monday, March 23, 2026 (Launch Day)

@@ -113,6 +113,8 @@ See:
 - Status and milestone board: [`docs/DOCKER_WEB_EDITION_PLAN.md`](docs/DOCKER_WEB_EDITION_PLAN.md)
 - Launch checklist: [`docs/LAUNCH_CHECKLIST.md`](docs/LAUNCH_CHECKLIST.md)
 - 7-day launch plan: [`docs/LAUNCH_CALENDAR_7D_v0.1.7.md`](docs/LAUNCH_CALENDAR_7D_v0.1.7.md)
+- Launch metrics tracker: [`docs/launch_metrics.csv`](docs/launch_metrics.csv)
+- Launch metrics summary script: [`scripts/launch_metrics_summary.py`](scripts/launch_metrics_summary.py)
 - Latest release notes: [`docs/RELEASE_NOTES_v0.1.7.md`](docs/RELEASE_NOTES_v0.1.7.md)
 - Announcement copy kit: [`docs/ANNOUNCEMENT_KIT_v0.1.7.md`](docs/ANNOUNCEMENT_KIT_v0.1.7.md)
 - Technical announcement variants: [`docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.7.md`](docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.7.md)
