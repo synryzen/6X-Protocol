@@ -469,7 +469,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
                 (node_id, float(x), float(y), bool(live_snap_enabled))
             )
         )
-        controller = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
         self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
 
         self.assertEqual(1, len(calls))
@@ -494,7 +494,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
                 (node_id, float(x), float(y), bool(live_snap_enabled))
             )
         )
-        controller = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
         self.view.on_stage_pointer_motion(controller, 260.0, 230.0)
 
         self.assertEqual(1, len(calls))
@@ -516,10 +516,48 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
                 (node_id, float(x), float(y), bool(live_snap_enabled))
             )
         )
-        controller = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
         self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
 
         self.assertEqual([], calls)
+
+    def test_stage_pointer_motion_resets_node_drag_when_primary_button_released(self):
+        self.view.port_drag_active = False
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "node"
+        self.view.drag_origin = {"node_id": "n1"}
+        self.view.node_drag_last_activity_monotonic = time.monotonic() - 0.2
+        self.view.is_node_drag_stale = lambda: False
+        calls: list[tuple[str, float, float, bool]] = []
+        reset_calls: list[bool] = []
+        self.view.apply_active_node_drag_position = (
+            lambda node_id, x, y, live_snap_enabled=False: calls.append(
+                (node_id, float(x), float(y), bool(live_snap_enabled))
+            )
+        )
+        self.view.reset_node_drag_state = lambda: reset_calls.append(True)
+
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
+
+        self.assertEqual([True], reset_calls)
+        self.assertEqual([], calls)
+
+    def test_stage_pointer_motion_resets_port_drag_when_primary_button_released(self):
+        self.view.port_drag_active = True
+        self.view.link_preview_source_id = "n1"
+        self.view.pending_link_source_id = "n1"
+        self.view.node_drag_active = False
+        reset_calls: list[bool] = []
+        self.view.reset_port_drag_state = lambda: reset_calls.append(True)
+        self.view.active_drag_target = lambda *_args, **_kwargs: None
+        self.view.update_link_preview_position = lambda *_args, **_kwargs: None
+        self.view.set_link_hover_target = lambda *_args, **_kwargs: None
+
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
+
+        self.assertEqual([True], reset_calls)
 
     def test_canvas_stage_click_retries_hit_with_observed_stage_point(self):
         self.view.STAGE_WIDTH = 4000

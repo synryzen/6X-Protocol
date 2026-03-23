@@ -9138,7 +9138,20 @@ class CanvasView(Gtk.Box):
         self.set_status("Canvas selection cleared.")
 
     def on_stage_pointer_motion(self, _controller, x: float, y: float):
+        state = (
+            _controller.get_current_event_state()
+            if hasattr(_controller, "get_current_event_state")
+            else Gdk.ModifierType(0)
+        )
+        button1_mask = getattr(Gdk.ModifierType, "BUTTON1_MASK", Gdk.ModifierType(0))
+        primary_button_down = bool(state & button1_mask)
+
         if self.port_drag_active:
+            if not primary_button_down:
+                # Recover immediately if a drag-end signal was dropped: keeping stale
+                # port drag state alive can block subsequent node selection/dragging.
+                self.reset_port_drag_state()
+                return
             source_id = self.link_preview_source_id or self.pending_link_source_id
             if not source_id:
                 return
@@ -9159,6 +9172,12 @@ class CanvasView(Gtk.Box):
         if self.is_node_drag_stale():
             self.reset_node_drag_state()
             return
+        if not primary_button_down:
+            # Node dragging only makes sense while primary button is held.
+            # Without this guard, missed drag-end callbacks can keep drag state "stuck"
+            # and suppress click-based inspector updates.
+            self.reset_node_drag_state()
+            return
         if not self.drag_origin:
             self.reset_node_drag_state()
             return
@@ -9176,11 +9195,6 @@ class CanvasView(Gtk.Box):
             if last_activity > 0.0 and (time.monotonic() - last_activity) < 0.05:
                 return
 
-        state = (
-            _controller.get_current_event_state()
-            if hasattr(_controller, "get_current_event_state")
-            else Gdk.ModifierType(0)
-        )
         drag_reference = self.node_drag_last_pointer_stage
         if not drag_reference:
             drag_reference = (
