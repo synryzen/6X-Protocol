@@ -551,6 +551,24 @@ class IntegrationsView(Gtk.Box):
         profile_action_row.append(load_profile_button)
         profile_action_row.append(delete_profile_button)
 
+        self.profile_bundle_entry = Gtk.Entry()
+        self.profile_bundle_entry.set_hexpand(True)
+        self.profile_bundle_entry.set_placeholder_text("Path to integration test profiles JSON")
+        self.profile_bundle_entry.set_text(str(self.integration_settings_store.default_export_path()))
+
+        export_profiles_button = Gtk.Button(label="Export Profiles")
+        export_profiles_button.connect("clicked", self.on_export_profiles_clicked)
+        export_profiles_button.add_css_class("compact-action-button")
+
+        import_profiles_button = Gtk.Button(label="Import Profiles")
+        import_profiles_button.connect("clicked", self.on_import_profiles_clicked)
+        import_profiles_button.add_css_class("compact-action-button")
+
+        profile_bundle_action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        profile_bundle_action_row.add_css_class("compact-action-row")
+        profile_bundle_action_row.append(export_profiles_button)
+        profile_bundle_action_row.append(import_profiles_button)
+
         section_title = build_icon_section(
             "Available Integrations",
             "network-server-symbolic",
@@ -594,6 +612,8 @@ class IntegrationsView(Gtk.Box):
                 build_labeled_field("Required Fields / Directives", directives_frame),
                 test_action_row,
                 profile_action_row,
+                build_labeled_field("Profile Bundle Path", self.profile_bundle_entry),
+                profile_bundle_action_row,
                 self.test_status_label,
             ],
         )
@@ -2323,6 +2343,46 @@ class IntegrationsView(Gtk.Box):
         self.test_status_label.set_text(f"Deleted saved test profile for '{key}'.")
         self.test_input_entry.set_text("")
         self.on_load_required_template_clicked(None)
+
+    def on_export_profiles_clicked(self, _button):
+        raw_path = self.profile_bundle_entry.get_text().strip()
+        try:
+            export_path, count = self.integration_settings_store.export_profiles(raw_path or None)
+        except Exception as error:
+            self.test_status_label.set_text(f"Failed to export profiles: {error}")
+            return
+        self.profile_bundle_entry.set_text(str(export_path))
+        self.test_status_label.set_text(
+            f"Exported {count} integration test profile(s) to '{export_path}'."
+        )
+
+    def on_import_profiles_clicked(self, _button):
+        raw_path = self.profile_bundle_entry.get_text().strip()
+        if not raw_path:
+            self.test_status_label.set_text("Enter a profile bundle path to import.")
+            return
+        try:
+            imported_count, total_count = self.integration_settings_store.import_profiles(
+                raw_path,
+                merge=True,
+            )
+        except FileNotFoundError:
+            self.test_status_label.set_text(f"Profile bundle not found: '{raw_path}'.")
+            return
+        except ValueError as error:
+            self.test_status_label.set_text(str(error))
+            return
+        except Exception as error:
+            self.test_status_label.set_text(f"Failed to import profiles: {error}")
+            return
+
+        key = self.selected_test_integration_key()
+        if key:
+            self.load_saved_profile(key)
+
+        self.test_status_label.set_text(
+            f"Imported {imported_count} profile(s). Library now has {total_count} saved profile(s)."
+        )
 
     def on_run_test_clicked(self, _button):
         key = self.selected_test_integration_key()

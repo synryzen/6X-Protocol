@@ -12,7 +12,7 @@ Linux-native, local-first workflow automation studio with visual graph building,
 - Node types: `Trigger`, `Action`, `AI`, `Condition`.
 - Runs model and history timeline.
 - Bots CRUD and AI test console.
-- Integrations hub with quick setup cards and connector test actions.
+- Integrations hub with quick setup cards, connector test actions, and profile bundle import/export.
 - Settings hub for runtime, AI providers, appearance, and automation behavior.
 - Local AI and cloud AI provider support via a unified adapter.
 
