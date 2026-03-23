@@ -3,7 +3,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gio", "2.0")
 
-from gi.repository import Gtk, Gdk, Gio
+from gi.repository import Gtk, Gdk
 
 
 DEFAULT_ICON_FALLBACKS = (
@@ -87,17 +87,10 @@ def create_icon(
     css_class: str | None = None,
     fallbacks: tuple[str, ...] | list[str] | None = None,
 ) -> Gtk.Image:
-    candidates = icon_candidates(icon_name, fallbacks=fallbacks)
-    icon: Gtk.Image
-    if candidates:
-        try:
-            themed = Gio.ThemedIcon.new_from_names(candidates)
-            icon = Gtk.Image.new_from_gicon(themed)
-        except Exception:
-            resolved = resolve_icon_name(icon_name, fallbacks=fallbacks)
-            icon = Gtk.Image.new_from_icon_name(resolved)
-    else:
-        icon = Gtk.Image.new_from_icon_name("image-missing")
+    # Resolve to a concrete icon name first so Linux theme differences do not
+    # leave widgets showing "missing icon" placeholders.
+    resolved = resolve_icon_name(icon_name, fallbacks=fallbacks)
+    icon = Gtk.Image.new_from_icon_name(resolved)
     if css_class:
         icon.add_css_class(css_class)
     return icon
