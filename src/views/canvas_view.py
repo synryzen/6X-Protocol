@@ -9821,16 +9821,9 @@ class CanvasView(Gtk.Box):
         )
         pointer_stage_x = float(start_pointer_x + float(offset_x))
         pointer_stage_y = float(start_pointer_y + float(offset_y))
-        stage_pointer = self.gesture_stage_point(_gesture)
-        if stage_pointer:
-            observed_x, observed_y = float(stage_pointer[0]), float(stage_pointer[1])
-            tolerance = max(20.0, float(self.card_screen_width()) * 0.24)
-            if (
-                abs(observed_x - pointer_stage_x) <= tolerance
-                and abs(observed_y - pointer_stage_y) <= tolerance
-            ):
-                pointer_stage_x = observed_x
-                pointer_stage_y = observed_y
+        # Keep node drag motion deterministic from drag offsets.
+        # Mixing gesture-translated stage coordinates into this path can introduce
+        # rapid oscillation/jitter on some GTK stacks.
         state = _gesture.get_current_event_state()
         self.apply_active_node_drag_position(
             node_id,

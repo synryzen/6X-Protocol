@@ -567,6 +567,53 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
 
         self.assertEqual([True], reset_calls)
 
+    def test_node_drag_update_uses_offset_based_stage_pointer(self):
+        self.view.port_drag_active = False
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "node"
+        self.view.drag_origin = {
+            "node_id": "n1",
+            "pointer_stage_x": 100.0,
+            "pointer_stage_y": 200.0,
+        }
+        self.view.drag_group_origins = {"n1": (20, 30)}
+        self.view.to_screen = lambda value: int(round(value))
+        self.view.gesture_stage_point = lambda _gesture: (900.0, 900.0)
+        calls: list[tuple[str, float, float, bool]] = []
+        self.view.apply_active_node_drag_position = (
+            lambda node_id, x, y, live_snap_enabled=False: calls.append(
+                (node_id, float(x), float(y), bool(live_snap_enabled))
+            )
+        )
+
+        gesture = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_node_drag_update(gesture, 15.0, -5.0, "n1")
+
+        self.assertEqual([("n1", 115.0, 195.0, False)], calls)
+
+    def test_node_drag_update_preserves_ctrl_snap_flag(self):
+        self.view.port_drag_active = False
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "node"
+        self.view.drag_origin = {
+            "node_id": "n1",
+            "pointer_stage_x": 240.0,
+            "pointer_stage_y": 300.0,
+        }
+        self.view.drag_group_origins = {"n1": (20, 30)}
+        self.view.to_screen = lambda value: int(round(value))
+        calls: list[tuple[str, float, float, bool]] = []
+        self.view.apply_active_node_drag_position = (
+            lambda node_id, x, y, live_snap_enabled=False: calls.append(
+                (node_id, float(x), float(y), bool(live_snap_enabled))
+            )
+        )
+
+        gesture = _FakeDragGesture(object(), state=Gdk.ModifierType.CONTROL_MASK)
+        self.view.on_node_drag_update(gesture, 10.0, 12.0, "n1")
+
+        self.assertEqual([("n1", 250.0, 312.0, True)], calls)
+
     def test_canvas_stage_click_retries_hit_with_observed_stage_point(self):
         self.view.STAGE_WIDTH = 4000
         self.view.STAGE_HEIGHT = 2400
