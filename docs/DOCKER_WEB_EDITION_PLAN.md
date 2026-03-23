@@ -2,7 +2,7 @@
 
 ## Last Verified Status
 - Date: **March 22, 2026**
-- Overall completion toward first public self-hosted web beta: **~91%**
+- Self-hosted web edition status: **Live preview (compose + smoke validated)**
 - Automated smoke status: **passing** via `./scripts/test_docker_web.sh`
 
 ## Product Layout

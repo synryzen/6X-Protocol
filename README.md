@@ -121,7 +121,7 @@ See:
 - Web graph editor supports node/link draft editing, link inspector, run timeline filters, per-node behavior presets, and on-error behavior policy (`fail`/`continue`/`goto`)
 - Smoke test validated (March 22, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, timeline/log filters, integrations, bots, and settings patch flows
 
-Estimated completion for a first public self-hosted web beta: **~91%**
+Self-hosted web preview status: **Live and smoke-validated**.
 
 Remaining high-value items:
 - Replace the preview web panel with production-grade web UX modules.
