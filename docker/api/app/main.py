@@ -44,6 +44,7 @@ from app.schemas import (
     utc_now_iso,
 )
 from app.storage import JsonStore
+from app.workflow_preflight import preflight_graph
 
 APP_NAME = "6X-Protocol API"
 APP_VERSION = "0.5.0-preview"
@@ -407,6 +408,34 @@ def update_workflow_graph(workflow_id: str, graph: dict[str, Any]) -> dict[str, 
         store.save_workflows(workflows)
         return item
     raise HTTPException(status_code=404, detail="Workflow not found")
+
+
+@app.post("/api/v1/workflows/{workflow_id}/preflight", tags=["workflows"])
+def preflight_workflow(workflow_id: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    workflow = _find_workflow(workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    requested_graph: dict[str, Any] | None = None
+    if isinstance(payload, dict):
+        graph_field = payload.get("graph")
+        if isinstance(graph_field, dict):
+            requested_graph = graph_field
+        elif isinstance(payload.get("nodes"), list) or isinstance(payload.get("edges"), list):
+            requested_graph = payload
+
+    graph = requested_graph if requested_graph is not None else workflow.get("graph", {})
+    workflow_name = str(workflow.get("name", "")).strip()
+    result = preflight_graph(
+        graph if isinstance(graph, dict) else {},
+        workflow_name=workflow_name,
+        integration_catalog=INTEGRATION_CATALOG,
+    )
+    return {
+        "workflow_id": workflow_id,
+        "workflow_name": workflow_name,
+        **result,
+    }
 
 
 @app.delete("/api/v1/workflows/{workflow_id}", tags=["workflows"])

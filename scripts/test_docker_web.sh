@@ -73,6 +73,16 @@ WORKFLOW_JSON="$(curl_api -X POST http://127.0.0.1:8787/api/v1/workflows \
 echo "$WORKFLOW_JSON" | jq .
 WORKFLOW_ID="$(echo "$WORKFLOW_JSON" | jq -r '.id')"
 
+echo "[3/12] Validating workflow preflight endpoint..."
+PREFLIGHT_JSON="$(curl_api -X POST "http://127.0.0.1:8787/api/v1/workflows/$WORKFLOW_ID/preflight" \
+  -H 'Content-Type: application/json' \
+  -d '{}')"
+echo "$PREFLIGHT_JSON" | jq .
+if [[ "$(echo "$PREFLIGHT_JSON" | jq -r '.ok')" != "true" ]]; then
+  echo "Expected workflow preflight to return ok=true for smoke graph."
+  exit 1
+fi
+
 echo "[4/12] Starting run for workflow..."
 RUN_JSON="$(curl_api -X POST http://127.0.0.1:8787/api/v1/runs/start \
   -H 'Content-Type: application/json' \
