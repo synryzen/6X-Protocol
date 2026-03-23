@@ -2930,6 +2930,32 @@
       return { errors, warnings };
     }
 
+    async function runGraphPreflightServerFirst() {
+      const workflowId = String(state.selectedWorkflowId || "").trim();
+      if (!workflowId) {
+        const local = runGraphPreflight();
+        local.source = "local";
+        return local;
+      }
+
+      try {
+        const response = await api(`/api/v1/workflows/${encodeURIComponent(workflowId)}/preflight`, {
+          method: "POST",
+          body: JSON.stringify({ graph: graphDraftPayload() }),
+        });
+        return {
+          errors: Array.isArray(response.errors) ? response.errors : [],
+          warnings: Array.isArray(response.warnings) ? response.warnings : [],
+          source: "api",
+        };
+      } catch (error) {
+        log(`Server preflight failed, using local fallback: ${error.message}`, "warn");
+        const fallback = runGraphPreflight();
+        fallback.source = "local";
+        return fallback;
+      }
+    }
+
     function renderGraphPreflightStatus(result) {
       const el = byId("graphPreflightStatus");
       if (!el) return;
@@ -5345,12 +5371,13 @@
         loadGraphForSelectedWorkflow();
       });
       byId("saveGraph").addEventListener("click", saveSelectedWorkflowGraph);
-      byId("runPreflight").addEventListener("click", () => {
-        const result = runGraphPreflight();
+      byId("runPreflight").addEventListener("click", async () => {
+        const result = await runGraphPreflightServerFirst();
         renderGraphPreflightStatus(result);
         const level = result.errors.length ? "error" : (result.warnings.length ? "warn" : "info");
+        const sourceLabel = result.source === "api" ? "API" : "Local";
         log(
-          `Preflight complete: ${result.errors.length} error(s), ${result.warnings.length} warning(s).`,
+          `Preflight (${sourceLabel}) complete: ${result.errors.length} error(s), ${result.warnings.length} warning(s).`,
           level
         );
       });

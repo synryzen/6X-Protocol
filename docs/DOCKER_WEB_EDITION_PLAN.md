@@ -48,6 +48,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 
 ### M2: API surface for web parity
 - [x] Workflow CRUD endpoints
+- [x] Workflow preflight endpoint (graph validation via API)
 - [x] Runs CRUD and run-control endpoints
 - [x] Settings load/save endpoints
 - [x] Integrations catalog + CRUD + test endpoints

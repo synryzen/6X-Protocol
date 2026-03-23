@@ -46,6 +46,7 @@ Web dashboard actions include:
 - settings load/save panel
 - integration catalog + profile save/test panel
 - integration profile bundle import/export controls
+- server-backed workflow preflight validation
 
 Cross-origin browser access is controlled by:
 `CORS_ALLOW_ORIGINS` (see `.env.example`).
@@ -79,6 +80,7 @@ Current API routes:
 - `GET /api/v1/overview`
 - `GET/POST/PUT/DELETE /api/v1/workflows`
 - `PATCH /api/v1/workflows/{id}/graph`
+- `POST /api/v1/workflows/{id}/preflight`
 - `GET/POST/PATCH/DELETE /api/v1/runs`
 - `POST /api/v1/runs/start`
 - `POST /api/v1/runs/{id}/cancel`
