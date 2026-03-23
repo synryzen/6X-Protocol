@@ -1,7 +1,7 @@
 # Docker + Web Edition Build Plan
 
 ## Last Verified Status
-- Date: **March 22, 2026**
+- Date: **March 23, 2026**
 - Self-hosted web edition status: **Live preview (compose + smoke validated)**
 - Automated smoke status: **passing** via `./scripts/test_docker_web.sh`
 
@@ -106,6 +106,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Web preview settings panel now supports local backend selection, local/cloud API keys, local runtime enable toggle, theme preset selection, and reduce-motion toggle.
 - Web preview settings panel now includes automation defaults (auto-save, daemon autostart, tray toggle), minimap placement persistence fields, and reset-to-default controls.
 - Web preview graph builder now includes an interactive visual stage (draggable node cards, live link rendering, click-to-edit sync, auto-arrange, fit-view).
+- Web preview graph builder now supports direct port-to-port wire dragging (drag from output handle to target input handle) with live preview path and duplicate-link guardrails.
 - Docker/web integration catalog now matches the full runtime-supported connector set (including handoff, Google Calendar API, Drive/Dropbox, Shopify/Webflow, Supabase, OpenRouter, Resend, and Mailgun).
 - Web preview node editor now supports per-node on-error behavior policy (`fail`, `continue`, `goto` + target node id).
 
