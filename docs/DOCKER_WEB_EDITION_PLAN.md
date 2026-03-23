@@ -76,7 +76,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 
 ### M5: Hardening and team-readiness
 - [ ] DB migration/versioning baseline
-- [ ] Auth layer baseline
+- [x] Auth layer baseline (optional `API_AUTH_TOKEN` for `/api/v1/*` + web token input)
 - [ ] Secret management hardening
 - [ ] Backup/restore + observability endpoints
 
@@ -109,11 +109,13 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Web preview graph builder now supports direct port-to-port wire dragging (drag from output handle to target input handle) with live preview path and duplicate-link guardrails.
 - Docker/web integration catalog now matches the full runtime-supported connector set (including handoff, Google Calendar API, Drive/Dropbox, Shopify/Webflow, Supabase, OpenRouter, Resend, and Mailgun).
 - Web preview node editor now supports per-node on-error behavior policy (`fail`, `continue`, `goto` + target node id).
+- Docker API now supports optional auth guardrails via `API_AUTH_TOKEN` (`X-6X-API-Key` or Bearer token), with health endpoints exempt for liveness checks.
+- Web preview top bar now supports saving/using API auth tokens for secured self-hosted deployments.
 
 ## Remaining To Reach First Public Web Beta
 1. Replace web preview dashboard with production web UI modules.
 2. Add migration/versioned persistence workflow.
-3. Add auth and secrets baseline.
+3. Expand secrets baseline and rotation workflows.
 4. Expand integration profile UX toward full connector-field parity with desktop editor.
 
 ## Recommended Positioning

@@ -133,6 +133,7 @@ See:
 - Web graph editor supports node/link draft editing, link inspector, run timeline filters, per-node behavior presets, and on-error behavior policy (`fail`/`continue`/`goto`)
 - Web graph editor now includes an interactive visual stage with draggable node cards, live SVG links, direct wire-drag linking (output port -> input port), click-to-edit selection sync, auto-arrange, and fit-view actions
 - Web settings panel includes local/cloud AI fields, theme controls, automation defaults, minimap placement persistence, and reset-to-default action
+- Optional Docker API auth baseline is live (`API_AUTH_TOKEN`, `X-6X-API-Key`, or Bearer token), with web token input support
 - Smoke test validated (March 22, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, timeline/log filters, integrations, bots, and settings patch flows
 
 Self-hosted web preview status: **Live and smoke-validated**.
@@ -140,7 +141,7 @@ Self-hosted web preview status: **Live and smoke-validated**.
 Remaining high-value items:
 - Replace the preview web panel with production-grade web UX modules.
 - Add DB migration strategy and tighten persistence/versioning.
-- Add auth + secrets hardening baseline for team/hosted deployment paths.
+- Expand secrets hardening baseline for team/hosted deployment paths.
 
 ## Package Build Commands
 Build local installer artifacts:

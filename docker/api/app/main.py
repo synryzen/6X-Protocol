@@ -7,8 +7,9 @@ import os
 import threading
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.run_controller import ACTIVE_STATUSES, RunController
 from app.schemas import (
@@ -46,6 +47,9 @@ from app.storage import JsonStore
 
 APP_NAME = "6X-Protocol API"
 APP_VERSION = "0.5.0-preview"
+API_AUTH_TOKEN = str(os.getenv("API_AUTH_TOKEN", "") or "").strip()
+AUTH_EXEMPT_PATHS = {"/healthz", "/readyz"}
+AUTH_EXEMPT_PREFIXES = ("/docs", "/redoc", "/openapi.json")
 
 INTEGRATION_CATALOG: list[dict[str, Any]] = [
     {"key": "standard", "name": "Standard Action", "category": "core", "required_fields": []},
@@ -128,6 +132,48 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _extract_bearer_token(value: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    lowered = raw.lower()
+    if lowered.startswith("bearer "):
+        return raw[7:].strip()
+    return raw
+
+
+def _request_api_token(request: Request) -> str:
+    direct_header = str(
+        request.headers.get("x-6x-api-key") or request.headers.get("x-api-key") or ""
+    ).strip()
+    if direct_header:
+        return direct_header
+    auth_header = str(request.headers.get("authorization") or "").strip()
+    return _extract_bearer_token(auth_header)
+
+
+def _is_auth_exempt_path(path: str) -> bool:
+    normalized = str(path or "").strip()
+    if not normalized:
+        return False
+    if normalized in AUTH_EXEMPT_PATHS:
+        return True
+    return any(normalized.startswith(prefix) for prefix in AUTH_EXEMPT_PREFIXES)
+
+
+@app.middleware("http")
+async def enforce_api_auth(request: Request, call_next):
+    if not API_AUTH_TOKEN or _is_auth_exempt_path(request.url.path):
+        return await call_next(request)
+    request_token = _request_api_token(request)
+    if request_token != API_AUTH_TOKEN:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Unauthorized: missing or invalid API token."},
+        )
+    return await call_next(request)
 
 
 def _find_by_id(items: list[dict[str, Any]], item_id: str) -> dict[str, Any] | None:
@@ -279,6 +325,7 @@ def meta() -> dict[str, str]:
         "timestamp": datetime.now(UTC).isoformat(),
         "storage": "json",
         "data_dir": str(store.data_dir),
+        "auth_enabled": "true" if bool(API_AUTH_TOKEN) else "false",
     }
 
 

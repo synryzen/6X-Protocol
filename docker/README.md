@@ -50,6 +50,14 @@ Web dashboard actions include:
 Cross-origin browser access is controlled by:
 `CORS_ALLOW_ORIGINS` (see `.env.example`).
 
+Optional API auth baseline:
+- Set `API_AUTH_TOKEN` in `docker/.env` to require auth for `/api/v1/*`.
+- Health routes (`/healthz`, `/readyz`) remain open for compose healthchecks.
+- Clients can authenticate with either:
+  - `X-6X-API-Key: <token>`
+  - `Authorization: Bearer <token>`
+- The web dashboard now includes an API token field in the top bar and sends `X-6X-API-Key` when set.
+
 Automated smoke test from repo root:
 ```bash
 ./scripts/test_docker_web.sh
@@ -114,5 +122,5 @@ Execution routing behavior:
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
 2. Add DB migration/versioning workflow and stronger persistence boundaries.
-3. Add authentication and secrets hardening baseline.
+3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Add backup, observability, and deployment hardening.

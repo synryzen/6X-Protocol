@@ -618,7 +618,9 @@
       <div class="actions">
         <span id="apiHealth"><span class="status-dot"></span>checking</span>
         <input id="apiBase" class="input" type="text" aria-label="API base" />
+        <input id="apiAuthToken" class="input" type="password" aria-label="API auth token (optional)" placeholder="API token (optional)" />
         <button id="saveApiBase" class="btn">Save API</button>
+        <button id="saveApiAuth" class="btn">Save Token</button>
         <button id="refreshAll" class="btn primary">Refresh</button>
       </div>
     </section>
@@ -1653,6 +1655,7 @@
 
     const state = {
       apiBase: localStorage.getItem("sixxprotocol_api_base") || `${window.location.protocol}//${window.location.hostname}:8787`,
+      apiAuthToken: localStorage.getItem("sixxprotocol_api_auth_token") || "",
       workflows: [],
       runs: [],
       selectedWorkflowId: "",
@@ -1707,13 +1710,21 @@
 
     async function api(path, options = {}) {
       const url = `${state.apiBase}${path}`;
+      const authHeader = state.apiAuthToken
+        ? { "X-6X-API-Key": String(state.apiAuthToken).trim() }
+        : {};
       const response = await fetch(url, {
-        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+          ...(options.headers || {}),
+        },
         ...options,
       });
       if (!response.ok) {
         const body = await response.text();
-        throw new Error(`${response.status} ${response.statusText} - ${body}`);
+        const authHint = response.status === 401 ? " (check API token in top bar)" : "";
+        throw new Error(`${response.status} ${response.statusText}${authHint} - ${body}`);
       }
       const text = await response.text();
       if (!text) return {};
@@ -5284,6 +5295,17 @@
         log(`API base saved: ${nextBase}`, "info");
         refreshAll();
       });
+      byId("saveApiAuth").addEventListener("click", () => {
+        const nextToken = String(byId("apiAuthToken").value || "").trim();
+        state.apiAuthToken = nextToken;
+        localStorage.setItem("sixxprotocol_api_auth_token", nextToken);
+        if (nextToken) {
+          log("API auth token saved.", "info");
+        } else {
+          log("API auth token cleared.", "info");
+        }
+        refreshAll();
+      });
 
       byId("refreshAll").addEventListener("click", refreshAll);
       byId("createSample").addEventListener("click", createSampleWorkflow);
@@ -5633,6 +5655,7 @@
 
     function init() {
       byId("apiBase").value = state.apiBase;
+      byId("apiAuthToken").value = state.apiAuthToken;
       byId("integrationBundlePath").value = "/data/6x-protocol/integration-profiles-bundle.json";
       byId("botTestPrompt").value = "Give me a short confirmation that this bot profile is configured.";
       byId("botTestOutput").textContent = "No bot test output yet.";
