@@ -111,6 +111,7 @@ See:
 
 ## Docker / Web Edition (Live Self-Hosted)
 - Status and milestone board: [`docs/DOCKER_WEB_EDITION_PLAN.md`](docs/DOCKER_WEB_EDITION_PLAN.md)
+- Launch checklist: [`docs/LAUNCH_CHECKLIST.md`](docs/LAUNCH_CHECKLIST.md)
 - Docker quick start: [`docker/README.md`](docker/README.md)
 - Compose stack: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
 - Live API runtime: `docker/api` (FastAPI CRUD for workflows/runs/settings + run controls)
