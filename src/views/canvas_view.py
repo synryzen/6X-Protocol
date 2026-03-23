@@ -2114,6 +2114,16 @@ class CanvasView(Gtk.Box):
         if self.port_drag_active:
             return
         hit_node = self.find_node_at_point(int(pointer_x), int(pointer_y))
+        if not hit_node and stage_point:
+            # Retry node hit with translated gesture point when raw drag-begin
+            # coordinates are viewport-local and miss node stage coordinates.
+            observed_x, observed_y = float(stage_point[0]), float(stage_point[1])
+            if int(observed_x) != int(pointer_x) or int(observed_y) != int(pointer_y):
+                observed_hit = self.find_node_at_point(int(observed_x), int(observed_y))
+                if observed_hit:
+                    hit_node = observed_hit
+                    pointer_x = observed_x
+                    pointer_y = observed_y
         if hit_node and not bool(state & selection_modifiers):
             pointer_x, pointer_y = self.resolve_stage_point_for_node(
                 hit_node,
@@ -9034,23 +9044,49 @@ class CanvasView(Gtk.Box):
 
     def on_canvas_stage_clicked(self, gesture, _n_press, x: float, y: float):
         self.grab_focus()
+        stage_x = float(x)
+        stage_y = float(y)
+        observed_stage = self.gesture_stage_point(gesture)
+        if observed_stage:
+            observed_x, observed_y = float(observed_stage[0]), float(observed_stage[1])
+            # Prefer observed stage coordinates when raw click coords are clearly
+            # outside stage bounds or drift far from translated gesture space.
+            tolerance = max(24.0, float(self.card_screen_width()) * 0.25)
+            if (
+                stage_x < 0.0
+                or stage_y < 0.0
+                or stage_x > float(self.STAGE_WIDTH)
+                or stage_y > float(self.STAGE_HEIGHT)
+                or abs(stage_x - observed_x) > tolerance
+                or abs(stage_y - observed_y) > tolerance
+            ):
+                stage_x = observed_x
+                stage_y = observed_y
         if self.is_node_drag_stale():
             self.reset_node_drag_state()
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.port_drag_active:
-            self.finalize_link_preview_at(int(x), int(y))
+            self.finalize_link_preview_at(int(stage_x), int(stage_y))
             self.port_drag_active = False
             self.port_drag_origin = {}
             return
         if self.link_preview_source_id or self.pending_link_source_id:
             source_id = self.link_preview_source_id or self.pending_link_source_id
-            target = self.valid_link_target_at(int(x), int(y), source_id)
+            target = self.valid_link_target_at(int(stage_x), int(stage_y), source_id)
             if target:
                 input_x, input_y = self.node_input_anchor(target)
                 self.finalize_link_preview_at(int(input_x), int(input_y))
                 return
-        hit_node = self.find_node_at_point(int(x), int(y))
+        hit_node = self.find_node_at_point(int(stage_x), int(stage_y))
+        if not hit_node and observed_stage:
+            # Secondary hit test path for GTK stacks that report click release in
+            # viewport-local coordinates while translated gesture coordinates are stage-local.
+            observed_x, observed_y = float(observed_stage[0]), float(observed_stage[1])
+            hit_node = self.find_node_at_point(int(observed_x), int(observed_y))
+            if hit_node:
+                stage_x = observed_x
+                stage_y = observed_y
         if hit_node:
             # Fallback: if node-level click did not run (gesture ownership race), keep
             # inspector/selection consistent by selecting the clicked node here.

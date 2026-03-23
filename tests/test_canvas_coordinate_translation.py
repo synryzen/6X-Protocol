@@ -361,6 +361,52 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertEqual(320.0, drag_calls[0]["pointer_stage_x"])
         self.assertEqual(370.0, drag_calls[0]["pointer_stage_y"])
 
+    def test_stage_drag_begin_retries_node_hit_with_observed_stage_point(self):
+        self.view.STAGE_WIDTH = 4000
+        self.view.STAGE_HEIGHT = 2400
+        self.view.port_drag_active = False
+        self.view.link_preview_source_id = None
+        self.view.node_drag_active = False
+        self.view.selected_node_id = None
+        self.view.selected_node_ids = set()
+        self.view.stage_drag_node_id = None
+        self.view.stage_drag_origin = {}
+        self.view.hovered_port_kind = None
+        self.view.hovered_port_node_id = None
+        self.view.suppress_stage_click_once = False
+        self.view.is_port_drag_stale = lambda: False
+        self.view.reset_port_drag_state = lambda: None
+        self.view.reset_node_drag_state = lambda: None
+        self.view.gesture_stage_point = lambda _gesture: (520.0, 420.0)
+        node = SimpleNamespace(id="n1", node_type="Action", x=480, y=360)
+        hit_attempts: list[tuple[int, int]] = []
+
+        def _find_node(x, y, exclude_node_id=None):
+            del exclude_node_id
+            hit_attempts.append((int(x), int(y)))
+            if int(x) == 520 and int(y) == 420:
+                return node
+            return None
+
+        self.view.find_node_at_point = _find_node
+        self.view.node_screen_geometry = lambda _node: (480.0, 360.0, 320.0, 160.0)
+        self.view.is_output_handle_grab = lambda _x, _y, _node_id=None: False
+        drag_calls: list[dict] = []
+        self.view.start_node_drag = lambda node_id, **kwargs: drag_calls.append(
+            {"node_id": node_id, **kwargs}
+        )
+
+        gesture = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_select_drag_begin(gesture, 220.0, 320.0)
+
+        self.assertEqual([(220, 320), (520, 420)], hit_attempts[:2])
+        self.assertTrue(gesture.claimed)
+        self.assertEqual("n1", self.view.stage_drag_node_id)
+        self.assertEqual({"start_x": 520.0, "start_y": 420.0}, self.view.stage_drag_origin)
+        self.assertEqual(1, len(drag_calls))
+        self.assertEqual(520.0, drag_calls[0]["pointer_stage_x"])
+        self.assertEqual(420.0, drag_calls[0]["pointer_stage_y"])
+
     def test_stage_drag_begin_does_not_interrupt_active_node_owned_drag(self):
         self.view.STAGE_WIDTH = 4000
         self.view.STAGE_HEIGHT = 2400
@@ -474,6 +520,53 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
 
         self.assertEqual([], calls)
+
+    def test_canvas_stage_click_retries_hit_with_observed_stage_point(self):
+        self.view.STAGE_WIDTH = 4000
+        self.view.STAGE_HEIGHT = 2400
+        self.view.grab_focus = lambda: None
+        self.view.card_screen_width = lambda: 320
+        self.view.is_node_drag_stale = lambda: False
+        self.view.reset_node_drag_state = lambda: None
+        self.view.port_drag_active = False
+        self.view.link_preview_source_id = None
+        self.view.pending_link_source_id = None
+        self.view.suppress_stage_click_once = False
+        self.view.selected_node_id = None
+        self.view.selected_node_ids = set()
+        self.view.port_drag_origin = {}
+        self.view.gesture_stage_point = lambda _gesture: (640.0, 480.0)
+        node = SimpleNamespace(id="n1", name="Node One")
+        hit_attempts: list[tuple[int, int]] = []
+
+        def _find_node(x, y, exclude_node_id=None):
+            del exclude_node_id
+            hit_attempts.append((int(x), int(y)))
+            if int(x) == 640 and int(y) == 480:
+                return node
+            return None
+
+        self.view.find_node_at_point = _find_node
+        self.view.set_single_selection = lambda node_id: (
+            setattr(self.view, "selected_node_id", node_id),
+            setattr(self.view, "selected_node_ids", {node_id}),
+        )
+        self.view.apply_selection_set_visual_state = lambda *_args, **_kwargs: None
+        inspector_calls: list[str] = []
+        self.view.update_inspector = lambda selected: inspector_calls.append(str(selected.id))
+        self.view.clear_inspector = lambda: inspector_calls.append("clear")
+        self.view.update_control_state = lambda: None
+        self.view.link_layer = SimpleNamespace(queue_draw=lambda: None)
+        self.view.valid_link_target_at = lambda *_args, **_kwargs: None
+        self.view.finalize_link_preview_at = lambda *_args, **_kwargs: None
+
+        gesture = _FakeGesture(object())
+        self.view.on_canvas_stage_clicked(gesture, 1, 120.0, 160.0)
+
+        self.assertEqual([(640, 480)], hit_attempts[:1])
+        self.assertEqual("n1", self.view.selected_node_id)
+        self.assertEqual({"n1"}, self.view.selected_node_ids)
+        self.assertEqual(["n1"], inspector_calls)
 
     def test_default_auto_link_source_prefers_selected_trigger_when_tail_open(self):
         trigger = CanvasNode(
