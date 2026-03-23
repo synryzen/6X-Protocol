@@ -311,6 +311,37 @@ if [[ "$(echo "$TEST_JSON" | jq -r '.ok')" != "true" ]]; then
   exit 1
 fi
 
+EXPORT_PATH="/data/6x-protocol/smoke-integration-bundle.json"
+EXPORT_JSON="$(curl -fsS -X POST -G http://127.0.0.1:8787/api/v1/integrations/export \
+  --data-urlencode "destination_path=$EXPORT_PATH")"
+echo "$EXPORT_JSON" | jq .
+if [[ "$(echo "$EXPORT_JSON" | jq -r '.path')" != "$EXPORT_PATH" ]]; then
+  echo "Expected integration export path '$EXPORT_PATH'."
+  exit 1
+fi
+if ! echo "$EXPORT_JSON" | jq -e '.count >= 1' >/dev/null; then
+  echo "Expected integration export count >= 1."
+  exit 1
+fi
+
+curl -fsS -X DELETE "http://127.0.0.1:8787/api/v1/integrations/$PROFILE_ID" | jq .
+
+IMPORT_JSON="$(curl -fsS -X POST http://127.0.0.1:8787/api/v1/integrations/import \
+  -H 'Content-Type: application/json' \
+  -d "{\"source_path\":\"$EXPORT_PATH\",\"merge\":true}")"
+echo "$IMPORT_JSON" | jq .
+if ! echo "$IMPORT_JSON" | jq -e '.imported_count >= 1' >/dev/null; then
+  echo "Expected integration import to include at least one profile."
+  exit 1
+fi
+
+IMPORTED_PROFILE_JSON="$(curl -fsS "http://127.0.0.1:8787/api/v1/integrations/$PROFILE_ID")"
+echo "$IMPORTED_PROFILE_JSON" | jq .
+if [[ "$(echo "$IMPORTED_PROFILE_JSON" | jq -r '.id')" != "$PROFILE_ID" ]]; then
+  echo "Expected imported integration profile id '$PROFILE_ID' to be restored."
+  exit 1
+fi
+
 curl -fsS -X DELETE "http://127.0.0.1:8787/api/v1/integrations/$PROFILE_ID" | jq .
 
 echo "[11/12] Validating bot profile endpoints..."
