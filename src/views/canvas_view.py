@@ -7351,6 +7351,72 @@ class CanvasView(Gtk.Box):
                 return True
         return False
 
+    def spawn_ring_offsets(self, ring: int) -> list[tuple[int, int]]:
+        offsets: list[tuple[int, int]] = [
+            (ring, 0),
+            (-ring, 0),
+            (0, ring),
+            (0, -ring),
+            (ring, ring),
+            (-ring, ring),
+            (ring, -ring),
+            (-ring, -ring),
+        ]
+        if ring > 1:
+            for delta in range(1, ring):
+                offsets.extend(
+                    [
+                        (ring, delta),
+                        (ring, -delta),
+                        (-ring, delta),
+                        (-ring, -delta),
+                        (delta, ring),
+                        (-delta, ring),
+                        (delta, -ring),
+                        (-delta, -ring),
+                    ]
+                )
+        return offsets
+
+    def resolve_node_spawn_position_near(
+        self,
+        requested_x: int,
+        requested_y: int,
+        *,
+        ignore_node_id: str | None = None,
+    ) -> tuple[int, int]:
+        max_x = max(0, self.STAGE_WIDTH - self.CARD_WIDTH)
+        max_y = max(0, self.STAGE_HEIGHT - self.CARD_HEIGHT)
+        x = max(0, min(max_x, int(requested_x)))
+        y = max(0, min(max_y, int(requested_y)))
+
+        if not self.node_overlaps_existing(x, y, ignore_node_id=ignore_node_id):
+            return x, y
+
+        step_x = max(80, int(self.layout_service.step_x))
+        step_y = max(60, int(self.layout_service.step_y))
+
+        for ring in range(1, 16):
+            for dx, dy in self.spawn_ring_offsets(ring):
+                probe_x = max(0, min(max_x, int(x + (dx * step_x))))
+                probe_y = max(0, min(max_y, int(y + (dy * step_y))))
+                if not self.node_overlaps_existing(
+                    probe_x,
+                    probe_y,
+                    ignore_node_id=ignore_node_id,
+                ):
+                    return probe_x, probe_y
+
+        for probe_y in range(80, max_y + 1, step_y):
+            for probe_x in range(80, max_x + 1, step_x):
+                if not self.node_overlaps_existing(
+                    probe_x,
+                    probe_y,
+                    ignore_node_id=ignore_node_id,
+                ):
+                    return probe_x, probe_y
+        return x, y
+
     def resolve_node_spawn_position(self, requested_x: int, requested_y: int) -> tuple[int, int]:
         max_x = max(0, self.STAGE_WIDTH - self.CARD_WIDTH)
         max_y = max(0, self.STAGE_HEIGHT - self.CARD_HEIGHT)
@@ -7365,54 +7431,7 @@ class CanvasView(Gtk.Box):
             anchor = self.nodes[-1]
             x = max(0, min(max_x, int(anchor.x + (self.layout_service.step_x * 0.72))))
             y = max(0, min(max_y, int(anchor.y + (self.layout_service.step_y * 0.36))))
-
-        if not self.node_overlaps_existing(x, y):
-            return x, y
-
-        step_x = max(80, int(self.layout_service.step_x))
-        step_y = max(60, int(self.layout_service.step_y))
-
-        # Probe around the preferred spawn anchor in expanding rings so newly
-        # added nodes stay near context without piling on the same spot.
-        for ring in range(1, 16):
-            ring_offsets: list[tuple[int, int]] = [
-                (ring, 0),
-                (-ring, 0),
-                (0, ring),
-                (0, -ring),
-                (ring, ring),
-                (-ring, ring),
-                (ring, -ring),
-                (-ring, -ring),
-            ]
-            # Include full perimeter points to find the nearest available slot in
-            # dense graphs where cardinal/diagonal slots are occupied.
-            if ring > 1:
-                for delta in range(1, ring):
-                    ring_offsets.extend(
-                        [
-                            (ring, delta),
-                            (ring, -delta),
-                            (-ring, delta),
-                            (-ring, -delta),
-                            (delta, ring),
-                            (-delta, ring),
-                            (delta, -ring),
-                            (-delta, -ring),
-                        ]
-                    )
-            for dx, dy in ring_offsets:
-                probe_x = max(0, min(max_x, int(x + (dx * step_x))))
-                probe_y = max(0, min(max_y, int(y + (dy * step_y))))
-                if not self.node_overlaps_existing(probe_x, probe_y):
-                    return probe_x, probe_y
-
-        # Then sweep the full stage grid as a fallback.
-        for probe_y in range(80, max_y + 1, step_y):
-            for probe_x in range(80, max_x + 1, step_x):
-                if not self.node_overlaps_existing(probe_x, probe_y):
-                    return probe_x, probe_y
-        return x, y
+        return self.resolve_node_spawn_position_near(x, y)
 
     def sync_layout_cursor_from_nodes(self):
         if not self.nodes:
@@ -7557,6 +7576,7 @@ class CanvasView(Gtk.Box):
         )
         self.nodes.append(node)
         auto_linked = False
+        linked_source_id = ""
         if self.node_type_key(node.node_type) != "trigger":
             for source_id in self.auto_link_source_candidates(node.node_type):
                 if source_id == node.id:
@@ -7570,7 +7590,18 @@ class CanvasView(Gtk.Box):
                     show_status_on_duplicate=False,
                 ):
                     auto_linked = True
+                    linked_source_id = source_id
                     break
+        if auto_linked and linked_source_id:
+            source_node = self.find_node(linked_source_id)
+            if source_node:
+                preferred_x = int(source_node.x + (self.layout_service.step_x * 0.72))
+                preferred_y = int(source_node.y + (self.layout_service.step_y * 0.36))
+                node.x, node.y = self.resolve_node_spawn_position_near(
+                    preferred_x,
+                    preferred_y,
+                    ignore_node_id=node.id,
+                )
         self.selected_node_id = node.id
         self.selected_node_ids = {node.id}
         self.sync_layout_cursor_from_nodes()

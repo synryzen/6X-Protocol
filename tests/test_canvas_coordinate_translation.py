@@ -756,6 +756,33 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertGreaterEqual(spawn_x, 0)
         self.assertGreaterEqual(spawn_y, 0)
 
+    def test_spawn_ring_offsets_include_perimeter_points(self):
+        offsets = self.view.spawn_ring_offsets(3)
+        self.assertIn((3, 2), offsets)
+        self.assertIn((-2, -3), offsets)
+        self.assertIn((0, 3), offsets)
+        self.assertIn((-3, 0), offsets)
+
+    def test_resolve_node_spawn_position_near_respects_ignore_node_id(self):
+        self.view.CARD_WIDTH = 200
+        self.view.CARD_HEIGHT = 120
+        self.view.STAGE_WIDTH = 1400
+        self.view.STAGE_HEIGHT = 1000
+        self.view.layout_service = SimpleNamespace(step_x=300, step_y=180)
+        self.view.nodes = [
+            SimpleNamespace(id="n1", x=100, y=100),
+            SimpleNamespace(id="n2", x=400, y=100),
+        ]
+
+        spawn_x, spawn_y = self.view.resolve_node_spawn_position_near(
+            400,
+            100,
+            ignore_node_id="n2",
+        )
+
+        # Ignoring n2 allows keeping the requested point if only that node overlaps.
+        self.assertEqual((400, 100), (spawn_x, spawn_y))
+
     def test_auto_link_source_candidates_prioritizes_preferred_and_open_tails(self):
         self.view.nodes = [
             CanvasNode(id="t1", name="Trigger", node_type="Trigger", detail="", summary="", x=80, y=80),
