@@ -114,6 +114,8 @@ See:
 - Launch checklist: [`docs/LAUNCH_CHECKLIST.md`](docs/LAUNCH_CHECKLIST.md)
 - Latest release notes: [`docs/RELEASE_NOTES_v0.1.7.md`](docs/RELEASE_NOTES_v0.1.7.md)
 - Announcement copy kit: [`docs/ANNOUNCEMENT_KIT_v0.1.7.md`](docs/ANNOUNCEMENT_KIT_v0.1.7.md)
+- Technical announcement variants: [`docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.7.md`](docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.7.md)
+- Creator announcement variants: [`docs/ANNOUNCEMENT_KIT_CREATOR_v0.1.7.md`](docs/ANNOUNCEMENT_KIT_CREATOR_v0.1.7.md)
 - Docker quick start: [`docker/README.md`](docker/README.md)
 - Compose stack: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
 - Live API runtime: `docker/api` (FastAPI CRUD for workflows/runs/settings + run controls)
