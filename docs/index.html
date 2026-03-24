@@ -116,7 +116,7 @@
             <h3>Docker / Server Track</h3>
             <span class="status-percent">Live Preview</span>
           </div>
-          <div class="progress"><span style="width:91%"></span></div>
+          <div class="progress"><span style="width:95%"></span></div>
           <ul class="status-list">
             <li>Compose stack is live now: API, worker, web, Postgres, Redis.</li>
             <li>Smoke test passes end-to-end (`./scripts/test_docker_web.sh`).</li>
@@ -130,7 +130,9 @@
             <li>Run timeline/log query endpoints are now live in API for richer web diagnostics.</li>
             <li>Web graph builder now includes a visual canvas stage with draggable nodes, live links, direct port-to-port wire dragging, selection sync, auto-arrange, and fit view.</li>
             <li>Settings panel now covers local backend + key fields, cloud API keys, local runtime toggle, theme controls, automation defaults, minimap placement persistence, and reset defaults.</li>
-            <li>Next for GA: production frontend hardening, expanded migrations, and stronger auth/secrets controls.</li>
+            <li>Admin backup/restore endpoints are live (`/api/v1/admin/backup`, `/api/v1/admin/restore`).</li>
+            <li>Observability endpoints are live (`/api/v1/observability/summary`, `/api/v1/observability/runs`).</li>
+            <li>Next for GA: production frontend hardening, expanded migrations, and stronger secrets controls.</li>
           </ul>
         </article>
         <article class="status-card">
@@ -157,10 +159,10 @@
         <span class="pill done">Compose Stack: Running</span>
         <span class="pill done">Run Controls: start / cancel / resume / retry</span>
         <span class="pill done">Web Node Presets: Live</span>
-        <span class="pill active">Server Runtime: Expanding</span>
+        <span class="pill done">Server Runtime: Backup + Obs Live</span>
         <span class="pill done">Web Canvas: Public Beta</span>
         <span class="pill done">Onboarding + Tutorial Hub: Live</span>
-        <span class="pill next">GA Hardening: Next</span>
+        <span class="pill active">GA Hardening: In Progress</span>
       </div>
     </section>
 
@@ -294,7 +296,7 @@ flatpak run com.sixxprotocol.studio</code></pre>
           <h3>Next</h3>
           <ul class="roadmap-list">
             <li>Web UI expansion: workflows view, run timeline, settings parity.</li>
-            <li>Server hardening: migrations, auth groundwork, backup flow.</li>
+            <li>Server hardening: migration expansion, secrets lifecycle, image/version governance.</li>
             <li>Connector behavior parity and node-level test UX in web client.</li>
           </ul>
         </article>

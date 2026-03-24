@@ -105,6 +105,112 @@ class DockerStoreSchemaTests(unittest.TestCase):
         self.assertEqual(1, int(latest.get("from_version", 0)))
         self.assertEqual(2, int(latest.get("to_version", 0)))
 
+    def test_backup_export_and_restore_replace(self):
+        store = self.module.JsonStore(data_dir=str(self.data_dir))
+        store.save_workflows(
+            [
+                {
+                    "id": "wf_a",
+                    "name": "Backup Workflow",
+                    "description": "",
+                    "graph": {},
+                    "status": "draft",
+                    "tags": [],
+                    "created_at": "2026-03-24T00:00:00+00:00",
+                    "updated_at": "2026-03-24T00:00:00+00:00",
+                }
+            ]
+        )
+        store.save_runs(
+            [
+                {
+                    "id": "run_a",
+                    "workflow_id": "wf_a",
+                    "workflow_name": "Backup Workflow",
+                    "status": "success",
+                    "trigger": "manual",
+                    "log": "ok",
+                    "summary": "done",
+                    "node_results": [],
+                    "finished_at": "2026-03-24T00:01:00+00:00",
+                    "created_at": "2026-03-24T00:00:00+00:00",
+                    "updated_at": "2026-03-24T00:01:00+00:00",
+                }
+            ]
+        )
+        backup_path = self.data_dir / "full-backup.json"
+        export_path, counts = store.export_backup(backup_path)
+        self.assertEqual(backup_path, export_path)
+        self.assertEqual(1, counts.get("workflows"))
+        self.assertEqual(1, counts.get("runs"))
+
+        store.save_workflows([])
+        store.save_runs([])
+        restored = store.restore_backup(str(backup_path), merge=False)
+        self.assertEqual(1, restored.get("workflows"))
+        self.assertEqual(1, restored.get("runs"))
+        self.assertEqual(1, len(store.load_workflows()))
+        self.assertEqual(1, len(store.load_runs()))
+
+    def test_backup_restore_merge_upserts_by_id(self):
+        store = self.module.JsonStore(data_dir=str(self.data_dir))
+        store.save_workflows(
+            [
+                {
+                    "id": "wf_keep",
+                    "name": "Keep Me",
+                    "description": "",
+                    "graph": {},
+                    "status": "draft",
+                    "tags": [],
+                    "created_at": "2026-03-24T00:00:00+00:00",
+                    "updated_at": "2026-03-24T00:00:00+00:00",
+                }
+            ]
+        )
+        backup_payload = {
+            "format": "6x-protocol.backup.v1",
+            "exported_at": "2026-03-24T01:00:00+00:00",
+            "data": {
+                "workflows": [
+                    {
+                        "id": "wf_keep",
+                        "name": "Keep Me Updated",
+                        "description": "",
+                        "graph": {},
+                        "status": "active",
+                        "tags": [],
+                        "created_at": "2026-03-24T00:00:00+00:00",
+                        "updated_at": "2026-03-24T01:00:00+00:00",
+                    },
+                    {
+                        "id": "wf_new",
+                        "name": "New Workflow",
+                        "description": "",
+                        "graph": {},
+                        "status": "draft",
+                        "tags": [],
+                        "created_at": "2026-03-24T01:00:00+00:00",
+                        "updated_at": "2026-03-24T01:00:00+00:00",
+                    },
+                ],
+                "runs": [],
+                "settings": {"theme": "dark"},
+                "integrations": [],
+                "bots": [],
+            },
+        }
+        backup_path = self.data_dir / "merge-backup.json"
+        self._write_json("merge-backup.json", backup_payload)
+        restored = store.restore_backup(str(backup_path), merge=True)
+        self.assertEqual(2, restored.get("workflows"))
+
+        workflows = {item["id"]: item for item in store.load_workflows()}
+        self.assertIn("wf_keep", workflows)
+        self.assertIn("wf_new", workflows)
+        self.assertEqual("Keep Me Updated", workflows["wf_keep"]["name"])
+        self.assertEqual("active", workflows["wf_keep"]["status"])
+
 
 if __name__ == "__main__":
     unittest.main()

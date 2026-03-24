@@ -368,7 +368,35 @@ fi
 
 curl_api -X DELETE "http://127.0.0.1:8787/api/v1/integrations/$PROFILE_ID" | jq .
 
-echo "[11/12] Validating bot profile endpoints..."
+echo "[11/12] Validating observability and backup endpoints..."
+OBS_JSON="$(curl_api "http://127.0.0.1:8787/api/v1/observability/summary")"
+echo "$OBS_JSON" | jq .
+if ! echo "$OBS_JSON" | jq -e '.total_runs >= 1' >/dev/null; then
+  echo "Expected observability summary to report at least one run."
+  exit 1
+fi
+
+OBS_RUNS_JSON="$(curl_api "http://127.0.0.1:8787/api/v1/observability/runs?window_hours=24&bucket_minutes=60")"
+echo "$OBS_RUNS_JSON" | jq '.items[:2]'
+if ! echo "$OBS_RUNS_JSON" | jq -e '.items | length == 24' >/dev/null; then
+  echo "Expected observability run buckets to return 24 items for 24h window."
+  exit 1
+fi
+
+SERVER_BACKUP_PATH="/data/6x-protocol/smoke-server-backup.json"
+BACKUP_JSON="$(curl_api -X POST -G http://127.0.0.1:8787/api/v1/admin/backup \
+  --data-urlencode "destination_path=$SERVER_BACKUP_PATH")"
+echo "$BACKUP_JSON" | jq .
+if [[ "$(echo "$BACKUP_JSON" | jq -r '.path')" != "$SERVER_BACKUP_PATH" ]]; then
+  echo "Expected server backup path '$SERVER_BACKUP_PATH'."
+  exit 1
+fi
+if ! echo "$BACKUP_JSON" | jq -e '.counts.workflows >= 1' >/dev/null; then
+  echo "Expected backup counts to include at least one workflow."
+  exit 1
+fi
+
+echo "[12/12] Validating bot profile endpoints..."
 BOT_JSON="$(curl_api -X POST http://127.0.0.1:8787/api/v1/bots \
   -H 'Content-Type: application/json' \
   -d '{"name":"Docker Smoke Bot","role":"Validate bot API in smoke test","provider":"local","model":"nvidia/nemotron-3-nano","temperature":0.2,"max_tokens":700}')"

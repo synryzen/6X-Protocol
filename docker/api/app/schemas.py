@@ -171,6 +171,24 @@ class IntegrationProfileExportResult(BaseModel):
     exported_at: str
 
 
+class BackupRestoreRequest(BaseModel):
+    source_path: str = ""
+    merge: bool = False
+
+
+class BackupExportResult(BaseModel):
+    path: str
+    counts: dict[str, int] = Field(default_factory=dict)
+    exported_at: str
+
+
+class BackupRestoreResult(BaseModel):
+    restored_counts: dict[str, int] = Field(default_factory=dict)
+    source_path: str
+    merge: bool
+    restored_at: str
+
+
 class BotProfileIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     role: str = ""

@@ -79,7 +79,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] DB migration/versioning baseline (JSON store schema metadata + v1->v2 normalization)
 - [x] Auth layer baseline (optional `API_AUTH_TOKEN` for `/api/v1/*` + web token input)
 - [ ] Secret management hardening
-- [ ] Backup/restore + observability endpoints
+- [x] Backup/restore + observability endpoints
 
 ## What Is Done Right Now
 - Docker compose stack starts and runs (`api`, `worker`, `web`, `postgres`, `redis`).
@@ -113,6 +113,8 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Docker API now supports optional auth guardrails via `API_AUTH_TOKEN` (`X-6X-API-Key` or Bearer token), with health endpoints exempt for liveness checks.
 - Web preview top bar now supports saving/using API auth tokens for secured self-hosted deployments.
 - Docker JSON storage now writes schema metadata and migration history (`schema_meta.json`, `schema_migrations.json`) and normalizes legacy payloads during boot.
+- Docker API now exposes admin backup/restore endpoints (`/api/v1/admin/backup`, `/api/v1/admin/restore`) backed by snapshot bundles from persistent data storage.
+- Docker API now exposes observability endpoints (`/api/v1/observability/summary`, `/api/v1/observability/runs`) for run/status/throughput diagnostics.
 - Onboarding docs are now published for quick start, first workflow tutorial, and post-launch community loop.
 
 ## Next To Reach GA (Post-Beta)
@@ -120,6 +122,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 2. Expand migration/versioned persistence workflow toward relational DB backends.
 3. Expand secrets baseline and rotation workflows.
 4. Expand integration profile UX toward full connector-field parity with desktop editor.
+5. Harden release image/version strategy for production lifecycle management.
 
 ## Recommended Positioning
 - **Desktop mode:** local-first Linux native experience.

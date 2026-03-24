@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import os
 import threading
 from typing import Any
@@ -19,6 +19,9 @@ from app.schemas import (
     BotProfilePatch,
     BotTestRequest,
     BotTestResult,
+    BackupExportResult,
+    BackupRestoreRequest,
+    BackupRestoreResult,
     DEFAULT_SETTINGS,
     IntegrationProfileIn,
     IntegrationProfileImportRequest,
@@ -308,6 +311,78 @@ def _filter_timeline_events(
     return filtered
 
 
+def _parse_iso_timestamp(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    normalized = text.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _duration_seconds(started_at: Any, finished_at: Any) -> float | None:
+    started = _parse_iso_timestamp(started_at)
+    finished = _parse_iso_timestamp(finished_at)
+    if not started or not finished:
+        return None
+    seconds = (finished - started).total_seconds()
+    if seconds < 0:
+        return None
+    return float(seconds)
+
+
+def _observability_summary(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    since_24h = now - timedelta(hours=24)
+    status_breakdown: dict[str, int] = {}
+    success_24h = 0
+    failed_24h = 0
+    started_24h = 0
+    durations: list[float] = []
+
+    for run in runs:
+        status = str(run.get("status", "")).strip().lower() or "unknown"
+        status_breakdown[status] = status_breakdown.get(status, 0) + 1
+
+        started_at = _parse_iso_timestamp(run.get("created_at"))
+        if started_at and started_at >= since_24h:
+            started_24h += 1
+            if status == "success":
+                success_24h += 1
+            elif status == "failed":
+                failed_24h += 1
+
+        duration = _duration_seconds(run.get("created_at"), run.get("finished_at"))
+        if duration is not None:
+            durations.append(duration)
+
+    active_count = sum(status_breakdown.get(status, 0) for status in ACTIVE_STATUSES)
+    waiting_approval = status_breakdown.get("waiting_approval", 0)
+    terminal_count = len(runs) - active_count
+    completed_24h = success_24h + failed_24h
+    success_rate_24h = (success_24h / completed_24h) if completed_24h else 0.0
+    average_duration = (sum(durations) / len(durations)) if durations else 0.0
+
+    return {
+        "total_runs": len(runs),
+        "active_runs": active_count,
+        "terminal_runs": terminal_count,
+        "waiting_approval_runs": waiting_approval,
+        "status_breakdown": status_breakdown,
+        "runs_started_24h": started_24h,
+        "runs_success_24h": success_24h,
+        "runs_failed_24h": failed_24h,
+        "success_rate_24h": round(success_rate_24h, 4),
+        "average_duration_sec": round(average_duration, 3),
+        "throughput_per_hour_24h": round(started_24h / 24.0, 4),
+    }
+
+
 @app.get("/healthz", tags=["health"])
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
@@ -342,6 +417,133 @@ def overview() -> dict[str, int]:
         "run_count": len(runs),
         "integration_count": len(integrations),
         "bot_count": len(bots),
+    }
+
+
+@app.get("/api/v1/observability/summary", tags=["observability"])
+def observability_summary() -> dict[str, Any]:
+    workflows = store.load_workflows()
+    runs = store.load_runs()
+    integrations = store.load_integrations()
+    bots = store.load_bots()
+    summary = _observability_summary(runs)
+    summary.update(
+        {
+            "workflow_count": len(workflows),
+            "integration_count": len(integrations),
+            "bot_count": len(bots),
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+    )
+    return summary
+
+
+@app.get("/api/v1/observability/runs", tags=["observability"])
+def observability_runs(
+    window_hours: int = Query(default=24, ge=1, le=168),
+    bucket_minutes: int = Query(default=60, ge=1, le=120),
+) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    window_start = now - timedelta(hours=int(window_hours))
+    bucket_delta = timedelta(minutes=int(bucket_minutes))
+    bucket_count = max(1, int((window_hours * 60) / bucket_minutes))
+
+    buckets: list[dict[str, Any]] = []
+    for idx in range(bucket_count):
+        start = window_start + (bucket_delta * idx)
+        end = start + bucket_delta
+        buckets.append(
+            {
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "started": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+            }
+        )
+
+    runs = store.load_runs()
+    for run in runs:
+        started = _parse_iso_timestamp(run.get("created_at"))
+        if started and started >= window_start:
+            bucket_idx = int((started - window_start).total_seconds() // bucket_delta.total_seconds())
+            if 0 <= bucket_idx < len(buckets):
+                buckets[bucket_idx]["started"] += 1
+
+        status = str(run.get("status", "")).strip().lower()
+        finished = _parse_iso_timestamp(run.get("finished_at")) or _parse_iso_timestamp(run.get("updated_at"))
+        if not finished or finished < window_start:
+            continue
+        bucket_idx = int((finished - window_start).total_seconds() // bucket_delta.total_seconds())
+        if not (0 <= bucket_idx < len(buckets)):
+            continue
+        if status in {"success", "failed", "cancelled"}:
+            buckets[bucket_idx]["completed"] += 1
+        if status == "failed":
+            buckets[bucket_idx]["failed"] += 1
+        if status == "cancelled":
+            buckets[bucket_idx]["cancelled"] += 1
+
+    return {
+        "window_hours": int(window_hours),
+        "bucket_minutes": int(bucket_minutes),
+        "generated_at": now.isoformat(),
+        "items": buckets,
+    }
+
+
+@app.post(
+    "/api/v1/admin/backup",
+    response_model=BackupExportResult,
+    tags=["admin"],
+)
+def create_backup(
+    destination_path: str | None = Query(
+        default=None,
+        description="Optional filesystem path for server backup bundle",
+    ),
+) -> dict[str, Any]:
+    try:
+        export_path, counts = store.export_backup(destination_path)
+    except Exception as error:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to export backup bundle: {error}",
+        ) from error
+    return {
+        "path": str(export_path),
+        "counts": counts,
+        "exported_at": utc_now_iso(),
+    }
+
+
+@app.post(
+    "/api/v1/admin/restore",
+    response_model=BackupRestoreResult,
+    tags=["admin"],
+)
+def restore_backup(payload: BackupRestoreRequest) -> dict[str, Any]:
+    source_path = str(payload.source_path or "").strip()
+    if not source_path:
+        raise HTTPException(status_code=400, detail="source_path is required")
+    merge = bool(payload.merge)
+    try:
+        restored_counts = store.restore_backup(source_path, merge=merge)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to restore backup bundle: {error}",
+        ) from error
+    return {
+        "restored_counts": restored_counts,
+        "source_path": source_path,
+        "merge": merge,
+        "restored_at": utc_now_iso(),
     }
 
 

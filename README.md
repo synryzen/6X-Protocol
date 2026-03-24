@@ -130,7 +130,7 @@ See:
 - Docker quick start: [`docker/README.md`](docker/README.md)
 - Compose stack: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
 - Live API runtime: `docker/api` (FastAPI CRUD for workflows/runs/settings + run controls)
-- Run controls implemented: `start`, `cancel`, `retry` with state transitions
+- Run controls implemented: `start`, `cancel`, `resume`, `retry` with state transitions
 - Integration profile endpoints implemented: catalog, CRUD, connector test execution, and bundle import/export
 - Execution behavior implemented: timeout/retry/backoff and graph-aware branch routing
 - Parallel DAG behavior implemented: ready-node fan-out + join with skipped-branch pruning
@@ -138,7 +138,9 @@ See:
 - Web graph editor now includes an interactive visual stage with draggable node cards, live SVG links, direct wire-drag linking (output port -> input port), click-to-edit selection sync, auto-arrange, and fit-view actions
 - Web settings panel includes local/cloud AI fields, theme controls, automation defaults, minimap placement persistence, and reset-to-default action
 - Optional Docker API auth baseline is live (`API_AUTH_TOKEN`, `X-6X-API-Key`, or Bearer token), with web token input support
-- Smoke test validated (March 24, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, timeline/log filters, integrations, bots, and settings patch flows
+- Docker API now includes observability routes (`/api/v1/observability/summary`, `/api/v1/observability/runs`)
+- Docker API now includes admin backup/restore routes (`/api/v1/admin/backup`, `/api/v1/admin/restore`)
+- Smoke test validated (March 24, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, observability + backup checks, timeline/log filters, integrations, bots, and settings patch flows
 
 Self-hosted web status: **Live public beta and smoke-validated**.
 

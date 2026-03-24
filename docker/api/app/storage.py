@@ -322,6 +322,143 @@ class JsonStore:
             except OSError:
                 pass
 
+    def default_backup_path(self) -> Path:
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        return self.data_dir / f"backup-{timestamp}.json"
+
+    def export_backup(
+        self,
+        destination_path: str | Path | None = None,
+    ) -> tuple[Path, dict[str, int]]:
+        export_path = (
+            Path(destination_path).expanduser()
+            if destination_path
+            else self.default_backup_path()
+        )
+        workflows = self.load_workflows()
+        runs = self.load_runs()
+        integrations = self.load_integrations()
+        bots = self.load_bots()
+        settings = self.load_settings({})
+        schema_meta = self._read_schema_meta()
+        schema_migrations = self._read_json("schema_migrations.json", [])
+        if not isinstance(schema_migrations, list):
+            schema_migrations = []
+
+        counts = {
+            "workflows": len(workflows),
+            "runs": len(runs),
+            "integrations": len(integrations),
+            "bots": len(bots),
+            "schema_migrations": len(schema_migrations),
+        }
+        payload = {
+            "format": "6x-protocol.backup.v1",
+            "exported_at": self._iso_now(),
+            "schema_version": int(self.schema_version),
+            "counts": counts,
+            "data": {
+                "workflows": workflows,
+                "runs": runs,
+                "settings": settings if isinstance(settings, dict) else {},
+                "integrations": integrations,
+                "bots": bots,
+                "schema_meta": schema_meta if isinstance(schema_meta, dict) else {},
+                "schema_migrations": schema_migrations,
+            },
+        }
+        self._write_json_path(export_path, payload)
+        return export_path, counts
+
+    def restore_backup(
+        self,
+        source_path: str | Path,
+        *,
+        merge: bool = False,
+    ) -> dict[str, int]:
+        import_path = Path(source_path).expanduser()
+        if not import_path.exists():
+            raise FileNotFoundError(f"Backup bundle not found: {import_path}")
+
+        raw = self._read_json_path(import_path, None)
+        if raw is None or not isinstance(raw, dict):
+            raise ValueError("Invalid backup payload.")
+
+        data = raw.get("data")
+        if not isinstance(data, dict):
+            # Backwards-compatible fallback if data was written at root.
+            data = raw
+
+        incoming_workflows = self._sanitize_workflows_v2(data.get("workflows", []))
+        incoming_runs = self._sanitize_runs_v2(data.get("runs", []))
+        incoming_integrations = self._sanitize_integrations_v2(data.get("integrations", []))
+        incoming_bots = self._sanitize_bots_v2(data.get("bots", []))
+        incoming_settings = data.get("settings", {})
+        if not isinstance(incoming_settings, dict):
+            incoming_settings = {}
+        incoming_schema_meta = data.get("schema_meta", {})
+        if not isinstance(incoming_schema_meta, dict):
+            incoming_schema_meta = {}
+        incoming_schema_migrations = data.get("schema_migrations", [])
+        if not isinstance(incoming_schema_migrations, list):
+            incoming_schema_migrations = []
+
+        if merge:
+            workflows = self._merge_records_by_id(self.load_workflows(), incoming_workflows)
+            runs = self._merge_records_by_id(self.load_runs(), incoming_runs)
+            integrations = self._merge_records_by_id(self.load_integrations(), incoming_integrations)
+            bots = self._merge_records_by_id(self.load_bots(), incoming_bots)
+            settings = self.load_settings({})
+            settings.update(incoming_settings)
+        else:
+            workflows = incoming_workflows
+            runs = incoming_runs
+            integrations = incoming_integrations
+            bots = incoming_bots
+            settings = incoming_settings
+
+        self.save_workflows(workflows)
+        self.save_runs(runs)
+        self.save_integrations(integrations)
+        self.save_bots(bots)
+        self.save_settings(settings if isinstance(settings, dict) else {})
+
+        if incoming_schema_meta:
+            self._write_schema_meta(incoming_schema_meta)
+        if incoming_schema_migrations:
+            self._write_json("schema_migrations.json", incoming_schema_migrations)
+
+        # Ensure imported schema artifacts are valid for the active store version.
+        self.ensure_schema()
+        return {
+            "workflows": len(workflows),
+            "runs": len(runs),
+            "integrations": len(integrations),
+            "bots": len(bots),
+        }
+
+    def _merge_records_by_id(
+        self,
+        existing: list[dict[str, Any]],
+        incoming: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        merged: dict[str, dict[str, Any]] = {}
+        order: list[str] = []
+        for item in existing:
+            item_id = self._ensure_string(item.get("id"))
+            if not item_id:
+                continue
+            merged[item_id] = dict(item)
+            order.append(item_id)
+        for item in incoming:
+            item_id = self._ensure_string(item.get("id"))
+            if not item_id:
+                continue
+            if item_id not in merged:
+                order.append(item_id)
+            merged[item_id] = dict(item)
+        return [merged[item_id] for item_id in order if item_id in merged]
+
     def load_workflows(self) -> list[dict[str, Any]]:
         data = self._read_json("workflows.json", [])
         return self._sanitize_workflows_v2(data)

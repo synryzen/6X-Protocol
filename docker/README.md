@@ -78,6 +78,10 @@ sg docker -c './scripts/test_docker_web.sh'
 
 Current API routes:
 - `GET /api/v1/overview`
+- `GET /api/v1/observability/summary`
+- `GET /api/v1/observability/runs`
+- `POST /api/v1/admin/backup`
+- `POST /api/v1/admin/restore`
 - `GET/POST/PUT/DELETE /api/v1/workflows`
 - `PATCH /api/v1/workflows/{id}/graph`
 - `POST /api/v1/workflows/{id}/preflight`
@@ -130,4 +134,4 @@ Execution routing behavior:
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
 2. Expand DB migration/versioning from JSON baseline toward relational persistence boundaries.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
-4. Add backup, observability, and deployment hardening.
+4. Complete deployment hardening (secrets lifecycle + image/version governance).
