@@ -10140,15 +10140,15 @@ class CanvasView(Gtk.Box):
                 red, green, blue, alpha = (1.0, 0.72, 0.28, 1.0)
 
             if dark_mode:
-                glow_alpha = 0.7 if is_selected_path else 0.56
-                glow_width = 6.2 if is_selected_path else 4.9
-                stroke_width = 3.2 if is_selected_path else 2.6
-                shadow = (0.95, 0.98, 1.0, 0.2 if is_selected_path else 0.14)
+                glow_alpha = 0.52 if is_selected_path else 0.42
+                glow_width = 5.0 if is_selected_path else 4.1
+                stroke_width = 2.6 if is_selected_path else 2.1
+                shadow = (0.88, 0.93, 1.0, 0.13 if is_selected_path else 0.09)
             else:
-                glow_alpha = 0.62 if is_selected_path else 0.48
-                glow_width = 5.0 if is_selected_path else 4.0
-                stroke_width = 2.8 if is_selected_path else 2.2
-                shadow = (0.03, 0.08, 0.18, 0.2 if is_selected_path else 0.14)
+                glow_alpha = 0.44 if is_selected_path else 0.35
+                glow_width = 3.8 if is_selected_path else 3.2
+                stroke_width = 2.3 if is_selected_path else 1.95
+                shadow = (0.08, 0.13, 0.22, 0.12 if is_selected_path else 0.08)
             if edge_error:
                 glow_width += 1.2
                 stroke_width += 0.8
@@ -10179,9 +10179,9 @@ class CanvasView(Gtk.Box):
                     end_y,
                     control_offset,
                 )
-                accent_alpha = 0.22 if dark_mode else 0.17
+                accent_alpha = 0.14 if dark_mode else 0.1
                 cr.set_source_rgba(0.9, 0.95, 1.0, accent_alpha)
-                cr.set_line_width(stroke_width + 2.2)
+                cr.set_line_width(stroke_width + 1.6)
                 cr.stroke()
 
             self.trace_edge_curve(
@@ -10286,7 +10286,7 @@ class CanvasView(Gtk.Box):
                         hover_offset,
                     )
                     cr.set_source_rgba(0.86, 0.93, 1.0, 0.28 if dark_mode else 0.22)
-                    cr.set_line_width(7.4)
+                    cr.set_line_width(5.4)
                     cr.stroke()
                     self.draw_hover_drop_indicator(
                         cr,
@@ -10309,7 +10309,7 @@ class CanvasView(Gtk.Box):
             )
             cr.set_dash([9.0, 6.0], 0)
             cr.set_source_rgba(red, green, blue, 0.96 if dark_mode else 0.9)
-            cr.set_line_width(3.3)
+            cr.set_line_width(2.8)
             cr.stroke()
             cr.set_dash([], 0)
 
@@ -10591,164 +10591,142 @@ class CanvasView(Gtk.Box):
 
         if dark_mode:
             base = {
-                "bg": (0.13, 0.18, 0.26, 1.0),
-                "spot_a": (0.34, 0.58, 0.95, 0.1),
-                "spot_b": (0.24, 0.74, 0.9, 0.08),
-                "line_minor": (0.78, 0.86, 0.98, 0.08),
-                "line_major": (0.86, 0.92, 1.0, 0.15),
-                "dot": (0.85, 0.91, 0.98, 0.3),
-                "dot_major": (0.98, 0.99, 1.0, 0.44),
-                "edge_next": (0.72, 0.9, 1.0, 1.0),
-                "edge_true": (0.58, 0.97, 0.75, 1.0),
-                "edge_false": (1.0, 0.72, 0.64, 1.0),
+                "bg": (0.055, 0.075, 0.11, 1.0),
+                "spot_a": (0.29, 0.55, 0.95, 0.055),
+                "spot_b": (0.17, 0.74, 0.82, 0.045),
+                "line_minor": (0.63, 0.73, 0.86, 0.07),
+                "line_major": (0.72, 0.82, 0.95, 0.13),
+                "dot": (0.78, 0.86, 0.96, 0.17),
+                "dot_major": (0.92, 0.96, 1.0, 0.3),
+                "edge_next": (0.46, 0.74, 0.97, 0.98),
+                "edge_true": (0.39, 0.82, 0.63, 0.98),
+                "edge_false": (0.9, 0.45, 0.42, 0.98),
             }
             preset_overrides = {
                 "indigo": {
-                    "bg": (0.09, 0.1, 0.18, 1.0),
-                    "spot_a": (0.42, 0.35, 0.95, 0.11),
-                    "spot_b": (0.58, 0.39, 0.96, 0.08),
-                    "dot": (0.64, 0.62, 0.87, 0.24),
-                    "dot_major": (0.84, 0.81, 1.0, 0.38),
-                    "edge_next": (0.68, 0.68, 1.0, 0.95),
+                    "bg": (0.06, 0.06, 0.13, 1.0),
+                    "spot_a": (0.44, 0.36, 0.92, 0.062),
+                    "spot_b": (0.57, 0.42, 0.95, 0.05),
+                    "dot": (0.72, 0.73, 0.91, 0.18),
+                    "dot_major": (0.86, 0.87, 0.98, 0.31),
                 },
                 "carbon": {
-                    "bg": (0.07, 0.12, 0.12, 1.0),
-                    "spot_a": (0.08, 0.66, 0.56, 0.11),
-                    "spot_b": (0.14, 0.78, 0.45, 0.08),
-                    "dot": (0.54, 0.74, 0.68, 0.24),
-                    "dot_major": (0.74, 0.95, 0.86, 0.39),
-                    "edge_next": (0.39, 0.88, 0.86, 0.95),
+                    "bg": (0.05, 0.09, 0.09, 1.0),
+                    "spot_a": (0.1, 0.62, 0.52, 0.06),
+                    "spot_b": (0.15, 0.72, 0.45, 0.048),
+                    "dot": (0.67, 0.82, 0.75, 0.17),
+                    "dot_major": (0.82, 0.93, 0.87, 0.3),
                 },
                 "aurora": {
-                    "bg": (0.07, 0.13, 0.11, 1.0),
-                    "spot_a": (0.08, 0.75, 0.57, 0.11),
-                    "spot_b": (0.24, 0.86, 0.45, 0.08),
-                    "dot": (0.56, 0.77, 0.69, 0.24),
-                    "dot_major": (0.82, 1.0, 0.9, 0.39),
-                    "edge_next": (0.45, 0.9, 0.8, 0.95),
+                    "bg": (0.05, 0.1, 0.09, 1.0),
+                    "spot_a": (0.1, 0.74, 0.56, 0.062),
+                    "spot_b": (0.26, 0.83, 0.47, 0.05),
+                    "dot": (0.69, 0.84, 0.77, 0.17),
+                    "dot_major": (0.85, 0.95, 0.89, 0.31),
                 },
                 "frost": {
-                    "bg": (0.08, 0.12, 0.18, 1.0),
-                    "spot_a": (0.22, 0.64, 0.96, 0.11),
-                    "spot_b": (0.56, 0.66, 0.96, 0.08),
-                    "dot": (0.58, 0.73, 0.89, 0.24),
-                    "dot_major": (0.82, 0.9, 1.0, 0.39),
-                    "edge_next": (0.57, 0.82, 1.0, 0.95),
+                    "bg": (0.06, 0.09, 0.13, 1.0),
+                    "spot_a": (0.26, 0.65, 0.95, 0.062),
+                    "spot_b": (0.5, 0.65, 0.94, 0.05),
+                    "dot": (0.7, 0.81, 0.92, 0.18),
+                    "dot_major": (0.85, 0.92, 0.99, 0.31),
                 },
                 "sunset": {
-                    "bg": (0.16, 0.1, 0.12, 1.0),
-                    "spot_a": (0.99, 0.52, 0.3, 0.13),
-                    "spot_b": (0.96, 0.28, 0.43, 0.11),
-                    "line_minor": (0.98, 0.77, 0.66, 0.1),
-                    "line_major": (1.0, 0.85, 0.74, 0.17),
-                    "dot": (0.99, 0.79, 0.66, 0.3),
-                    "dot_major": (1.0, 0.9, 0.82, 0.46),
-                    "edge_next": (1.0, 0.66, 0.43, 0.98),
-                    "edge_true": (0.98, 0.8, 0.46, 1.0),
-                    "edge_false": (0.99, 0.45, 0.52, 1.0),
+                    "bg": (0.12, 0.08, 0.09, 1.0),
+                    "spot_a": (0.95, 0.54, 0.29, 0.064),
+                    "spot_b": (0.86, 0.33, 0.45, 0.052),
+                    "line_minor": (0.78, 0.64, 0.61, 0.076),
+                    "line_major": (0.86, 0.73, 0.7, 0.136),
+                    "dot": (0.86, 0.72, 0.68, 0.18),
+                    "dot_major": (0.94, 0.81, 0.76, 0.31),
                 },
                 "rose": {
-                    "bg": (0.14, 0.09, 0.16, 1.0),
-                    "spot_a": (0.9, 0.34, 0.67, 0.14),
-                    "spot_b": (0.72, 0.42, 0.96, 0.12),
-                    "line_minor": (0.92, 0.72, 0.96, 0.1),
-                    "line_major": (0.97, 0.84, 1.0, 0.18),
-                    "dot": (0.93, 0.76, 0.98, 0.3),
-                    "dot_major": (0.98, 0.9, 1.0, 0.46),
-                    "edge_next": (0.93, 0.58, 0.93, 0.98),
-                    "edge_true": (0.95, 0.75, 0.98, 1.0),
-                    "edge_false": (0.99, 0.5, 0.72, 1.0),
+                    "bg": (0.11, 0.07, 0.12, 1.0),
+                    "spot_a": (0.85, 0.37, 0.66, 0.066),
+                    "spot_b": (0.67, 0.42, 0.9, 0.054),
+                    "line_minor": (0.76, 0.67, 0.85, 0.078),
+                    "line_major": (0.84, 0.76, 0.92, 0.138),
+                    "dot": (0.85, 0.76, 0.93, 0.19),
+                    "dot_major": (0.93, 0.85, 0.98, 0.32),
                 },
                 "amber": {
-                    "bg": (0.14, 0.12, 0.07, 1.0),
-                    "spot_a": (0.98, 0.67, 0.2, 0.14),
-                    "spot_b": (0.96, 0.48, 0.12, 0.11),
-                    "line_minor": (0.95, 0.84, 0.62, 0.1),
-                    "line_major": (0.99, 0.91, 0.74, 0.18),
-                    "dot": (0.98, 0.86, 0.56, 0.3),
-                    "dot_major": (1.0, 0.93, 0.76, 0.46),
-                    "edge_next": (0.98, 0.74, 0.33, 0.98),
-                    "edge_true": (0.97, 0.86, 0.47, 1.0),
-                    "edge_false": (0.97, 0.5, 0.25, 1.0),
+                    "bg": (0.12, 0.1, 0.06, 1.0),
+                    "spot_a": (0.94, 0.67, 0.23, 0.066),
+                    "spot_b": (0.86, 0.5, 0.18, 0.052),
+                    "line_minor": (0.79, 0.71, 0.55, 0.076),
+                    "line_major": (0.87, 0.79, 0.62, 0.136),
+                    "dot": (0.88, 0.79, 0.58, 0.18),
+                    "dot_major": (0.95, 0.86, 0.67, 0.31),
                 },
             }
         else:
             base = {
-                "bg": (0.97, 0.985, 1.0, 1.0),
-                "spot_a": (0.44, 0.67, 0.98, 0.045),
-                "spot_b": (0.3, 0.77, 0.92, 0.042),
-                "line_minor": (0.16, 0.29, 0.48, 0.07),
-                "line_major": (0.12, 0.25, 0.42, 0.13),
-                "dot": (0.2, 0.33, 0.52, 0.18),
-                "dot_major": (0.1, 0.23, 0.41, 0.28),
-                "edge_next": (0.1, 0.42, 0.88, 1.0),
-                "edge_true": (0.07, 0.57, 0.3, 1.0),
-                "edge_false": (0.82, 0.23, 0.2, 1.0),
+                "bg": (0.948, 0.955, 0.968, 1.0),
+                "spot_a": (0.42, 0.62, 0.9, 0.03),
+                "spot_b": (0.29, 0.7, 0.76, 0.026),
+                "line_minor": (0.25, 0.31, 0.4, 0.085),
+                "line_major": (0.21, 0.28, 0.37, 0.145),
+                "dot": (0.26, 0.33, 0.43, 0.19),
+                "dot_major": (0.22, 0.3, 0.41, 0.31),
+                "edge_next": (0.13, 0.44, 0.85, 0.95),
+                "edge_true": (0.12, 0.56, 0.34, 0.96),
+                "edge_false": (0.78, 0.27, 0.24, 0.96),
             }
             preset_overrides = {
                 "indigo": {
-                    "spot_a": (0.46, 0.52, 0.96, 0.09),
-                    "spot_b": (0.59, 0.43, 0.95, 0.06),
-                    "dot": (0.3, 0.34, 0.58, 0.2),
-                    "dot_major": (0.23, 0.27, 0.52, 0.31),
-                    "edge_next": (0.34, 0.34, 0.88, 0.92),
+                    "bg": (0.946, 0.943, 0.968, 1.0),
+                    "spot_a": (0.47, 0.52, 0.9, 0.036),
+                    "spot_b": (0.56, 0.45, 0.86, 0.03),
+                    "dot": (0.31, 0.34, 0.49, 0.2),
+                    "dot_major": (0.27, 0.3, 0.45, 0.32),
                 },
                 "carbon": {
-                    "spot_a": (0.15, 0.62, 0.53, 0.08),
-                    "spot_b": (0.21, 0.74, 0.45, 0.06),
-                    "dot": (0.22, 0.42, 0.39, 0.19),
-                    "dot_major": (0.17, 0.37, 0.33, 0.3),
-                    "edge_next": (0.08, 0.58, 0.55, 0.92),
+                    "bg": (0.943, 0.953, 0.948, 1.0),
+                    "spot_a": (0.19, 0.57, 0.5, 0.034),
+                    "spot_b": (0.25, 0.68, 0.44, 0.028),
+                    "dot": (0.27, 0.38, 0.35, 0.2),
+                    "dot_major": (0.23, 0.34, 0.31, 0.32),
                 },
                 "aurora": {
-                    "spot_a": (0.11, 0.67, 0.52, 0.08),
-                    "spot_b": (0.34, 0.78, 0.39, 0.06),
-                    "dot": (0.24, 0.45, 0.36, 0.19),
-                    "dot_major": (0.17, 0.4, 0.31, 0.3),
-                    "edge_next": (0.12, 0.61, 0.5, 0.92),
+                    "bg": (0.943, 0.956, 0.948, 1.0),
+                    "spot_a": (0.18, 0.61, 0.5, 0.034),
+                    "spot_b": (0.35, 0.73, 0.42, 0.028),
+                    "dot": (0.27, 0.39, 0.33, 0.2),
+                    "dot_major": (0.23, 0.35, 0.29, 0.32),
                 },
                 "frost": {
-                    "spot_a": (0.3, 0.66, 0.94, 0.09),
-                    "spot_b": (0.56, 0.64, 0.95, 0.06),
-                    "dot": (0.25, 0.45, 0.62, 0.2),
-                    "dot_major": (0.18, 0.36, 0.56, 0.32),
-                    "edge_next": (0.2, 0.52, 0.9, 0.92),
+                    "bg": (0.945, 0.953, 0.968, 1.0),
+                    "spot_a": (0.33, 0.63, 0.92, 0.036),
+                    "spot_b": (0.52, 0.63, 0.88, 0.03),
+                    "dot": (0.28, 0.39, 0.52, 0.2),
+                    "dot_major": (0.24, 0.35, 0.48, 0.32),
                 },
                 "sunset": {
-                    "bg": (1.0, 0.97, 0.95, 1.0),
-                    "spot_a": (0.98, 0.56, 0.32, 0.12),
-                    "spot_b": (0.94, 0.3, 0.45, 0.09),
-                    "line_minor": (0.49, 0.27, 0.24, 0.1),
-                    "line_major": (0.45, 0.24, 0.23, 0.16),
-                    "dot": (0.51, 0.28, 0.27, 0.23),
-                    "dot_major": (0.47, 0.24, 0.25, 0.34),
-                    "edge_next": (0.86, 0.36, 0.2, 0.94),
-                    "edge_true": (0.82, 0.49, 0.17, 0.98),
-                    "edge_false": (0.84, 0.23, 0.3, 0.98),
+                    "bg": (0.966, 0.945, 0.93, 1.0),
+                    "spot_a": (0.9, 0.56, 0.34, 0.038),
+                    "spot_b": (0.83, 0.38, 0.43, 0.03),
+                    "line_minor": (0.37, 0.29, 0.27, 0.088),
+                    "line_major": (0.35, 0.27, 0.25, 0.148),
+                    "dot": (0.4, 0.31, 0.29, 0.2),
+                    "dot_major": (0.36, 0.29, 0.27, 0.32),
                 },
                 "rose": {
-                    "bg": (0.99, 0.96, 1.0, 1.0),
-                    "spot_a": (0.88, 0.34, 0.67, 0.12),
-                    "spot_b": (0.71, 0.41, 0.95, 0.09),
-                    "line_minor": (0.4, 0.24, 0.47, 0.1),
-                    "line_major": (0.37, 0.21, 0.45, 0.16),
-                    "dot": (0.42, 0.25, 0.5, 0.23),
-                    "dot_major": (0.38, 0.22, 0.47, 0.34),
-                    "edge_next": (0.68, 0.28, 0.67, 0.94),
-                    "edge_true": (0.6, 0.36, 0.76, 0.98),
-                    "edge_false": (0.77, 0.25, 0.45, 0.98),
+                    "bg": (0.965, 0.94, 0.962, 1.0),
+                    "spot_a": (0.82, 0.4, 0.64, 0.04),
+                    "spot_b": (0.63, 0.44, 0.84, 0.032),
+                    "line_minor": (0.34, 0.28, 0.37, 0.088),
+                    "line_major": (0.32, 0.25, 0.35, 0.148),
+                    "dot": (0.37, 0.31, 0.4, 0.2),
+                    "dot_major": (0.34, 0.28, 0.37, 0.32),
                 },
                 "amber": {
-                    "bg": (1.0, 0.99, 0.95, 1.0),
-                    "spot_a": (0.97, 0.69, 0.2, 0.12),
-                    "spot_b": (0.95, 0.48, 0.15, 0.09),
-                    "line_minor": (0.44, 0.33, 0.12, 0.1),
-                    "line_major": (0.4, 0.29, 0.09, 0.16),
-                    "dot": (0.46, 0.34, 0.09, 0.23),
-                    "dot_major": (0.42, 0.3, 0.08, 0.34),
-                    "edge_next": (0.74, 0.47, 0.12, 0.94),
-                    "edge_true": (0.62, 0.46, 0.1, 0.98),
-                    "edge_false": (0.8, 0.36, 0.09, 0.98),
+                    "bg": (0.972, 0.958, 0.926, 1.0),
+                    "spot_a": (0.9, 0.66, 0.25, 0.038),
+                    "spot_b": (0.82, 0.48, 0.18, 0.03),
+                    "line_minor": (0.39, 0.32, 0.2, 0.088),
+                    "line_major": (0.37, 0.3, 0.18, 0.148),
+                    "dot": (0.42, 0.35, 0.23, 0.2),
+                    "dot_major": (0.38, 0.31, 0.2, 0.32),
                 },
             }
 
@@ -10764,25 +10742,31 @@ class CanvasView(Gtk.Box):
         cr.fill()
 
         cr.set_source_rgba(*palette["spot_a"])
-        cr.arc(width * 0.2, height * 0.22, min(width, height) * 0.19, 0, math.tau)
+        cr.arc(width * 0.22, height * 0.2, min(width, height) * 0.12, 0, math.tau)
         cr.fill()
 
         cr.set_source_rgba(*palette["spot_b"])
-        cr.arc(width * 0.82, height * 0.18, min(width, height) * 0.13, 0, math.tau)
+        cr.arc(width * 0.8, height * 0.16, min(width, height) * 0.09, 0, math.tau)
         cr.fill()
 
-        step = 22
+        step = 24
         major_step = step * 5
 
         line_minor = palette["line_minor"]
         line_major = palette["line_major"]
         dot_minor = palette["dot"]
         dot_major = palette["dot_major"]
-        # Keep the stage legible across all presets with stronger guide contrast.
-        line_minor_alpha = min(1.0, float(line_minor[3]) * 1.58)
-        line_major_alpha = min(1.0, float(line_major[3]) * 1.48)
-        dot_minor_alpha = min(1.0, float(dot_minor[3]) * 1.44)
-        dot_major_alpha = min(1.0, float(dot_major[3]) * 1.5)
+        # Keep guides readable without overpowering content.
+        if dark_mode:
+            line_minor_alpha = min(1.0, float(line_minor[3]) * 1.18)
+            line_major_alpha = min(1.0, float(line_major[3]) * 1.14)
+            dot_minor_alpha = min(1.0, float(dot_minor[3]) * 1.16)
+            dot_major_alpha = min(1.0, float(dot_major[3]) * 1.18)
+        else:
+            line_minor_alpha = min(1.0, float(line_minor[3]) * 1.08)
+            line_major_alpha = min(1.0, float(line_major[3]) * 1.05)
+            dot_minor_alpha = min(1.0, float(dot_minor[3]) * 1.05)
+            dot_major_alpha = min(1.0, float(dot_major[3]) * 1.08)
 
         # Draw a subtle base line grid under the dot grid to improve stage readability.
         cr.new_path()
@@ -10822,7 +10806,7 @@ class CanvasView(Gtk.Box):
                 if is_major:
                     continue
                 cr.new_sub_path()
-                cr.arc(x, y, 0.9, 0, math.tau)
+                cr.arc(x, y, 0.78, 0, math.tau)
         cr.set_source_rgba(dot_minor[0], dot_minor[1], dot_minor[2], dot_minor_alpha)
         cr.fill()
 
@@ -10833,7 +10817,7 @@ class CanvasView(Gtk.Box):
                 if not is_major:
                     continue
                 cr.new_sub_path()
-                cr.arc(x, y, 1.48, 0, math.tau)
+                cr.arc(x, y, 1.24, 0, math.tau)
         cr.set_source_rgba(dot_major[0], dot_major[1], dot_major[2], dot_major_alpha)
         cr.fill()
 
