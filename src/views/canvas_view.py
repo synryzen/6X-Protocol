@@ -9810,6 +9810,17 @@ class CanvasView(Gtk.Box):
 
         delta_x = int(snapped_x - start_x)
         delta_y = int(snapped_y - start_y)
+        previous_guide_x = self.drag_guide_x
+        previous_guide_y = self.drag_guide_y
+        if (
+            delta_x == 0
+            and delta_y == 0
+            and previous_guide_x == guide_x
+            and previous_guide_y == guide_y
+        ):
+            # Avoid redundant redraw churn while pointer jitter reports no
+            # effective movement. This keeps drag interaction visually steady.
+            return
         if (delta_x != 0 or delta_y != 0) and not self.drag_history_captured:
             self.push_undo_snapshot()
             self.drag_history_captured = True
@@ -10764,11 +10775,11 @@ class CanvasView(Gtk.Box):
         line_major = palette["line_major"]
         dot_minor = palette["dot"]
         dot_major = palette["dot_major"]
-        # Keep the stage legible across all presets with slightly stronger guides.
-        line_minor_alpha = min(1.0, float(line_minor[3]) * 1.45)
-        line_major_alpha = min(1.0, float(line_major[3]) * 1.32)
-        dot_minor_alpha = min(1.0, float(dot_minor[3]) * 1.36)
-        dot_major_alpha = min(1.0, float(dot_major[3]) * 1.34)
+        # Keep the stage legible across all presets with stronger guide contrast.
+        line_minor_alpha = min(1.0, float(line_minor[3]) * 1.58)
+        line_major_alpha = min(1.0, float(line_major[3]) * 1.48)
+        dot_minor_alpha = min(1.0, float(dot_minor[3]) * 1.44)
+        dot_major_alpha = min(1.0, float(dot_major[3]) * 1.5)
 
         # Draw a subtle base line grid under the dot grid to improve stage readability.
         cr.new_path()
@@ -10944,15 +10955,15 @@ class CanvasView(Gtk.Box):
         source_active: bool,
     ):
         if hovered:
-            radius = 10.8
+            radius = 11.4
             ring_alpha = 0.9 if dark_mode else 0.8
             core_alpha = 0.98
         elif selected or source_active:
-            radius = 9.4
+            radius = 10.0
             ring_alpha = 0.76 if dark_mode else 0.66
             core_alpha = 0.96
         else:
-            radius = 8.2
+            radius = 8.6
             ring_alpha = 0.62 if dark_mode else 0.52
             core_alpha = 0.95
 
@@ -10971,9 +10982,18 @@ class CanvasView(Gtk.Box):
                 ring_color = (0.34, 0.46, 0.66)
                 core_color = (0.52, 0.63, 0.8)
 
+        if hovered or source_active:
+            if dark_mode:
+                halo = (0.82, 0.92, 1.0, 0.26 if hovered else 0.18)
+            else:
+                halo = (0.25, 0.54, 0.96, 0.2 if hovered else 0.14)
+            cr.arc(x, y, radius + 3.0, 0, math.tau)
+            cr.set_source_rgba(*halo)
+            cr.fill()
+
         cr.arc(x, y, radius, 0, math.tau)
         cr.set_source_rgba(*ring_color, ring_alpha)
-        cr.set_line_width(2.4 if hovered else 1.9)
+        cr.set_line_width(2.5 if hovered else 2.0)
         cr.stroke()
 
         cr.arc(x, y, max(2.0, radius - 3.0), 0, math.tau)

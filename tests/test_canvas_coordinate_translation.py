@@ -799,6 +799,49 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
 
         self.assertEqual([("n1", 250.0, 312.0, True)], calls)
 
+    def test_apply_active_node_drag_position_skips_redundant_redraw_when_stationary(self):
+        node = SimpleNamespace(id="n1", x=10, y=20)
+        self.view.drag_origin = {
+            "node_id": "n1",
+            "pointer_stage_x": 100.0,
+            "pointer_stage_y": 120.0,
+        }
+        self.view.drag_group_origins = {"n1": (10, 20)}
+        self.view.mark_node_drag_activity = lambda: None
+        self.view.node_drag_last_pointer_stage = None
+        self.view.zoom_factor = 1.0
+        self.view.SNAP_GRID = 20
+        self.view.find_alignment_guides = lambda *_args, **_kwargs: (None, None)
+        self.view.drag_history_captured = False
+        self.view.push_undo_snapshot = lambda: None
+        self.view.node_drag_moved = False
+        self.view.STAGE_WIDTH = 4000
+        self.view.STAGE_HEIGHT = 2400
+        self.view.CARD_WIDTH = 320
+        self.view.CARD_HEIGHT = 160
+        self.view.drag_guide_x = None
+        self.view.drag_guide_y = None
+        self.view.nodes = [node]
+        self.view.find_node = lambda node_id: node if node_id == "n1" else None
+        move_calls: list[tuple[object, int, int]] = []
+        self.view.fixed = SimpleNamespace(move=lambda widget, x, y: move_calls.append((widget, x, y)))
+        widget = object()
+        self.view.node_widgets = {"n1": widget}
+        self.view.to_screen = lambda value: int(round(value))
+        redraw_calls: list[str] = []
+        self.view.link_layer = SimpleNamespace(queue_draw=lambda: redraw_calls.append("link"))
+        self.view.minimap_area = SimpleNamespace(queue_draw=lambda: redraw_calls.append("minimap"))
+        self.view.get_selected_node = lambda: None
+        self.view.node_position_label = SimpleNamespace(set_text=lambda _text: None)
+
+        self.view.apply_active_node_drag_position("n1", 100.0, 120.0)
+
+        self.assertEqual([], move_calls)
+        self.assertEqual([], redraw_calls)
+        self.assertEqual((100.0, 120.0), self.view.node_drag_last_pointer_stage)
+        self.assertEqual(10, node.x)
+        self.assertEqual(20, node.y)
+
     def test_node_execution_profile_uses_action_override_for_http_request(self):
         profile = self.view.node_execution_profile("Action", "http_request")
         self.assertEqual(

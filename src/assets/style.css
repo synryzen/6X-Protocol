@@ -6983,3 +6983,74 @@ window.app-window.theme-light .action-profile-auth {
   color: #9a3412;
   background: alpha(#ffedd5, 0.95);
 }
+
+/* Premium studio v34: final compact inspector + canvas handle emphasis */
+window.app-window .canvas-inspector .inspector-adjust-row,
+window.app-window .canvas-workflow-mode .inspector-adjust-row,
+window.app-window .canvas-inspector .settings-adjust-row,
+window.app-window .canvas-workflow-mode .settings-adjust-row {
+  border-radius: 9px;
+  border: 1px solid alpha(#7aa6d8, 0.22);
+  padding: 1px 4px;
+  margin-top: 1px;
+  margin-bottom: 1px;
+}
+
+window.app-window .canvas-inspector scale.inspector-adjust-scale,
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale {
+  min-height: 11px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+window.app-window .canvas-inspector scale.inspector-adjust-scale trough,
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale trough,
+window.app-window .canvas-inspector .settings-adjust-row scale trough,
+window.app-window .canvas-workflow-mode .settings-adjust-row scale trough {
+  min-height: 3px;
+}
+
+window.app-window .canvas-inspector scale.inspector-adjust-scale slider,
+window.app-window .canvas-workflow-mode scale.inspector-adjust-scale slider,
+window.app-window .canvas-inspector .settings-adjust-row scale slider,
+window.app-window .canvas-workflow-mode .settings-adjust-row scale slider {
+  min-width: 8px;
+  min-height: 8px;
+}
+
+window.app-window .canvas-inspector spinbutton.inspector-adjust-spin,
+window.app-window .canvas-workflow-mode spinbutton.inspector-adjust-spin {
+  min-width: 62px;
+  min-height: 18px;
+}
+
+window.app-window .canvas-inspector .inspector-adjust-row button,
+window.app-window .canvas-workflow-mode .inspector-adjust-row button,
+window.app-window .canvas-inspector .settings-adjust-row button,
+window.app-window .canvas-workflow-mode .settings-adjust-row button {
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 5px;
+}
+
+window.app-window .canvas-node-port {
+  min-width: 18px;
+  min-height: 18px;
+  border-radius: 999px;
+}
+
+window.app-window .canvas-node-port-dot {
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 999px;
+}
+
+window.app-window .canvas-node-port-hover {
+  border-color: alpha(#8cc6ff, 0.88);
+  background: alpha(#15334f, 0.42);
+}
+
+window.app-window.theme-light .canvas-node-port-hover {
+  border-color: alpha(#2b6ccf, 0.72);
+  background: alpha(#cfe4ff, 0.78);
+}
