@@ -1,9 +1,9 @@
 # Docker Web Edition (Live Self-Hosted)
 
-This directory contains the active self-hosted web preview stack for 6X-Protocol.
+This directory contains the active self-hosted web public beta stack for 6X-Protocol.
 
 ## Important
-- This is an active preview, not yet a production release.
+- This is an active public beta, not yet a production release.
 - The current primary product remains the Linux-native desktop app.
 
 ## Files
@@ -12,7 +12,7 @@ This directory contains the active self-hosted web preview stack for 6X-Protocol
 - `api/`: FastAPI scaffold (`/healthz`, `/readyz`, `/api/v1/meta`).
 - `web/`: lightweight web access dashboard served by Nginx.
 
-## Quick Start (Preview Mode)
+## Quick Start (Public Beta)
 ```bash
 cd docker
 cp .env.example .env

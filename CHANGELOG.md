@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- Canvas stage-drag fallback no longer forces link mode from stale output-port
+  hover state; if pointer is not actually near the output handle, stale hover
+  is cleared and node drag starts normally.
+- Canvas stage pointer-motion fallback now skips node-owned drag streams,
+  preventing duplicate motion updates that previously caused visible
+  node-jitter/shake while dragging.
+- Release/docs references were advanced to `v0.1.9`, including GitHub Pages
+  install links, launch checklist examples, and announcement kit variants.
 - Docker/web runtime now supports real approval-gate control flow: action nodes
   using `approval_gate` transition runs to `waiting_approval`, and runs resume
   via the new `POST /api/v1/runs/{id}/resume` endpoint with pending-approval

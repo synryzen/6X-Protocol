@@ -112,17 +112,17 @@ See:
 ## Docker / Web Edition (Live Self-Hosted)
 - Status and milestone board: [`docs/DOCKER_WEB_EDITION_PLAN.md`](docs/DOCKER_WEB_EDITION_PLAN.md)
 - Launch checklist: [`docs/LAUNCH_CHECKLIST.md`](docs/LAUNCH_CHECKLIST.md)
-- 7-day launch plan: [`docs/LAUNCH_CALENDAR_7D_v0.1.8.md`](docs/LAUNCH_CALENDAR_7D_v0.1.8.md)
+- 7-day launch plan: [`docs/LAUNCH_CALENDAR_7D_v0.1.9.md`](docs/LAUNCH_CALENDAR_7D_v0.1.9.md)
 - Launch metrics tracker: [`docs/launch_metrics.csv`](docs/launch_metrics.csv)
 - Launch metrics GitHub totals: [`docs/launch_metrics_totals.csv`](docs/launch_metrics_totals.csv)
 - Launch metrics quick updater: [`scripts/launch_metrics_add.py`](scripts/launch_metrics_add.py)
 - Launch metrics interactive wrapper: [`scripts/launch_metrics_daily.sh`](scripts/launch_metrics_daily.sh)
 - Launch metrics GitHub sync: [`scripts/launch_metrics_sync_github.py`](scripts/launch_metrics_sync_github.py)
 - Launch metrics summary script: [`scripts/launch_metrics_summary.py`](scripts/launch_metrics_summary.py)
-- Latest release notes: [`docs/RELEASE_NOTES_v0.1.8.md`](docs/RELEASE_NOTES_v0.1.8.md)
-- Announcement copy kit: [`docs/ANNOUNCEMENT_KIT_v0.1.8.md`](docs/ANNOUNCEMENT_KIT_v0.1.8.md)
-- Technical announcement variants: [`docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.8.md`](docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.8.md)
-- Creator announcement variants: [`docs/ANNOUNCEMENT_KIT_CREATOR_v0.1.8.md`](docs/ANNOUNCEMENT_KIT_CREATOR_v0.1.8.md)
+- Latest release notes: [`docs/RELEASE_NOTES_v0.1.9.md`](docs/RELEASE_NOTES_v0.1.9.md)
+- Announcement copy kit: [`docs/ANNOUNCEMENT_KIT_v0.1.9.md`](docs/ANNOUNCEMENT_KIT_v0.1.9.md)
+- Technical announcement variants: [`docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.9.md`](docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.9.md)
+- Creator announcement variants: [`docs/ANNOUNCEMENT_KIT_CREATOR_v0.1.9.md`](docs/ANNOUNCEMENT_KIT_CREATOR_v0.1.9.md)
 - Docker quick start: [`docker/README.md`](docker/README.md)
 - Compose stack: [`docker/docker-compose.web.yml`](docker/docker-compose.web.yml)
 - Live API runtime: `docker/api` (FastAPI CRUD for workflows/runs/settings + run controls)
@@ -136,10 +136,10 @@ See:
 - Optional Docker API auth baseline is live (`API_AUTH_TOKEN`, `X-6X-API-Key`, or Bearer token), with web token input support
 - Smoke test validated (March 24, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, timeline/log filters, integrations, bots, and settings patch flows
 
-Self-hosted web preview status: **Live and smoke-validated**.
+Self-hosted web status: **Live public beta and smoke-validated**.
 
 Remaining high-value items:
-- Replace the preview web panel with production-grade web UX modules.
+- Expand the web panel from beta control-room UX to full production parity modules.
 - Expand migration strategy from JSON baseline to relational DB workflows.
 - Expand secrets hardening baseline for team/hosted deployment paths.
 
