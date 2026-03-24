@@ -9361,11 +9361,14 @@ class CanvasView(Gtk.Box):
             if stage_node_id and stage_node_id != active_node_id:
                 return
 
+        if active_driver not in {"stage"}:
+            return
+
         # Node/stage drag-update callbacks are the preferred source of motion. Keep
         # this motion-controller path as a fallback when those callbacks are delayed.
         # Throttling avoids duplicate updates that can cause visible jitter.
         last_activity = float(self.node_drag_last_activity_monotonic or 0.0)
-        if last_activity > 0.0 and (time.monotonic() - last_activity) < 0.02:
+        if last_activity > 0.0 and (time.monotonic() - last_activity) < 0.12:
             return
 
         drag_reference = self.node_drag_last_pointer_stage
