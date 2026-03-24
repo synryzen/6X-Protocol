@@ -2168,13 +2168,19 @@ class CanvasView(Gtk.Box):
             node_x, node_y, _node_w, _node_h = self.node_screen_geometry(hit_node)
             local_x = float(pointer_x) - float(node_x)
             local_y = float(pointer_y) - float(node_y)
+            port_handle_hit = self.is_output_handle_grab(local_x, local_y, hit_node.id)
             if (
-                (
-                    self.hovered_port_kind == "out"
-                    and str(self.hovered_port_node_id or "").strip() == hit_node.id
-                )
-                or self.is_output_handle_grab(local_x, local_y, hit_node.id)
+                self.hovered_port_kind == "out"
+                and str(self.hovered_port_node_id or "").strip() == hit_node.id
+                and not port_handle_hit
             ):
+                # Hover-enter/leave events can occasionally get out of sync during
+                # fast drags. Do not force link mode unless the pointer is currently
+                # near the output handle; otherwise node drags feel "stuck".
+                self.hovered_port_node_id = None
+                self.hovered_port_kind = None
+
+            if port_handle_hit:
                 # Start link drag directly from the stage fallback so drag-to-wire
                 # keeps working even when child-port drag controllers are flaky.
                 self.port_drag_just_finished = False
