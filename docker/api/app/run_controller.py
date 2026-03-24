@@ -1813,6 +1813,7 @@ class RunController:
     ) -> dict[str, float | int]:
         config = node.get("config", {}) if isinstance(node.get("config"), dict) else {}
         metadata = node.get("metadata", {}) if isinstance(node.get("metadata"), dict) else {}
+        directives = self._parse_directives(str(node.get("detail", "")))
         defaults = self._node_execution_defaults(node)
 
         default_retry_max = int(defaults["retry_max"])
@@ -1839,19 +1840,67 @@ class RunController:
             else default_timeout_sec
         )
 
+        retry_value = self._first_mapping_value(
+            config,
+            ["retry_max", "retries", "retry"],
+        )
+        if retry_value is None:
+            retry_value = self._first_mapping_value(
+                metadata,
+                ["retry_max", "retries", "retry"],
+            )
+        if retry_value is None:
+            retry_value = self._first_mapping_value(
+                directives,
+                ["retry_max", "retries", "retry"],
+            )
+        if retry_value is None:
+            retry_value = fallback_retry
+
+        backoff_value = self._first_mapping_value(
+            config,
+            ["retry_backoff_ms", "backoff_ms", "backoff"],
+        )
+        if backoff_value is None:
+            backoff_value = self._first_mapping_value(
+                metadata,
+                ["retry_backoff_ms", "backoff_ms", "backoff"],
+            )
+        if backoff_value is None:
+            backoff_value = self._first_mapping_value(
+                directives,
+                ["retry_backoff_ms", "backoff_ms", "backoff"],
+            )
+        if backoff_value is None:
+            backoff_value = fallback_backoff
+
+        timeout_value = self._first_mapping_value(
+            config,
+            ["timeout_sec", "timeout_s", "timeout"],
+        )
+        if timeout_value is None:
+            timeout_value = self._first_mapping_value(
+                metadata,
+                ["timeout_sec", "timeout_s", "timeout"],
+            )
+        if timeout_value is None:
+            timeout_value = self._first_mapping_value(
+                directives,
+                ["timeout_sec", "timeout_s", "timeout"],
+            )
+        if timeout_value is None:
+            timeout_value = fallback_timeout
+
         retry_max = self._safe_int(
-            config.get("retry_max", metadata.get("retry_max", fallback_retry)),
+            retry_value,
             fallback_retry,
         )
         backoff_ms = self._safe_int(
-            config.get(
-                "retry_backoff_ms",
-                metadata.get("retry_backoff_ms", fallback_backoff),
-            ),
+            backoff_value,
             fallback_backoff,
         )
         timeout_sec = self._safe_float(
-            config.get("timeout_sec", metadata.get("timeout_sec", fallback_timeout)),
+            timeout_value,
             fallback_timeout,
         )
 
@@ -1985,22 +2034,30 @@ class RunController:
     ) -> dict[str, float | int | bool]:
         graph = workflow.get("graph", {}) if isinstance(workflow.get("graph"), dict) else {}
         settings = graph.get("settings", {}) if isinstance(graph.get("settings"), dict) else {}
-        override_retry_max = bool(retry_max is not None or "retry_max" in settings)
-        override_retry_backoff_ms = bool(
-            retry_backoff_ms is not None or "retry_backoff_ms" in settings
+        graph_retry = self._first_mapping_value(settings, ["retry_max", "retries", "retry"])
+        graph_backoff = self._first_mapping_value(
+            settings,
+            ["retry_backoff_ms", "backoff_ms", "backoff"],
         )
-        override_timeout_sec = bool(timeout_sec is not None or "timeout_sec" in settings)
+        graph_timeout = self._first_mapping_value(settings, ["timeout_sec", "timeout_s", "timeout"])
+        override_retry_max = bool(retry_max is not None or graph_retry is not None)
+        override_retry_backoff_ms = bool(retry_backoff_ms is not None or graph_backoff is not None)
+        override_timeout_sec = bool(timeout_sec is not None or graph_timeout is not None)
 
         resolved_retry_max = self._safe_int(
-            retry_max if retry_max is not None else settings.get("retry_max", 0),
+            retry_max if retry_max is not None else (graph_retry if graph_retry is not None else 0),
             0,
         )
         resolved_backoff_ms = self._safe_int(
-            retry_backoff_ms if retry_backoff_ms is not None else settings.get("retry_backoff_ms", 0),
+            retry_backoff_ms
+            if retry_backoff_ms is not None
+            else (graph_backoff if graph_backoff is not None else 0),
             0,
         )
         resolved_timeout_sec = self._safe_float(
-            timeout_sec if timeout_sec is not None else settings.get("timeout_sec", 0.0),
+            timeout_sec
+            if timeout_sec is not None
+            else (graph_timeout if graph_timeout is not None else 0.0),
             0.0,
         )
 
@@ -2410,6 +2467,21 @@ class RunController:
     @staticmethod
     def _node_type(node: dict[str, Any]) -> str:
         return str(node.get("type", "action")).strip().lower() or "action"
+
+    @staticmethod
+    def _first_mapping_value(mapping: dict[str, Any], keys: list[str]) -> Any | None:
+        if not isinstance(mapping, dict):
+            return None
+        for key in keys:
+            if key not in mapping:
+                continue
+            value = mapping.get(key)
+            if value is None:
+                continue
+            if isinstance(value, str) and not value.strip():
+                continue
+            return value
+        return None
 
     @staticmethod
     def _safe_int(value: Any, default: int) -> int:

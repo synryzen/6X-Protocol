@@ -218,6 +218,37 @@ class ExecutionEngineErrorPolicyTests(unittest.TestCase):
             self.engine._node_execution_defaults(node),
         )
 
+    def test_node_execution_policy_accepts_alias_overrides(self):
+        node = CanvasNode(
+            id="a_alias_policy",
+            name="Alias Policy",
+            node_type="action",
+            detail="retry:2\nbackoff:300\ntimeout:11",
+            summary="",
+            x=0,
+            y=0,
+            config={
+                "integration": "http_request",
+                "execution": {
+                    "retries": "3",
+                    "backoff": "420",
+                    "timeout": "17",
+                },
+            },
+        )
+        policy = self.engine._resolve_node_execution_policy(
+            node,
+            graph_settings={
+                "retries": 1,
+                "backoff": 90,
+                "timeout": 5,
+            },
+        )
+        self.assertEqual(
+            {"retry_max": 3.0, "retry_backoff_ms": 420.0, "timeout_sec": 17.0},
+            policy,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

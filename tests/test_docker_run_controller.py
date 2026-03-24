@@ -1216,6 +1216,61 @@ class DockerRunControllerTests(unittest.TestCase):
         self.assertIn("integration:handoff", preview)
         self.assertIn("chain:Planner > Writer", preview)
 
+    def test_resolve_node_policy_accepts_alias_keys(self):
+        node = {
+            "id": "a_policy_alias",
+            "name": "Policy Alias",
+            "type": "action",
+            "detail": "retry:2\nbackoff:300\ntimeout:11",
+            "config": {
+                "integration": "http_request",
+                "retries": "3",
+                "backoff": "420",
+                "timeout": "17",
+            },
+            "metadata": {},
+        }
+        policy = self.controller._resolve_node_policy(
+            node,
+            {
+                "retry_max": 0,
+                "retry_backoff_ms": 0,
+                "timeout_sec": 0.0,
+                "override_retry_max": False,
+                "override_retry_backoff_ms": False,
+                "override_timeout_sec": False,
+            },
+        )
+        self.assertEqual(
+            {"retry_max": 3, "retry_backoff_ms": 420, "timeout_sec": 17.0},
+            policy,
+        )
+
+    def test_resolve_run_defaults_accepts_graph_alias_keys(self):
+        workflow = {
+            "id": "wf_alias_defaults",
+            "name": "Alias Defaults",
+            "graph": {
+                "settings": {
+                    "retries": 2,
+                    "backoff": 900,
+                    "timeout": 33.0,
+                }
+            },
+        }
+        resolved = self.controller._resolve_run_defaults(
+            workflow,
+            retry_max=None,
+            retry_backoff_ms=None,
+            timeout_sec=None,
+        )
+        self.assertEqual(2, resolved.get("retry_max"))
+        self.assertEqual(900, resolved.get("retry_backoff_ms"))
+        self.assertEqual(33.0, resolved.get("timeout_sec"))
+        self.assertTrue(bool(resolved.get("override_retry_max")))
+        self.assertTrue(bool(resolved.get("override_retry_backoff_ms")))
+        self.assertTrue(bool(resolved.get("override_timeout_sec")))
+
 
 if __name__ == "__main__":
     unittest.main()

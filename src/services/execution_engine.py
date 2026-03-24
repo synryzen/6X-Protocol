@@ -1891,36 +1891,85 @@ class ExecutionEngine:
         node_policy = node.config.get("execution", {})
         if not isinstance(node_policy, dict):
             node_policy = {}
+        directives = self._parse_directives(str(node.detail or ""))
         defaults = self._node_execution_defaults(node)
 
+        retry_value = self._first_mapping_value(
+            node_policy,
+            ["retry_max", "retries", "retry"],
+        )
+        if retry_value is None:
+            retry_value = self._first_mapping_value(
+                node.config,
+                ["retry_max", "retries", "retry"],
+            )
+        if retry_value is None:
+            retry_value = self._first_mapping_value(
+                directives,
+                ["retry_max", "retries", "retry"],
+            )
+        if retry_value is None:
+            retry_value = self._first_mapping_value(
+                graph_policy,
+                ["retry_max", "retries", "retry"],
+            )
+        if retry_value is None:
+            retry_value = defaults["retry_max"]
+
+        backoff_value = self._first_mapping_value(
+            node_policy,
+            ["retry_backoff_ms", "backoff_ms", "backoff"],
+        )
+        if backoff_value is None:
+            backoff_value = self._first_mapping_value(
+                node.config,
+                ["retry_backoff_ms", "backoff_ms", "backoff"],
+            )
+        if backoff_value is None:
+            backoff_value = self._first_mapping_value(
+                directives,
+                ["retry_backoff_ms", "backoff_ms", "backoff"],
+            )
+        if backoff_value is None:
+            backoff_value = self._first_mapping_value(
+                graph_policy,
+                ["retry_backoff_ms", "backoff_ms", "backoff"],
+            )
+        if backoff_value is None:
+            backoff_value = defaults["retry_backoff_ms"]
+
+        timeout_value = self._first_mapping_value(
+            node_policy,
+            ["timeout_sec", "timeout_s", "timeout"],
+        )
+        if timeout_value is None:
+            timeout_value = self._first_mapping_value(
+                node.config,
+                ["timeout_sec", "timeout_s", "timeout"],
+            )
+        if timeout_value is None:
+            timeout_value = self._first_mapping_value(
+                directives,
+                ["timeout_sec", "timeout_s", "timeout"],
+            )
+        if timeout_value is None:
+            timeout_value = self._first_mapping_value(
+                graph_policy,
+                ["timeout_sec", "timeout_s", "timeout"],
+            )
+        if timeout_value is None:
+            timeout_value = defaults["timeout_sec"]
+
         retry_max = self._parse_non_negative_int(
-            node_policy.get(
-                "retry_max",
-                node.config.get(
-                    "retry_max",
-                    graph_policy.get("retry_max", defaults["retry_max"]),
-                ),
-            ),
+            retry_value,
             int(defaults["retry_max"]),
         )
         retry_backoff_ms = self._parse_non_negative_int(
-            node_policy.get(
-                "retry_backoff_ms",
-                node.config.get(
-                    "retry_backoff_ms",
-                    graph_policy.get("retry_backoff_ms", defaults["retry_backoff_ms"]),
-                ),
-            ),
+            backoff_value,
             int(defaults["retry_backoff_ms"]),
         )
         timeout_sec = self._parse_positive_float(
-            node_policy.get(
-                "timeout_sec",
-                node.config.get(
-                    "timeout_sec",
-                    graph_policy.get("timeout_sec", defaults["timeout_sec"]),
-                ),
-            ),
+            timeout_value,
             float(defaults["timeout_sec"]),
         )
 
@@ -2068,6 +2117,20 @@ class ExecutionEngine:
             return max(0, parsed)
         except (TypeError, ValueError):
             return max(0, fallback)
+
+    def _first_mapping_value(self, mapping: Dict[str, object], keys: List[str]) -> object | None:
+        if not isinstance(mapping, dict):
+            return None
+        for key in keys:
+            if key not in mapping:
+                continue
+            value = mapping.get(key)
+            if value is None:
+                continue
+            if isinstance(value, str) and not value.strip():
+                continue
+            return value
+        return None
 
     def _parse_positive_float(self, value: object, fallback: float) -> float:
         try:
