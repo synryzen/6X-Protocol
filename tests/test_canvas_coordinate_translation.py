@@ -509,6 +509,30 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         # to stage coordinates near previous drag pointer (360,280).
         self.assertEqual(("n1", 360.0, 280.0, False), calls[0])
 
+    def test_stage_pointer_motion_skips_when_stage_drag_update_is_active(self):
+        self.view.port_drag_active = False
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "stage"
+        self.view.stage_drag_node_id = "n1"
+        self.view.drag_origin = {
+            "node_id": "n1",
+            "pointer_stage_x": 340.0,
+            "pointer_stage_y": 280.0,
+        }
+        self.view.node_drag_last_pointer_stage = (340.0, 280.0)
+        self.view.is_node_drag_stale = lambda: False
+        calls: list[tuple[str, float, float, bool]] = []
+
+        self.view.apply_active_node_drag_position = (
+            lambda node_id, x, y, live_snap_enabled=False: calls.append(
+                (node_id, float(x), float(y), bool(live_snap_enabled))
+            )
+        )
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
+        self.view.on_stage_pointer_motion(controller, 260.0, 230.0)
+
+        self.assertEqual([], calls)
+
     def test_stage_pointer_motion_does_not_duplicate_recent_node_drag_updates(self):
         self.view.port_drag_active = False
         self.view.node_drag_active = True
@@ -717,6 +741,49 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.view.update_inspector = lambda selected: inspector_calls.append(str(selected.id))
 
         gesture = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_node_clicked(gesture, 1, 0.0, 0.0, "n1")
+
+        self.assertEqual([True], reset_calls)
+        self.assertEqual("n1", self.view.selected_node_id)
+        self.assertEqual({"n1"}, self.view.selected_node_ids)
+        self.assertEqual(["n1"], inspector_calls)
+
+    def test_node_clicked_recovers_stuck_drag_when_origin_matches_node(self):
+        self.view.grab_focus = lambda: None
+        self.view.port_drag_active = False
+        self.view.link_preview_source_id = None
+        self.view.node_drag_active = True
+        self.view.drag_origin = {"node_id": "n1"}
+        self.view.is_node_drag_stale = lambda: False
+        self.view.suppress_next_node_click = False
+        self.view.selected_node_id = None
+        self.view.selected_node_ids = set()
+        self.view.pending_link_source_id = None
+        node = SimpleNamespace(id="n1", name="Node One")
+        self.view.find_node = lambda node_id: node if node_id == "n1" else None
+        self.view.get_selected_node = lambda: node if self.view.selected_node_id == "n1" else None
+        self.view.set_single_selection = lambda node_id: (
+            setattr(self.view, "selected_node_id", node_id),
+            setattr(self.view, "selected_node_ids", {node_id}),
+        )
+        self.view.apply_selection_set_visual_state = lambda *_args, **_kwargs: None
+        self.view.apply_link_source_visual_state = lambda *_args, **_kwargs: None
+        self.view.link_layer = SimpleNamespace(queue_draw=lambda: None)
+        self.view.update_control_state = lambda: None
+        self.view.add_edge = lambda *_args, **_kwargs: False
+        self.view.clear_inspector = lambda: None
+        reset_calls: list[bool] = []
+
+        def _reset_node_drag_state():
+            reset_calls.append(True)
+            self.view.node_drag_active = False
+            self.view.drag_origin = {}
+
+        self.view.reset_node_drag_state = _reset_node_drag_state
+        inspector_calls: list[str] = []
+        self.view.update_inspector = lambda selected: inspector_calls.append(str(selected.id))
+
+        gesture = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
         self.view.on_node_clicked(gesture, 1, 0.0, 0.0, "n1")
 
         self.assertEqual([True], reset_calls)

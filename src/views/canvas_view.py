@@ -228,6 +228,7 @@ class CanvasView(Gtk.Box):
         self.stage_drag_node_id: str | None = None
         self.stage_drag_origin: dict[str, float] = {}
         self.suppress_next_node_click = False
+        self.last_inspector_node_id: str | None = None
         self.zoom_factor = 1.0
         self.pan_drag_active = False
         self.pan_drag_origin: dict[str, float] = {}
@@ -9076,9 +9077,10 @@ class CanvasView(Gtk.Box):
                 # Drag state should never remain active after button release.
                 # Recover immediately so click selection/inspector updates keep working.
                 self.reset_node_drag_state()
-            # Let drag-end own state cleanup. Resetting here can interrupt active drags.
             elif self.drag_origin.get("node_id") == node_id:
-                return
+                # On some GTK stacks click callbacks can race with drag cleanup.
+                # Reset drag state here so node clicks never stop updating selection/inspector.
+                self.reset_node_drag_state()
             if self.node_drag_active and not self.drag_origin:
                 self.reset_node_drag_state()
         if self.suppress_next_node_click:
@@ -9291,6 +9293,11 @@ class CanvasView(Gtk.Box):
             return
         active_node_id = str(self.drag_origin.get("node_id", "")).strip()
         if not active_node_id:
+            return
+        if self.node_drag_driver == "stage" and getattr(self, "stage_drag_node_id", None):
+            # Stage-driven drags already receive updates from the drag controller.
+            # Motion-controller updates here would duplicate those updates and can
+            # produce visible node shake/jitter.
             return
 
         # Avoid mixed drag drivers: node-owned drag updates and stage motion updates
@@ -11845,6 +11852,13 @@ class CanvasView(Gtk.Box):
         return False
 
     def update_inspector(self, node: CanvasNode):
+        restore_node_scroll: float | None = None
+        previous_inspector_node_id = str(getattr(self, "last_inspector_node_id", "") or "").strip()
+        if previous_inspector_node_id == node.id and getattr(self, "sidebar_mode", None) == "node":
+            restore_node_scroll = self.get_scroller_scroll_position(
+                getattr(self, "node_mode_scroll", None)
+            )
+
         incoming = len([edge for edge in self.edges if edge.target_node_id == node.id])
         outgoing = len([edge for edge in self.edges if edge.source_node_id == node.id])
         self.clear_node_field_feedback()
@@ -11895,8 +11909,15 @@ class CanvasView(Gtk.Box):
         self.update_inspector_adjustment_states()
         self.update_action_integration_section_visibility(node.node_type)
         self.update_sidebar_mode()
+        self.last_inspector_node_id = node.id
+        if restore_node_scroll is not None:
+            self.restore_scroller_scroll_position(
+                getattr(self, "node_mode_scroll", None),
+                restore_node_scroll,
+            )
 
     def clear_inspector(self):
+        self.last_inspector_node_id = None
         self.node_name_label.set_text("No node selected")
         self.node_type_label.set_text("Type: —")
         self.node_position_label.set_text("Position: —")
@@ -12059,6 +12080,42 @@ class CanvasView(Gtk.Box):
                 adjustment.set_value(adjustment.get_lower())
         except Exception:
             pass
+
+    def get_scroller_scroll_position(self, scroller: Gtk.ScrolledWindow | None) -> float | None:
+        if not scroller:
+            return None
+        try:
+            adjustment = scroller.get_vadjustment()
+            if not adjustment:
+                return None
+            return float(adjustment.get_value())
+        except Exception:
+            return None
+
+    def restore_scroller_scroll_position(
+        self,
+        scroller: Gtk.ScrolledWindow | None,
+        position: float,
+    ):
+        if not scroller:
+            return
+
+        def _restore() -> bool:
+            try:
+                adjustment = scroller.get_vadjustment()
+                if not adjustment:
+                    return False
+                lower = float(adjustment.get_lower())
+                upper = float(adjustment.get_upper())
+                page_size = float(adjustment.get_page_size())
+                max_value = max(lower, upper - page_size)
+                clamped = max(lower, min(max_value, float(position)))
+                adjustment.set_value(clamped)
+            except Exception:
+                pass
+            return False
+
+        GLib.idle_add(_restore)
 
     def on_temp_override_toggled(self, _switch, _param):
         self.update_inspector_adjustment_states()
