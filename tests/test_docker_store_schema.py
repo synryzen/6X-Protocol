@@ -271,6 +271,28 @@ class DockerStoreSchemaTests(unittest.TestCase):
         self.assertEqual("integration-secret", loaded_integrations[0]["config"]["api_key"])
         self.assertEqual("Bearer abc", loaded_integrations[0]["config"]["headers"]["Authorization"])
 
+    def test_secret_rotation_reencrypts_payloads(self):
+        try:
+            import cryptography  # noqa: F401
+        except Exception:
+            self.skipTest("cryptography not available in local test environment")
+
+        os.environ["SECRET_ENCRYPTION_KEY"] = "old-hardening-key"
+        store = self.module.JsonStore(data_dir=str(self.data_dir))
+        store.save_settings({"openai_api_key": "old-secret"})
+        raw_before = self._read_json("settings.json")
+        encrypted_before = str(raw_before.get("openai_api_key", ""))
+        self.assertTrue(encrypted_before.startswith("enc:v1:"))
+
+        rotated = store.rotate_secret_encryption("new-hardening-key")
+        self.assertEqual(1, int(rotated.get("settings", 0)))
+
+        raw_after = self._read_json("settings.json")
+        encrypted_after = str(raw_after.get("openai_api_key", ""))
+        self.assertTrue(encrypted_after.startswith("enc:v1:"))
+        self.assertNotEqual(encrypted_before, encrypted_after)
+        self.assertEqual("old-secret", store.load_settings({}).get("openai_api_key"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -189,6 +189,15 @@ class BackupRestoreResult(BaseModel):
     restored_at: str
 
 
+class SecretRotateRequest(BaseModel):
+    new_key_material: str = Field(min_length=1)
+
+
+class SecretRotateResult(BaseModel):
+    rotated_counts: dict[str, int] = Field(default_factory=dict)
+    rotated_at: str
+
+
 class BotProfileIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     role: str = ""

@@ -65,6 +65,7 @@ Optional secret encryption baseline:
   - plain passphrase (derived server-side to a Fernet key)
   - `fernet:<base64-urlsafe-32-byte-key>`
 - Encrypted values are stored with prefix `enc:v1:` in JSON files and transparently decrypted by the API at runtime.
+- Rotate encrypted material using `POST /api/v1/admin/secrets/rotate` with `new_key_material`.
 
 Storage schema baseline:
 - JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
@@ -89,6 +90,7 @@ Current API routes:
 - `GET /api/v1/observability/runs`
 - `POST /api/v1/admin/backup`
 - `POST /api/v1/admin/restore`
+- `POST /api/v1/admin/secrets/rotate`
 - `GET/POST/PUT/DELETE /api/v1/workflows`
 - `PATCH /api/v1/workflows/{id}/graph`
 - `POST /api/v1/workflows/{id}/preflight`

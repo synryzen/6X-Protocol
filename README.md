@@ -139,6 +139,7 @@ See:
 - Web settings panel includes local/cloud AI fields, theme controls, automation defaults, minimap placement persistence, and reset-to-default action
 - Optional Docker API auth baseline is live (`API_AUTH_TOKEN`, `X-6X-API-Key`, or Bearer token), with web token input support
 - Optional Docker secrets-at-rest baseline is live (`SECRET_ENCRYPTION_KEY` for encrypted settings/integration secrets)
+- Docker API supports secret key rotation via `POST /api/v1/admin/secrets/rotate`
 - Docker API now includes observability routes (`/api/v1/observability/summary`, `/api/v1/observability/runs`)
 - Docker API now includes admin backup/restore routes (`/api/v1/admin/backup`, `/api/v1/admin/restore`)
 - Smoke test validated (March 24, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, observability + backup checks, timeline/log filters, integrations, bots, and settings patch flows
@@ -148,7 +149,7 @@ Self-hosted web status: **Live public beta and smoke-validated**.
 Next high-value items toward GA:
 - Expand web panel from beta control-room UX to full production parity modules.
 - Expand migration strategy from JSON baseline to relational DB workflows.
-- Add secret rotation workflows and managed-secret adapters for team/hosted deployment paths.
+- Add managed-secret adapters and automated key rotation policies for team/hosted deployment paths.
 
 ## Package Build Commands
 Build local installer artifacts:

@@ -180,3 +180,13 @@ class SecretManager:
             else:
                 decrypted.append(item)
         return decrypted
+
+    @staticmethod
+    def contains_encrypted_payload(payload: Any) -> bool:
+        if isinstance(payload, str):
+            return payload.startswith(SECRET_PREFIX)
+        if isinstance(payload, dict):
+            return any(SecretManager.contains_encrypted_payload(value) for value in payload.values())
+        if isinstance(payload, list):
+            return any(SecretManager.contains_encrypted_payload(item) for item in payload)
+        return False

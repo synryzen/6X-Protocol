@@ -35,6 +35,8 @@ from app.schemas import (
     RunOut,
     RunPatch,
     RetryRunRequest,
+    SecretRotateRequest,
+    SecretRotateResult,
     SettingsPatch,
     StartRunRequest,
     WorkflowIn,
@@ -545,6 +547,32 @@ def restore_backup(payload: BackupRestoreRequest) -> dict[str, Any]:
         "source_path": source_path,
         "merge": merge,
         "restored_at": utc_now_iso(),
+    }
+
+
+@app.post(
+    "/api/v1/admin/secrets/rotate",
+    response_model=SecretRotateResult,
+    tags=["admin"],
+)
+def rotate_secrets(payload: SecretRotateRequest) -> dict[str, Any]:
+    new_key_material = str(payload.new_key_material or "").strip()
+    if not new_key_material:
+        raise HTTPException(status_code=400, detail="new_key_material is required")
+    try:
+        rotated_counts = store.rotate_secret_encryption(new_key_material)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to rotate secrets: {error}",
+        ) from error
+    return {
+        "rotated_counts": rotated_counts,
+        "rotated_at": utc_now_iso(),
     }
 
 

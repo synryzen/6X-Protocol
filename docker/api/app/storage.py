@@ -462,6 +462,28 @@ class JsonStore:
             merged[item_id] = dict(item)
         return [merged[item_id] for item_id in order if item_id in merged]
 
+    def rotate_secret_encryption(self, new_key_material: str) -> dict[str, int]:
+        new_key = str(new_key_material or "").strip()
+        if not new_key:
+            raise ValueError("new_key_material is required")
+
+        settings = self.load_settings({})
+        integrations = self.load_integrations()
+        if SecretManager.contains_encrypted_payload(settings) or SecretManager.contains_encrypted_payload(
+            integrations
+        ):
+            raise ValueError(
+                "Cannot rotate secrets: existing encrypted values could not be decrypted with current key."
+            )
+
+        self.secrets = SecretManager(new_key)
+        self.save_settings(settings)
+        self.save_integrations(integrations)
+        return {
+            "settings": 1,
+            "integration_profiles": len(integrations),
+        }
+
     def load_workflows(self) -> list[dict[str, Any]]:
         data = self._read_json("workflows.json", [])
         return self._sanitize_workflows_v2(data)
