@@ -50,6 +50,13 @@ Artifacts are written to `dist/`.
 This validates compile/tests, runs Docker/web smoke when Docker+`jq` are available,
 and produces package artifacts with checksums.
 
+## 4c) Run GitHub Finalize Helper (Recommended)
+```bash
+./scripts/github_finalize.sh
+```
+This prints repo/pages/actions/release URLs, branch + clean-tree checks, and the
+exact tag commands for the version in `VERSION`.
+
 ## 5) Recommended Repo Settings
 ### Branch Protection (Strongly Recommended)
 Use `Settings` -> `Rules` -> `Rulesets` -> `New ruleset` (or branch protection rule on `main`):

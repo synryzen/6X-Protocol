@@ -134,7 +134,7 @@ See:
 - Web graph editor now includes an interactive visual stage with draggable node cards, live SVG links, direct wire-drag linking (output port -> input port), click-to-edit selection sync, auto-arrange, and fit-view actions
 - Web settings panel includes local/cloud AI fields, theme controls, automation defaults, minimap placement persistence, and reset-to-default action
 - Optional Docker API auth baseline is live (`API_AUTH_TOKEN`, `X-6X-API-Key`, or Bearer token), with web token input support
-- Smoke test validated (March 22, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, timeline/log filters, integrations, bots, and settings patch flows
+- Smoke test validated (March 24, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, timeline/log filters, integrations, bots, and settings patch flows
 
 Self-hosted web preview status: **Live and smoke-validated**.
 
@@ -173,6 +173,7 @@ Run compile/tests + optional Docker smoke + package artifacts in one command:
 Useful flags:
 - `SKIP_DOCKER_SMOKE=1 ./scripts/release_readiness.sh`
 - `REQUIRE_DOCKER_SMOKE=1 ./scripts/release_readiness.sh`
+- `./scripts/github_finalize.sh`
 - `./scripts/launch_metrics_add.py --posts 2 --clicks 140 --downloads 51 --stars 11 --channel-focus "Launch"`
 - `./scripts/launch_metrics_daily.sh`
 - `./scripts/launch_metrics_sync_github.py --mode set`

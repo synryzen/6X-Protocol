@@ -43,7 +43,7 @@ Use this checklist when you are ready to publicly announce the project.
 - Validate compose stack before announcement:
   - `./scripts/test_docker_web.sh`
 - Confirm these URLs work when stack is up:
-  - Web UI: `http://localhost:8080`
+  - Web UI: `http://localhost:3000`
   - API docs: `http://localhost:8787/docs`
 
 ## 6. Public Messaging
