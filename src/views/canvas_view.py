@@ -9350,6 +9350,12 @@ class CanvasView(Gtk.Box):
         if active_driver not in {"node", "stage"}:
             return
 
+        if active_driver == "node":
+            # Node-level drag update callbacks are authoritative for node-owned
+            # drags. Applying stage-motion fallback in parallel can produce
+            # duplicate position updates that look like jitter/flicker.
+            return
+
         if active_driver == "stage":
             stage_node_id = str(getattr(self, "stage_drag_node_id", "") or "").strip()
             if stage_node_id and stage_node_id != active_node_id:

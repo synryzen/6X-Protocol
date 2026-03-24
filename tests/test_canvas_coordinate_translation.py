@@ -562,7 +562,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertIsNotNone(hit)
         self.assertEqual("n1", hit.id if hit else "")
 
-    def test_stage_pointer_motion_applies_fallback_for_node_owned_drag_driver(self):
+    def test_stage_pointer_motion_skips_fallback_for_node_owned_drag_driver(self):
         self.view.port_drag_active = False
         self.view.node_drag_active = True
         self.view.node_drag_driver = "node"
@@ -580,7 +580,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
         self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
 
-        self.assertEqual([("n1", 440.0, 320.0, False)], calls)
+        self.assertEqual([], calls)
 
     def test_stage_pointer_motion_resolves_scrolled_stage_coordinates(self):
         self.view.port_drag_active = False
@@ -652,6 +652,25 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         )
         controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
         self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
+
+        self.assertEqual([], calls)
+
+    def test_stage_pointer_motion_does_not_apply_node_driver_fallback_when_not_recent(self):
+        self.view.port_drag_active = False
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "node"
+        self.view.drag_origin = {"node_id": "n1"}
+        self.view.node_drag_last_activity_monotonic = time.monotonic() - 0.4
+        self.view.is_node_drag_stale = lambda: False
+        calls: list[tuple[str, float, float, bool]] = []
+        self.view.apply_active_node_drag_position = (
+            lambda node_id, x, y, live_snap_enabled=False: calls.append(
+                (node_id, float(x), float(y), bool(live_snap_enabled))
+            )
+        )
+
+        controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
+        self.view.on_stage_pointer_motion(controller, 410.0, 300.0)
 
         self.assertEqual([], calls)
 
