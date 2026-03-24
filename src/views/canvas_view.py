@@ -9330,15 +9330,20 @@ class CanvasView(Gtk.Box):
         active_node_id = str(self.drag_origin.get("node_id", "")).strip()
         if not active_node_id:
             return
-        if self.node_drag_driver == "stage" and getattr(self, "stage_drag_node_id", None):
-            # Stage-driven drags already receive updates from the drag controller.
-            # Motion-controller updates here would duplicate those updates and can
-            # produce visible node shake/jitter.
+        active_driver = str(self.node_drag_driver or "node").strip().lower() or "node"
+        if active_driver not in {"node", "stage"}:
             return
 
-        # Avoid mixed drag drivers: node-owned drag updates and stage motion updates
-        # should never both try to reposition the same node, otherwise jitter occurs.
-        if self.node_drag_driver and self.node_drag_driver != "stage":
+        if active_driver == "stage":
+            stage_node_id = str(getattr(self, "stage_drag_node_id", "") or "").strip()
+            if stage_node_id and stage_node_id != active_node_id:
+                return
+
+        # Node/stage drag-update callbacks are the preferred source of motion. Keep
+        # this motion-controller path as a fallback when those callbacks are delayed.
+        # Throttling avoids duplicate updates that can cause visible jitter.
+        last_activity = float(self.node_drag_last_activity_monotonic or 0.0)
+        if last_activity > 0.0 and (time.monotonic() - last_activity) < 0.02:
             return
 
         drag_reference = self.node_drag_last_pointer_stage

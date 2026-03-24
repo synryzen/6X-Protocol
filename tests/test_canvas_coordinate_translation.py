@@ -463,12 +463,13 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertIsNotNone(hit)
         self.assertEqual("n1", hit.id if hit else "")
 
-    def test_stage_pointer_motion_ignores_node_owned_drag_driver(self):
+    def test_stage_pointer_motion_applies_fallback_for_node_owned_drag_driver(self):
         self.view.port_drag_active = False
         self.view.node_drag_active = True
         self.view.node_drag_driver = "node"
         self.view.drag_origin = {"node_id": "n1"}
         self.view.node_drag_last_activity_monotonic = time.monotonic() - 0.2
+        self.view.resolve_stage_motion_point = lambda x, y, reference=None: (float(x), float(y))
         self.view.is_node_drag_stale = lambda: False
         calls: list[tuple[str, float, float, bool]] = []
 
@@ -480,7 +481,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
         self.view.on_stage_pointer_motion(controller, 440.0, 320.0)
 
-        self.assertEqual([], calls)
+        self.assertEqual([("n1", 440.0, 320.0, False)], calls)
 
     def test_stage_pointer_motion_resolves_scrolled_stage_coordinates(self):
         self.view.port_drag_active = False
@@ -491,6 +492,8 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
             "pointer_stage_x": 340.0,
             "pointer_stage_y": 280.0,
         }
+        self.view.stage_drag_node_id = "n1"
+        self.view.node_drag_last_activity_monotonic = time.monotonic() - 0.2
         self.view.node_drag_last_pointer_stage = (340.0, 280.0)
         self.view.canvas_scroll = _FakeScroll(100, 50)
         self.view.is_node_drag_stale = lambda: False
@@ -509,7 +512,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         # to stage coordinates near previous drag pointer (360,280).
         self.assertEqual(("n1", 360.0, 280.0, False), calls[0])
 
-    def test_stage_pointer_motion_skips_when_stage_drag_update_is_active(self):
+    def test_stage_pointer_motion_applies_fallback_for_stage_drag_driver(self):
         self.view.port_drag_active = False
         self.view.node_drag_active = True
         self.view.node_drag_driver = "stage"
@@ -519,6 +522,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
             "pointer_stage_x": 340.0,
             "pointer_stage_y": 280.0,
         }
+        self.view.node_drag_last_activity_monotonic = time.monotonic() - 0.2
         self.view.node_drag_last_pointer_stage = (340.0, 280.0)
         self.view.is_node_drag_stale = lambda: False
         calls: list[tuple[str, float, float, bool]] = []
@@ -531,7 +535,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         controller = _FakeDragGesture(object(), state=Gdk.ModifierType.BUTTON1_MASK)
         self.view.on_stage_pointer_motion(controller, 260.0, 230.0)
 
-        self.assertEqual([], calls)
+        self.assertEqual([("n1", 260.0, 230.0, False)], calls)
 
     def test_stage_pointer_motion_does_not_duplicate_recent_node_drag_updates(self):
         self.view.port_drag_active = False
