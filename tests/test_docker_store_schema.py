@@ -1,12 +1,16 @@
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+import sys
 
 
 def load_storage_module():
     repo_root = Path(__file__).resolve().parents[1]
+    api_root = repo_root / "docker" / "api"
+    sys.path.insert(0, str(api_root))
     storage_path = repo_root / "docker" / "api" / "app" / "storage.py"
     spec = importlib.util.spec_from_file_location("docker_api_storage", storage_path)
     if spec is None or spec.loader is None:
@@ -23,6 +27,7 @@ class DockerStoreSchemaTests(unittest.TestCase):
         self.data_dir = Path(self.temp_dir.name)
 
     def tearDown(self):
+        os.environ.pop("SECRET_ENCRYPTION_KEY", None)
         self.temp_dir.cleanup()
 
     def _write_json(self, name: str, payload):
@@ -210,6 +215,61 @@ class DockerStoreSchemaTests(unittest.TestCase):
         self.assertIn("wf_new", workflows)
         self.assertEqual("Keep Me Updated", workflows["wf_keep"]["name"])
         self.assertEqual("active", workflows["wf_keep"]["status"])
+
+    def test_secret_encryption_for_settings_and_integrations(self):
+        try:
+            import cryptography  # noqa: F401
+        except Exception:
+            self.skipTest("cryptography not available in local test environment")
+
+        os.environ["SECRET_ENCRYPTION_KEY"] = "test-hardening-key"
+        store = self.module.JsonStore(data_dir=str(self.data_dir))
+
+        store.save_settings(
+            {
+                "openai_api_key": "sk-secret-openai",
+                "anthropic_api_key": "sk-ant-secret",
+                "local_ai_api_key": "local-token",
+                "theme": "dark",
+            }
+        )
+        raw_settings = self._read_json("settings.json")
+        self.assertTrue(str(raw_settings.get("openai_api_key", "")).startswith("enc:v1:"))
+        self.assertNotEqual("sk-secret-openai", raw_settings.get("openai_api_key"))
+
+        loaded_settings = store.load_settings({})
+        self.assertEqual("sk-secret-openai", loaded_settings.get("openai_api_key"))
+        self.assertEqual("sk-ant-secret", loaded_settings.get("anthropic_api_key"))
+        self.assertEqual("local-token", loaded_settings.get("local_ai_api_key"))
+
+        store.save_integrations(
+            [
+                {
+                    "id": "i1",
+                    "key": "http_request",
+                    "name": "Secure Profile",
+                    "description": "",
+                    "config": {
+                        "api_key": "integration-secret",
+                        "url": "https://example.com",
+                        "headers": {"Authorization": "Bearer abc"},
+                    },
+                    "enabled": True,
+                    "tags": [],
+                    "created_at": "2026-03-24T00:00:00+00:00",
+                    "updated_at": "2026-03-24T00:00:00+00:00",
+                }
+            ]
+        )
+        raw_integrations = self._read_json("integrations.json")
+        raw_config = raw_integrations[0]["config"]
+        self.assertTrue(str(raw_config.get("api_key", "")).startswith("enc:v1:"))
+        self.assertTrue(
+            str(raw_config.get("headers", {}).get("Authorization", "")).startswith("enc:v1:")
+        )
+        loaded_integrations = store.load_integrations()
+        self.assertEqual("integration-secret", loaded_integrations[0]["config"]["api_key"])
+        self.assertEqual("Bearer abc", loaded_integrations[0]["config"]["headers"]["Authorization"])
 
 
 if __name__ == "__main__":

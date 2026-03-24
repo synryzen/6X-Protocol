@@ -59,6 +59,13 @@ Optional API auth baseline:
   - `Authorization: Bearer <token>`
 - The web dashboard now includes an API token field in the top bar and sends `X-6X-API-Key` when set.
 
+Optional secret encryption baseline:
+- Set `SECRET_ENCRYPTION_KEY` in `docker/.env` to encrypt sensitive settings/integration fields at rest.
+- Supported formats:
+  - plain passphrase (derived server-side to a Fernet key)
+  - `fernet:<base64-urlsafe-32-byte-key>`
+- Encrypted values are stored with prefix `enc:v1:` in JSON files and transparently decrypted by the API at runtime.
+
 Storage schema baseline:
 - JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
 - Migration history is recorded in `/data/6x-protocol/schema_migrations.json`.

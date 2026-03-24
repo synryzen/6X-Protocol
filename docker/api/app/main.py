@@ -403,6 +403,7 @@ def meta() -> dict[str, str]:
         "data_dir": str(store.data_dir),
         "store_schema_version": str(getattr(store, "schema_version", "")),
         "auth_enabled": "true" if bool(API_AUTH_TOKEN) else "false",
+        "secret_encryption_enabled": "true" if bool(getattr(store.secrets, "enabled", False)) else "false",
     }
 
 

@@ -37,6 +37,10 @@ API_AUTH_TOKEN_VALUE="${API_AUTH_TOKEN:-}"
 if [[ -z "${API_AUTH_TOKEN_VALUE}" ]] && [[ -f .env ]]; then
   API_AUTH_TOKEN_VALUE="$(grep -E '^API_AUTH_TOKEN=' .env | tail -n 1 | cut -d '=' -f2- | tr -d '\r' || true)"
 fi
+SECRET_ENCRYPTION_KEY_VALUE="${SECRET_ENCRYPTION_KEY:-}"
+if [[ -z "${SECRET_ENCRYPTION_KEY_VALUE}" ]] && [[ -f .env ]]; then
+  SECRET_ENCRYPTION_KEY_VALUE="$(grep -E '^SECRET_ENCRYPTION_KEY=' .env | tail -n 1 | cut -d '=' -f2- | tr -d '\r' || true)"
+fi
 
 CURL_BASE_ARGS=(-fsS)
 if [[ -n "${API_AUTH_TOKEN_VALUE}" ]]; then
@@ -421,10 +425,20 @@ curl_api -X DELETE "http://127.0.0.1:8787/api/v1/bots/$BOT_ID" | jq .
 echo "[12/12] Patching settings and run status..."
 curl_api -X PATCH http://127.0.0.1:8787/api/v1/settings \
   -H 'Content-Type: application/json' \
-  -d '{"theme":"dark","ui_density":"compact","preferred_provider":"local"}' | jq .
+  -d '{"theme":"dark","ui_density":"compact","preferred_provider":"local","openai_api_key":"smoke-openai-secret"}' | jq .
 
 curl_api -X PATCH "http://127.0.0.1:8787/api/v1/runs/$RETRY_RUN_ID" \
   -H 'Content-Type: application/json' \
   -d '{"status":"success","log":"Smoke test completed"}' | jq .
+
+if [[ -n "${SECRET_ENCRYPTION_KEY_VALUE}" ]]; then
+  echo "[12/12] Validating at-rest secret encryption..."
+  docker exec 6xp-api python -c "import json,sys; p='/data/6x-protocol/settings.json'; d=json.load(open(p,'r',encoding='utf-8')); v=str(d.get('openai_api_key','')); sys.exit(0 if v.startswith('enc:v1:') else 1)"
+  SETTINGS_JSON="$(curl_api http://127.0.0.1:8787/api/v1/settings)"
+  if [[ "$(echo "$SETTINGS_JSON" | jq -r '.openai_api_key')" != "smoke-openai-secret" ]]; then
+    echo "Expected API to return decrypted openai_api_key when SECRET_ENCRYPTION_KEY is set."
+    exit 1
+  fi
+fi
 
 echo "Smoke test passed."

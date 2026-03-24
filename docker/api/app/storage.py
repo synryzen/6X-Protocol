@@ -13,6 +13,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from app.secret_manager import SecretManager
+
 STORE_SCHEMA_VERSION = 2
 
 
@@ -22,6 +24,7 @@ class JsonStore:
         self.data_dir = Path(data_dir or os.getenv("SCAFFOLD_DATA_DIR") or default_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
+        self.secrets = SecretManager(str(os.getenv("SECRET_ENCRYPTION_KEY", "") or ""))
         self.schema_version = STORE_SCHEMA_VERSION
         self.ensure_schema()
 
@@ -477,19 +480,24 @@ class JsonStore:
         data = self._read_json("settings.json", defaults)
         if not isinstance(data, dict):
             return dict(defaults)
+        data = self.secrets.decrypt_settings(data)
         merged = dict(defaults)
         merged.update(data)
         return merged
 
     def save_settings(self, settings: dict[str, Any]) -> None:
-        self._write_json("settings.json", settings)
+        encrypted = self.secrets.encrypt_settings(settings if isinstance(settings, dict) else {})
+        self._write_json("settings.json", encrypted)
 
     def load_integrations(self) -> list[dict[str, Any]]:
         data = self._read_json("integrations.json", [])
-        return self._sanitize_integrations_v2(data)
+        sanitized = self._sanitize_integrations_v2(data)
+        return self.secrets.decrypt_integration_profiles(sanitized)
 
     def save_integrations(self, integrations: list[dict[str, Any]]) -> None:
-        self._write_json("integrations.json", integrations)
+        sanitized = self._sanitize_integrations_v2(integrations)
+        encrypted = self.secrets.encrypt_integration_profiles(sanitized)
+        self._write_json("integrations.json", encrypted)
 
     def default_integration_bundle_path(self) -> Path:
         return self.data_dir / "integration-profiles-bundle.json"

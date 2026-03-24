@@ -132,7 +132,8 @@
             <li>Settings panel now covers local backend + key fields, cloud API keys, local runtime toggle, theme controls, automation defaults, minimap placement persistence, and reset defaults.</li>
             <li>Admin backup/restore endpoints are live (`/api/v1/admin/backup`, `/api/v1/admin/restore`).</li>
             <li>Observability endpoints are live (`/api/v1/observability/summary`, `/api/v1/observability/runs`).</li>
-            <li>Next for GA: production frontend hardening, expanded migrations, and stronger secrets controls.</li>
+            <li>Optional secrets-at-rest encryption is live via `SECRET_ENCRYPTION_KEY`.</li>
+            <li>Next for GA: production frontend hardening, expanded migrations, and secrets rotation controls.</li>
           </ul>
         </article>
         <article class="status-card">
@@ -296,7 +297,7 @@ flatpak run com.sixxprotocol.studio</code></pre>
           <h3>Next</h3>
           <ul class="roadmap-list">
             <li>Web UI expansion: workflows view, run timeline, settings parity.</li>
-            <li>Server hardening: migration expansion, secrets lifecycle, image/version governance.</li>
+            <li>Server hardening: migration expansion, secrets rotation lifecycle, image/version governance.</li>
             <li>Connector behavior parity and node-level test UX in web client.</li>
           </ul>
         </article>
