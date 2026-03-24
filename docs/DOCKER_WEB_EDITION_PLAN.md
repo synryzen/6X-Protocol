@@ -66,7 +66,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Workflow list/editor parity
 - [x] Runs timeline parity
 - [x] Settings parity
-- [ ] Production web canvas builder
+- [x] Production-capable web canvas builder baseline (visual stage + drag/link/edit controls)
 
 ### M4: Compose quality and docs
 - [x] Official `docker-compose.web.yml`
@@ -113,9 +113,10 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Docker API now supports optional auth guardrails via `API_AUTH_TOKEN` (`X-6X-API-Key` or Bearer token), with health endpoints exempt for liveness checks.
 - Web preview top bar now supports saving/using API auth tokens for secured self-hosted deployments.
 - Docker JSON storage now writes schema metadata and migration history (`schema_meta.json`, `schema_migrations.json`) and normalizes legacy payloads during boot.
+- Onboarding docs are now published for quick start, first workflow tutorial, and post-launch community loop.
 
-## Remaining To Reach First Public Web Beta
-1. Replace web preview dashboard with production web UI modules.
+## Next To Reach GA (Post-Beta)
+1. Expand web panel modules to full parity UX beyond beta control room.
 2. Expand migration/versioned persistence workflow toward relational DB backends.
 3. Expand secrets baseline and rotation workflows.
 4. Expand integration profile UX toward full connector-field parity with desktop editor.

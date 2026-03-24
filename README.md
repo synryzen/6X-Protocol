@@ -71,9 +71,9 @@ User data is stored under:
 `~/.local/share/6x-protocol-studio/`
 
 ## Product Site / GitHub Page
-The project page content is in [`docs/index.html`](docs/index.html) and auto-deploys via GitHub Actions when Pages is enabled.
+The project page content is in [`docs/index.html`](docs/index.html) and auto-deploys via GitHub Actions.
 
-Planned Pages URL:
+Live Pages URL:
 `https://synryzen.github.io/6X-Protocol/`
 
 ## Creator + Support
@@ -119,6 +119,10 @@ See:
 - Launch metrics interactive wrapper: [`scripts/launch_metrics_daily.sh`](scripts/launch_metrics_daily.sh)
 - Launch metrics GitHub sync: [`scripts/launch_metrics_sync_github.py`](scripts/launch_metrics_sync_github.py)
 - Launch metrics summary script: [`scripts/launch_metrics_summary.py`](scripts/launch_metrics_summary.py)
+- Onboarding quick start: [`docs/ONBOARDING_QUICKSTART.md`](docs/ONBOARDING_QUICKSTART.md)
+- First workflow tutorial: [`docs/TUTORIAL_FIRST_WORKFLOW.md`](docs/TUTORIAL_FIRST_WORKFLOW.md)
+- Community growth loop: [`docs/COMMUNITY_GROWTH_LOOP.md`](docs/COMMUNITY_GROWTH_LOOP.md)
+- Packaging/docs QA report: [`docs/PACKAGING_QA_REPORT_2026-03-24.md`](docs/PACKAGING_QA_REPORT_2026-03-24.md)
 - Latest release notes: [`docs/RELEASE_NOTES_v0.1.9.md`](docs/RELEASE_NOTES_v0.1.9.md)
 - Announcement copy kit: [`docs/ANNOUNCEMENT_KIT_v0.1.9.md`](docs/ANNOUNCEMENT_KIT_v0.1.9.md)
 - Technical announcement variants: [`docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.9.md`](docs/ANNOUNCEMENT_KIT_TECHNICAL_v0.1.9.md)
@@ -138,8 +142,8 @@ See:
 
 Self-hosted web status: **Live public beta and smoke-validated**.
 
-Remaining high-value items:
-- Expand the web panel from beta control-room UX to full production parity modules.
+Next high-value items toward GA:
+- Expand web panel from beta control-room UX to full production parity modules.
 - Expand migration strategy from JSON baseline to relational DB workflows.
 - Expand secrets hardening baseline for team/hosted deployment paths.
 

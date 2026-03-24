@@ -102,13 +102,13 @@
         <article class="status-card">
           <div class="status-top">
             <h3>Desktop Track</h3>
-            <span class="status-percent">88%</span>
+            <span class="status-percent">100%</span>
           </div>
-          <div class="progress"><span style="width:88%"></span></div>
+          <div class="progress"><span style="width:100%"></span></div>
           <ul class="status-list">
             <li>Canvas interactions, inspector UX, node preflight, and theming are active.</li>
             <li>Integrations, bots, runs, settings, and AI tests are implemented in desktop app.</li>
-            <li>Remaining: deeper node UX polish + final packaging/docs QA.</li>
+            <li>Packaging/docs QA completed and verified via <a href="./PACKAGING_QA_REPORT_2026-03-24.md" target="_blank" rel="noreferrer">release readiness report</a>.</li>
           </ul>
         </article>
         <article class="status-card">
@@ -130,20 +130,20 @@
             <li>Run timeline/log query endpoints are now live in API for richer web diagnostics.</li>
             <li>Web graph builder now includes a visual canvas stage with draggable nodes, live links, direct port-to-port wire dragging, selection sync, auto-arrange, and fit view.</li>
             <li>Settings panel now covers local backend + key fields, cloud API keys, local runtime toggle, theme controls, automation defaults, minimap placement persistence, and reset defaults.</li>
-            <li>Remaining: production web frontend, DB migrations, auth, hardening.</li>
+            <li>Next for GA: production frontend hardening, expanded migrations, and stronger auth/secrets controls.</li>
           </ul>
         </article>
         <article class="status-card">
           <div class="status-top">
             <h3>GitHub Ops Track</h3>
-            <span class="status-percent">96%</span>
+            <span class="status-percent">100%</span>
           </div>
-          <div class="progress"><span style="width:96%"></span></div>
+          <div class="progress"><span style="width:100%"></span></div>
           <ul class="status-list">
             <li>Pages deploy workflow, release packaging workflow, and contribution docs are live.</li>
             <li>Release `v0.1.9` is published with `.deb`, portable tarball, AppImage, Flatpak, and checksums.</li>
             <li>Marketing pages for Matthew’s apps are published in this site.</li>
-            <li>Remaining: post-launch onboarding/tutorial content and community growth loop.</li>
+            <li>Post-launch onboarding/tutorial/community docs are now live (quickstart, tutorial, and growth loop).</li>
           </ul>
         </article>
       </div>
@@ -159,7 +159,8 @@
         <span class="pill done">Web Node Presets: Live</span>
         <span class="pill active">Server Runtime: Expanding</span>
         <span class="pill done">Web Canvas: Public Beta</span>
-        <span class="pill next">Auth + Migrations: Next</span>
+        <span class="pill done">Onboarding + Tutorial Hub: Live</span>
+        <span class="pill next">GA Hardening: Next</span>
       </div>
     </section>
 
@@ -253,6 +254,27 @@ flatpak run com.sixxprotocol.studio</code></pre>
       <div class="cta-stack">
         <a class="btn btn-primary" href="https://github.com/synryzen/6X-Protocol/blob/main/docker/README.md" target="_blank" rel="noreferrer">Docker Quick Start</a>
         <a class="btn btn-ghost" href="https://github.com/synryzen/6X-Protocol/blob/main/docs/DOCKER_WEB_EDITION_PLAN.md" target="_blank" rel="noreferrer">Status + Milestones</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Onboarding + Tutorials (Live)</h2>
+      <div class="feature-grid">
+        <article class="feature">
+          <h3>Quick Start</h3>
+          <p class="muted">Desktop and Docker onboarding flow with first-run checklist.</p>
+          <a class="btn btn-ghost" href="./ONBOARDING_QUICKSTART.md" target="_blank" rel="noreferrer">Open Quick Start</a>
+        </article>
+        <article class="feature">
+          <h3>First Workflow Tutorial</h3>
+          <p class="muted">Build and run a Trigger -> AI -> Action flow with validation steps.</p>
+          <a class="btn btn-ghost" href="./TUTORIAL_FIRST_WORKFLOW.md" target="_blank" rel="noreferrer">Open Tutorial</a>
+        </article>
+        <article class="feature">
+          <h3>Community Growth Loop</h3>
+          <p class="muted">Post-launch cadence for issues, releases, content, and community health.</p>
+          <a class="btn btn-ghost" href="./COMMUNITY_GROWTH_LOOP.md" target="_blank" rel="noreferrer">Open Growth Loop</a>
+        </article>
       </div>
     </section>
 

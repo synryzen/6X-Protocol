@@ -63,3 +63,14 @@ Use this checklist when you are ready to publicly announce the project.
 - Label and triage incoming bugs quickly.
 - Pin a “Getting Started” issue for new users.
 - Publish a short patch release fast if startup/canvas issues are reported.
+
+## 8. Onboarding + Growth Assets (Live)
+- Keep these docs linked from README and Pages:
+  - `docs/ONBOARDING_QUICKSTART.md`
+  - `docs/TUTORIAL_FIRST_WORKFLOW.md`
+  - `docs/COMMUNITY_GROWTH_LOOP.md`
+  - `docs/PACKAGING_QA_REPORT_2026-03-24.md`
+- Update onboarding/tutorial screenshots when major UI flows change.
+- Refresh growth loop metrics weekly using:
+  - `./scripts/launch_metrics_daily.sh`
+  - `./scripts/launch_metrics_summary.py --markdown`
