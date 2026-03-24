@@ -296,7 +296,7 @@ p {
 
 .app-screenshot-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
 }
 
@@ -308,10 +308,24 @@ p {
   background: rgba(11, 22, 41, 0.8);
 }
 
+.app-screenshot-card a {
+  display: block;
+}
+
 .app-screenshot-card img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 460px;
+  object-fit: contain;
+  background: rgba(4, 10, 24, 0.94);
+}
+
+.app-screenshot-card figcaption {
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  color: #cfdaf2;
+  border-top: 1px solid rgba(141, 189, 255, 0.2);
+  background: rgba(8, 16, 32, 0.75);
 }
 
 .app-links {
@@ -323,13 +337,28 @@ p {
 .app-link-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   padding: 10px;
   border-radius: 10px;
   border: 1px solid rgba(141, 189, 255, 0.28);
   background: rgba(20, 40, 70, 0.75);
   text-decoration: none;
   color: #e9f2ff;
+}
+
+.app-link-preview {
+  border-radius: 8px;
+  border: 1px solid rgba(141, 189, 255, 0.24);
+  background: rgba(5, 12, 26, 0.9);
+  overflow: hidden;
+}
+
+.app-link-preview img {
+  width: 100%;
+  height: 220px;
+  object-fit: contain;
+  display: block;
+  background: rgba(4, 10, 24, 0.95);
 }
 
 .app-link-card:hover {
