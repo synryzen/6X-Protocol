@@ -118,6 +118,24 @@ class CanvasView(Gtk.Box):
         "redis_command",
         "s3_cli",
     }
+    ACTION_EXECUTION_PROFILE_OVERRIDES = {
+        "approval_gate": {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 0.0},
+        "http_request": {"retry_max": 2.0, "retry_backoff_ms": 260.0, "timeout_sec": 50.0},
+        "http_post": {"retry_max": 2.0, "retry_backoff_ms": 260.0, "timeout_sec": 50.0},
+        "openrouter_api": {"retry_max": 2.0, "retry_backoff_ms": 360.0, "timeout_sec": 95.0},
+        "gmail_send": {"retry_max": 1.0, "retry_backoff_ms": 320.0, "timeout_sec": 70.0},
+        "resend_email": {"retry_max": 1.0, "retry_backoff_ms": 280.0, "timeout_sec": 55.0},
+        "mailgun_email": {"retry_max": 1.0, "retry_backoff_ms": 280.0, "timeout_sec": 55.0},
+        "google_calendar_api": {"retry_max": 1.0, "retry_backoff_ms": 300.0, "timeout_sec": 65.0},
+        "outlook_graph": {"retry_max": 1.0, "retry_backoff_ms": 320.0, "timeout_sec": 70.0},
+        "shell_command": {"retry_max": 1.0, "retry_backoff_ms": 420.0, "timeout_sec": 130.0},
+        "s3_cli": {"retry_max": 1.0, "retry_backoff_ms": 480.0, "timeout_sec": 160.0},
+        "postgres_sql": {"retry_max": 1.0, "retry_backoff_ms": 500.0, "timeout_sec": 130.0},
+        "mysql_sql": {"retry_max": 1.0, "retry_backoff_ms": 500.0, "timeout_sec": 130.0},
+        "sqlite_sql": {"retry_max": 1.0, "retry_backoff_ms": 350.0, "timeout_sec": 95.0},
+        "redis_command": {"retry_max": 1.0, "retry_backoff_ms": 220.0, "timeout_sec": 35.0},
+        "openweather_current": {"retry_max": 1.0, "retry_backoff_ms": 180.0, "timeout_sec": 18.0},
+    }
     ACTION_CREDENTIAL_FIELDS = {
         "api_key",
         "auth_token",
@@ -4306,9 +4324,13 @@ class CanvasView(Gtk.Box):
         key = str(integration).strip().lower()
         if key == "approval_gate":
             return "approval"
-        if key in self.ACTION_FAST_INTEGRATIONS:
+        profile = self.node_execution_profile("Action", key)
+        timeout_sec = float(profile.get("timeout_sec", 45.0))
+        retry_max = int(profile.get("retry_max", 1.0))
+        backoff_ms = int(profile.get("retry_backoff_ms", 250.0))
+        if timeout_sec <= 30.0 and retry_max <= 1 and backoff_ms <= 220:
             return "fast"
-        if key in self.ACTION_HEAVY_INTEGRATIONS:
+        if timeout_sec >= 95.0 or backoff_ms >= 420 or retry_max >= 2:
             return "heavy"
         return "standard"
 
@@ -4597,8 +4619,9 @@ class CanvasView(Gtk.Box):
         if node_key == "ai":
             return {"retry_max": 1.0, "retry_backoff_ms": 300.0, "timeout_sec": 120.0}
         if node_key in {"action", "template"}:
-            if target == "approval_gate":
-                return {"retry_max": 0.0, "retry_backoff_ms": 0.0, "timeout_sec": 0.0}
+            override = self.ACTION_EXECUTION_PROFILE_OVERRIDES.get(target)
+            if override:
+                return dict(override)
             if target in self.ACTION_FAST_INTEGRATIONS:
                 return {"retry_max": 1.0, "retry_backoff_ms": 200.0, "timeout_sec": 25.0}
             if target in self.ACTION_HEAVY_INTEGRATIONS:

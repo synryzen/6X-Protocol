@@ -658,6 +658,25 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
 
         self.assertEqual([("n1", 250.0, 312.0, True)], calls)
 
+    def test_node_execution_profile_uses_action_override_for_http_request(self):
+        profile = self.view.node_execution_profile("Action", "http_request")
+        self.assertEqual(
+            {"retry_max": 2.0, "retry_backoff_ms": 260.0, "timeout_sec": 50.0},
+            profile,
+        )
+
+    def test_node_execution_profile_uses_action_override_for_shell_command(self):
+        profile = self.view.node_execution_profile("Action", "shell_command")
+        self.assertEqual(
+            {"retry_max": 1.0, "retry_backoff_ms": 420.0, "timeout_sec": 130.0},
+            profile,
+        )
+
+    def test_action_execution_class_uses_profile_thresholds(self):
+        self.assertEqual("fast", self.view.action_execution_class("openweather_current"))
+        self.assertEqual("standard", self.view.action_execution_class("gmail_send"))
+        self.assertEqual("heavy", self.view.action_execution_class("shell_command"))
+
     def test_canvas_stage_click_retries_hit_with_observed_stage_point(self):
         self.view.STAGE_WIDTH = 4000
         self.view.STAGE_HEIGHT = 2400
