@@ -31,8 +31,8 @@ Use this checklist when you are ready to publicly announce the project.
 - Build artifacts:
   - `./scripts/build_packages.sh`
 - Create tag and release (example):
-  - Tag: `v0.1.7` (or next version)
-  - Title: `6X-Protocol Studio v0.1.7`
+  - Tag: `v0.1.8` (or next version)
+  - Title: `6X-Protocol Studio v0.1.8`
 - Upload `dist/*` artifacts to the release:
   - `.deb`
   - portable `.tar.gz`

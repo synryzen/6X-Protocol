@@ -161,6 +161,22 @@ All notable changes to this project are documented here.
   and integration profile create/test/delete lifecycle.
 - README Docker progress updated to reflect active preview completion at ~84%.
 
+## [0.1.8] - 2026-03-24
+### Added
+- Docker API workflow preflight endpoint: `POST /api/v1/workflows/{id}/preflight`.
+- Release helper script `scripts/github_finalize.sh` to validate repo/pages/action
+  status and print exact tag/publish commands from `VERSION`.
+- v0.1.8 release docs set (`RELEASE_NOTES`, announcement kits, and launch calendar).
+
+### Changed
+- Canvas drag ownership hardened to prevent mixed stage/node drag updates that
+  caused node shake/flicker on some GTK environments.
+- Canvas sidebar mode handling now preserves inspector scroll position and only
+  resets to top when switching between workflow-mode and node-mode.
+- Docker web preflight action now prefers server-side validation with automatic
+  local fallback.
+- Core docs/site links and package commands updated for `v0.1.8`.
+
 ## [0.1.7] - 2026-03-23
 ### Added
 - Public launch checklist for app + Docker publishing, including preflight,
