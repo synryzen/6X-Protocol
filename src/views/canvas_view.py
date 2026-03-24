@@ -2130,9 +2130,16 @@ class CanvasView(Gtk.Box):
                 # a matching drag-end event on some GTK stacks.
                 self.reset_node_drag_state()
             elif self.node_drag_driver == "node" and self.drag_origin:
-                # A node-level drag gesture already owns this pointer sequence.
-                # Do not let stage fallback cancel the active node drag.
-                return
+                # If node drag activity is extremely recent, this stage callback is
+                # part of the same gesture sequence and should not start a second
+                # drag path. Otherwise recover so fresh drags cannot be blocked by
+                # a lingering node-drag state.
+                last_activity = float(
+                    getattr(self, "node_drag_last_activity_monotonic", 0.0) or 0.0
+                )
+                if last_activity > 0.0 and (time.monotonic() - last_activity) < 0.12:
+                    return
+                self.reset_node_drag_state()
             else:
                 self.reset_node_drag_state()
         if self.port_drag_active:
@@ -9059,6 +9066,9 @@ class CanvasView(Gtk.Box):
 
     def on_node_pressed(self, gesture: Gtk.GestureClick, _n_press, _x, _y, node_id: str):
         self.grab_focus()
+        # Guard against stage-click deselection races on some GTK stacks where both
+        # node and stage click handlers can observe the same release sequence.
+        self.suppress_stage_click_once = True
         if self.port_drag_active and not self.link_preview_source_id:
             self.reset_port_drag_state()
         if self.node_drag_active and (not self.drag_origin or self.is_node_drag_stale()):

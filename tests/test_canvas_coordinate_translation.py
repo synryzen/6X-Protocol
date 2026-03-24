@@ -245,6 +245,27 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         # Same point becomes valid when the connector is explicitly hovered.
         self.assertTrue(self.view.is_output_handle_grab(117.0, 50.0, "n1"))
 
+    def test_node_pressed_sets_stage_click_suppression_flag(self):
+        self.view.port_drag_active = False
+        self.view.link_preview_source_id = None
+        self.view.node_drag_active = False
+        self.view.pending_link_source_id = None
+        self.view.selected_node_id = None
+        self.view.selected_node_ids = set()
+        self.view.suppress_stage_click_once = False
+        node = SimpleNamespace(id="n1", node_type="Action", x=120, y=160)
+        self.view.find_node = lambda node_id: node if node_id == "n1" else None
+        self.view.grab_focus = lambda: None
+        self.view.apply_selection_set_visual_state = lambda *_args, **_kwargs: None
+        self.view.update_inspector = lambda *_args, **_kwargs: None
+        self.view.update_control_state = lambda *_args, **_kwargs: None
+        self.view.link_layer = SimpleNamespace(queue_draw=lambda: None)
+
+        gesture = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_node_pressed(gesture, 1, 10.0, 10.0, "n1")
+
+        self.assertTrue(self.view.suppress_stage_click_once)
+
     def test_stage_drag_begin_starts_node_drag_fallback_when_hitting_node(self):
         self.view.STAGE_WIDTH = 4000
         self.view.STAGE_HEIGHT = 2400
@@ -423,6 +444,7 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.view.node_drag_active = True
         self.view.node_drag_driver = "node"
         self.view.drag_origin = {"node_id": "n1"}
+        self.view.node_drag_last_activity_monotonic = time.monotonic()
         self.view.stage_drag_node_id = None
         self.view.stage_drag_origin = {}
         self.view.is_port_drag_stale = lambda: False
@@ -439,6 +461,42 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertEqual([], reset_calls)
         self.assertFalse(gesture.claimed)
         self.assertIsNone(self.view.stage_drag_node_id)
+
+    def test_stage_drag_begin_recovers_lingering_node_drag_state(self):
+        self.view.STAGE_WIDTH = 4000
+        self.view.STAGE_HEIGHT = 2400
+        self.view.port_drag_active = False
+        self.view.link_preview_source_id = None
+        self.view.node_drag_active = True
+        self.view.node_drag_driver = "node"
+        self.view.drag_origin = {"node_id": "n1"}
+        self.view.node_drag_last_activity_monotonic = time.monotonic() - 2.0
+        self.view.selected_node_id = None
+        self.view.selected_node_ids = set()
+        self.view.stage_drag_node_id = None
+        self.view.stage_drag_origin = {}
+        self.view.is_port_drag_stale = lambda: False
+        self.view.is_node_drag_stale = lambda: False
+        self.view.reset_port_drag_state = lambda: None
+        reset_calls: list[bool] = []
+
+        def _reset_node_drag_state():
+            reset_calls.append(True)
+            self.view.node_drag_active = False
+            self.view.drag_origin = {}
+
+        self.view.reset_node_drag_state = _reset_node_drag_state
+        self.view.gesture_stage_point = lambda _gesture: None
+        hit_attempts: list[tuple[int, int]] = []
+        self.view.find_node_at_point = (
+            lambda x, y, exclude_node_id=None: hit_attempts.append((int(x), int(y))) or None
+        )
+
+        gesture = _FakeDragGesture(object(), state=Gdk.ModifierType(0))
+        self.view.on_stage_select_drag_begin(gesture, 220.0, 320.0)
+
+        self.assertEqual([True], reset_calls)
+        self.assertEqual([(220, 320)], hit_attempts)
 
     def test_find_node_at_point_uses_viewport_offset_candidate_when_needed(self):
         node = CanvasNode(
