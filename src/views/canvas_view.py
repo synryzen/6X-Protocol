@@ -4575,6 +4575,18 @@ class CanvasView(Gtk.Box):
             "timeout_sec": f"{float(profile.get('timeout_sec', 0.0)):.1f}",
         }
 
+    def apply_recommended_node_execution_defaults(
+        self,
+        node_type: str,
+        context_key: str,
+        config: dict[str, str] | None,
+    ) -> dict[str, str]:
+        merged = dict(config or {})
+        defaults = self.node_execution_defaults_config(node_type, context_key)
+        for key, value in defaults.items():
+            merged[key] = value
+        return merged
+
     def infer_trigger_mode_from_detail(self, detail_text: str, fallback: str = "manual") -> str:
         detail = str(detail_text).strip()
         if detail.startswith("trigger:"):
@@ -7583,10 +7595,11 @@ class CanvasView(Gtk.Box):
             context_key = str(merged_config.get("integration", "")).strip().lower() or "standard"
             merged_config.setdefault("integration", context_key)
             merged_config.setdefault("action_template", self.infer_action_template_key(merged_config))
-        execution_defaults = self.node_execution_defaults_config(node_type, context_key)
-        for key, value in execution_defaults.items():
-            if not str(merged_config.get(key, "")).strip():
-                merged_config[key] = value
+        merged_config = self.apply_recommended_node_execution_defaults(
+            node_type,
+            context_key,
+            merged_config,
+        )
 
         self.push_undo_snapshot()
         node = CanvasNode(

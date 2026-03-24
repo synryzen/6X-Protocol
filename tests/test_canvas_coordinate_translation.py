@@ -677,6 +677,33 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertEqual("standard", self.view.action_execution_class("gmail_send"))
         self.assertEqual("heavy", self.view.action_execution_class("shell_command"))
 
+    def test_apply_recommended_node_execution_defaults_overrides_existing_values(self):
+        config = {
+            "integration": "http_request",
+            "retry_max": "9",
+            "retry_backoff_ms": "9999",
+            "timeout_sec": "999.0",
+        }
+        merged = self.view.apply_recommended_node_execution_defaults(
+            "Action",
+            "http_request",
+            config,
+        )
+        self.assertEqual("2", merged.get("retry_max"))
+        self.assertEqual("260", merged.get("retry_backoff_ms"))
+        self.assertEqual("50.0", merged.get("timeout_sec"))
+        self.assertEqual("http_request", merged.get("integration"))
+
+    def test_apply_recommended_node_execution_defaults_uses_trigger_mode_profile(self):
+        merged = self.view.apply_recommended_node_execution_defaults(
+            "Trigger",
+            "webhook",
+            {"trigger_mode": "webhook"},
+        )
+        self.assertEqual("1", merged.get("retry_max"))
+        self.assertEqual("150", merged.get("retry_backoff_ms"))
+        self.assertEqual("45.0", merged.get("timeout_sec"))
+
     def test_canvas_stage_click_retries_hit_with_observed_stage_point(self):
         self.view.STAGE_WIDTH = 4000
         self.view.STAGE_HEIGHT = 2400
