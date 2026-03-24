@@ -615,6 +615,25 @@ class CanvasCoordinateTranslationTests(unittest.TestCase):
         self.assertFalse(bool(self.view.node_mode_scroll.visible))
         self.assertTrue(bool(self.view.workflow_mode_scroll.visible))
 
+    def test_update_sidebar_mode_skips_scroll_reset_when_disabled(self):
+        self.view.workflow_mode_scroll = _VisibleStub()
+        self.view.node_mode_scroll = _VisibleStub()
+        self.view.sidebar_mode = None
+        calls: list[str] = []
+        self.view.scroll_scroller_to_top = (
+            lambda scroller: calls.append("node" if scroller is self.view.node_mode_scroll else "workflow")
+        )
+
+        self.view.current_selected_node_for_sidebar = lambda: object()
+        self.view.update_sidebar_mode(allow_scroll_reset=False)
+        self.view.current_selected_node_for_sidebar = lambda: None
+        self.view.update_sidebar_mode(allow_scroll_reset=False)
+
+        self.assertEqual([], calls)
+        self.assertEqual("workflow", self.view.sidebar_mode)
+        self.assertFalse(bool(self.view.node_mode_scroll.visible))
+        self.assertTrue(bool(self.view.workflow_mode_scroll.visible))
+
     def test_node_drag_update_uses_offset_based_stage_pointer(self):
         self.view.port_drag_active = False
         self.view.node_drag_active = True

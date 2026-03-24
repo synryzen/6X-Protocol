@@ -7352,7 +7352,7 @@ class CanvasView(Gtk.Box):
         )
         self.configure_node_test_controls(selected.node_type if selected else None)
         self.refresh_condition_branch_preview()
-        self.update_sidebar_mode()
+        self.update_sidebar_mode(allow_scroll_reset=False)
 
     def node_overlaps_existing(
         self,
@@ -12049,17 +12049,18 @@ class CanvasView(Gtk.Box):
         self.clear_node_field_feedback()
         self.update_sidebar_mode()
 
-    def update_sidebar_mode(self):
+    def update_sidebar_mode(self, *, allow_scroll_reset: bool = True):
         has_selected = self.current_selected_node_for_sidebar() is not None
         mode = "node" if has_selected else "workflow"
         self.workflow_mode_scroll.set_visible(not has_selected)
         self.node_mode_scroll.set_visible(has_selected)
         previous_mode = getattr(self, "sidebar_mode", None)
         if mode != previous_mode:
-            if has_selected:
-                self.scroll_scroller_to_top(self.node_mode_scroll)
-            else:
-                self.scroll_scroller_to_top(self.workflow_mode_scroll)
+            if allow_scroll_reset:
+                if has_selected:
+                    self.scroll_scroller_to_top(self.node_mode_scroll)
+                else:
+                    self.scroll_scroller_to_top(self.workflow_mode_scroll)
             self.sidebar_mode = mode
 
     def current_selected_node_for_sidebar(self) -> CanvasNode | None:
