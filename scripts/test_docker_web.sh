@@ -68,6 +68,13 @@ for _ in {1..30}; do
   sleep 1
 done
 curl_api http://127.0.0.1:8787/healthz | jq .
+META_JSON="$(curl_api http://127.0.0.1:8787/api/v1/meta)"
+echo "$META_JSON" | jq .
+STORE_SCHEMA_VERSION="$(echo "$META_JSON" | jq -r '.store_schema_version')"
+if [[ "$STORE_SCHEMA_VERSION" != "3" ]]; then
+  echo "Expected store_schema_version=3, got '$STORE_SCHEMA_VERSION'"
+  exit 1
+fi
 
 echo "[3/12] Creating workflow..."
 WORKFLOW_JSON="$(curl_api -X POST http://127.0.0.1:8787/api/v1/workflows \

@@ -70,7 +70,9 @@ Optional secret encryption baseline:
 Storage schema baseline:
 - JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
 - Migration history is recorded in `/data/6x-protocol/schema_migrations.json`.
-- Legacy payloads are normalized automatically on startup (v1 -> v2).
+- Legacy payloads are normalized automatically on startup (v1 -> v2 -> v3).
+- Migration snapshots are captured in `/data/6x-protocol/migration_snapshots/`.
+- Future-schema compatibility guardrails are enforced at startup and backup restore.
 
 Automated smoke test from repo root:
 ```bash
@@ -141,6 +143,6 @@ Execution routing behavior:
 
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
-2. Expand DB migration/versioning from JSON baseline toward relational persistence boundaries.
+2. Expand DB migration/versioning from JSON `v3` baseline toward relational persistence boundaries.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Complete deployment hardening (secrets lifecycle + image/version governance).

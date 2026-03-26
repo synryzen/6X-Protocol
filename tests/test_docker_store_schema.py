@@ -79,7 +79,11 @@ class DockerStoreSchemaTests(unittest.TestCase):
 
         workflows = store.load_workflows()
         self.assertEqual(1, len(workflows))
-        self.assertEqual({}, workflows[0]["graph"])
+        graph = workflows[0]["graph"]
+        self.assertEqual(3, int(graph.get("schema_version", 0)))
+        self.assertIn("nodes", graph)
+        self.assertIn("edges", graph)
+        self.assertIn("links", graph)
         self.assertEqual("draft", workflows[0]["status"])
 
         runs = store.load_runs()
@@ -91,6 +95,7 @@ class DockerStoreSchemaTests(unittest.TestCase):
         self.assertIn("execution_backoff_ms", run)
         self.assertIn("execution_timeout_sec", run)
         self.assertIsInstance(run["node_results"], list)
+        self.assertEqual(run["node_results"], run.get("timeline"))
 
         integrations = store.load_integrations()
         self.assertEqual(1, len(integrations))
@@ -106,9 +111,17 @@ class DockerStoreSchemaTests(unittest.TestCase):
 
         migration_history = self._read_json("schema_migrations.json")
         self.assertTrue(migration_history)
-        latest = migration_history[-1]
-        self.assertEqual(1, int(latest.get("from_version", 0)))
-        self.assertEqual(2, int(latest.get("to_version", 0)))
+        migration_pairs = {
+            (int(item.get("from_version", 0)), int(item.get("to_version", 0)))
+            for item in migration_history
+            if isinstance(item, dict)
+        }
+        self.assertIn((1, 2), migration_pairs)
+        self.assertIn((2, 3), migration_pairs)
+
+        snapshots_dir = self.data_dir / "migration_snapshots"
+        self.assertTrue(snapshots_dir.exists())
+        self.assertGreaterEqual(len(list(snapshots_dir.glob("*.json"))), 1)
 
     def test_backup_export_and_restore_replace(self):
         store = self.module.JsonStore(data_dir=str(self.data_dir))
@@ -292,6 +305,37 @@ class DockerStoreSchemaTests(unittest.TestCase):
         self.assertTrue(encrypted_after.startswith("enc:v1:"))
         self.assertNotEqual(encrypted_before, encrypted_after)
         self.assertEqual("old-secret", store.load_settings({}).get("openai_api_key"))
+
+    def test_store_rejects_future_schema_version(self):
+        self._write_json(
+            "schema_meta.json",
+            {
+                "schema_version": int(self.module.STORE_SCHEMA_VERSION) + 1,
+                "initialized_at": "2026-03-24T00:00:00+00:00",
+                "updated_at": "2026-03-24T00:00:00+00:00",
+            },
+        )
+        with self.assertRaises(RuntimeError):
+            self.module.JsonStore(data_dir=str(self.data_dir))
+
+    def test_restore_rejects_future_schema_backup(self):
+        store = self.module.JsonStore(data_dir=str(self.data_dir))
+        self._write_json(
+            "future-backup.json",
+            {
+                "format": "6x-protocol.backup.v1",
+                "schema_version": int(self.module.STORE_SCHEMA_VERSION) + 2,
+                "data": {
+                    "workflows": [],
+                    "runs": [],
+                    "settings": {},
+                    "integrations": [],
+                    "bots": [],
+                },
+            },
+        )
+        with self.assertRaises(ValueError):
+            store.restore_backup(self.data_dir / "future-backup.json", merge=False)
 
 
 if __name__ == "__main__":

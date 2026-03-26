@@ -142,13 +142,14 @@ See:
 - Docker API supports secret key rotation via `POST /api/v1/admin/secrets/rotate`
 - Docker API now includes observability routes (`/api/v1/observability/summary`, `/api/v1/observability/runs`)
 - Docker API now includes admin backup/restore routes (`/api/v1/admin/backup`, `/api/v1/admin/restore`)
+- Docker store migration expansion is live (`v1->v2->v3`, schema guardrails, and migration snapshots)
 - Smoke test validated (March 24, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, observability + backup checks, timeline/log filters, integrations, bots, and settings patch flows
 
 Self-hosted web status: **Live public beta and smoke-validated**.
 
 Next high-value items toward GA:
 - Expand web panel from beta control-room UX to full production parity modules.
-- Expand migration strategy from JSON baseline to relational DB workflows.
+- Expand migration strategy from JSON `v3` baseline to relational DB workflows.
 - Add managed-secret adapters and automated key rotation policies for team/hosted deployment paths.
 
 ## Package Build Commands

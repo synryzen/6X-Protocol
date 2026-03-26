@@ -15,7 +15,8 @@ from typing import Any
 
 from app.secret_manager import SecretManager
 
-STORE_SCHEMA_VERSION = 2
+MIN_STORE_SCHEMA_VERSION = 1
+STORE_SCHEMA_VERSION = 3
 
 
 class JsonStore:
@@ -78,27 +79,89 @@ class JsonStore:
     def _write_schema_meta(self, payload: dict[str, Any]) -> None:
         normalized = dict(payload)
         normalized["schema_version"] = self._coerce_int(
-            normalized.get("schema_version", 1),
-            default=1,
-            minimum=1,
+            normalized.get("schema_version", MIN_STORE_SCHEMA_VERSION),
+            default=MIN_STORE_SCHEMA_VERSION,
+            minimum=MIN_STORE_SCHEMA_VERSION,
         )
         normalized["updated_at"] = self._ensure_string(normalized.get("updated_at")) or self._iso_now()
         self._write_json("schema_meta.json", normalized)
 
+    def _read_schema_version(self, meta: dict[str, Any]) -> int:
+        return self._coerce_int(
+            meta.get("schema_version", MIN_STORE_SCHEMA_VERSION),
+            default=MIN_STORE_SCHEMA_VERSION,
+            minimum=MIN_STORE_SCHEMA_VERSION,
+        )
+
+    def _append_migration_history(self, migration_log: dict[str, Any]) -> None:
+        history = self._read_json("schema_migrations.json", [])
+        migration_entries = history if isinstance(history, list) else []
+        migration_entries.append(migration_log)
+        self._write_json("schema_migrations.json", migration_entries)
+
+    def _capture_migration_snapshot(self, from_version: int, to_version: int) -> Path:
+        snapshot_dir = self.data_dir / "migration_snapshots"
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        snapshot_name = (
+            f"schema-v{from_version}-to-v{to_version}-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.json"
+        )
+        snapshot_path = snapshot_dir / snapshot_name
+        files = [
+            "workflows.json",
+            "runs.json",
+            "settings.json",
+            "integrations.json",
+            "bots.json",
+            "schema_meta.json",
+            "schema_migrations.json",
+        ]
+        payload: dict[str, Any] = {
+            "captured_at": self._iso_now(),
+            "from_version": int(from_version),
+            "to_version": int(to_version),
+            "files": {},
+        }
+        for file_name in files:
+            file_path = self.data_dir / file_name
+            if not file_path.exists():
+                continue
+            payload["files"][file_name] = self._read_json(file_name, None)
+        self._write_json_path(snapshot_path, payload)
+        return snapshot_path
+
     def ensure_schema(self) -> None:
         meta = self._read_schema_meta()
-        try:
-            version = int(meta.get("schema_version", 1))
-        except (TypeError, ValueError):
-            version = 1
-        version = max(1, version)
+        version = self._read_schema_version(meta)
+        if version > STORE_SCHEMA_VERSION:
+            raise RuntimeError(
+                "Stored data schema version is newer than this server build "
+                f"(data=v{version}, supported<=v{STORE_SCHEMA_VERSION}). "
+                "Upgrade server image before using this data directory."
+            )
 
-        if version < 2:
-            self._migrate_v1_to_v2(meta)
-            version = 2
-
-        if version < STORE_SCHEMA_VERSION:
-            version = STORE_SCHEMA_VERSION
+        migration_steps = {
+            1: self._migrate_v1_to_v2,
+            2: self._migrate_v2_to_v3,
+        }
+        while version < STORE_SCHEMA_VERSION:
+            migrate = migration_steps.get(version)
+            if migrate is None:
+                raise RuntimeError(
+                    f"No migration path available from schema v{version} "
+                    f"to v{STORE_SCHEMA_VERSION}."
+                )
+            target_version = version + 1
+            snapshot = self._capture_migration_snapshot(version, target_version)
+            migrate(meta)
+            meta = self._read_schema_meta()
+            migrated_version = self._read_schema_version(meta)
+            if migrated_version < target_version:
+                raise RuntimeError(
+                    f"Migration to schema v{target_version} did not complete "
+                    f"(current=v{migrated_version})."
+                )
+            version = migrated_version
+            meta["last_snapshot_path"] = str(snapshot)
 
         now = self._iso_now()
         initialized_at = self._ensure_string(meta.get("initialized_at"))
@@ -108,6 +171,8 @@ class JsonStore:
             {
                 "schema_version": version,
                 "initialized_at": initialized_at,
+                "last_migration": self._ensure_string(meta.get("last_migration")),
+                "last_snapshot_path": self._ensure_string(meta.get("last_snapshot_path")),
                 "updated_at": now,
             }
         )
@@ -134,10 +199,7 @@ class JsonStore:
         self._write_json("integrations.json", integrations)
         self._write_json("bots.json", bots)
 
-        history = self._read_json("schema_migrations.json", [])
-        migration_entries = history if isinstance(history, list) else []
-        migration_entries.append(migration_log)
-        self._write_json("schema_migrations.json", migration_entries)
+        self._append_migration_history(migration_log)
 
         initialized_at = self._ensure_string(existing_meta.get("initialized_at")) or now
         self._write_schema_meta(
@@ -146,6 +208,41 @@ class JsonStore:
                 "initialized_at": initialized_at,
                 "updated_at": now,
                 "last_migration": "v1_to_v2",
+            }
+        )
+
+    def _migrate_v2_to_v3(self, existing_meta: dict[str, Any]) -> None:
+        now = self._iso_now()
+        migration_log = {
+            "from_version": 2,
+            "to_version": 3,
+            "migrated_at": now,
+            "notes": (
+                "Enforce graph schema boundaries and timeline parity fields for safer data evolution."
+            ),
+        }
+
+        workflows = self._sanitize_workflows_v3(self._read_json("workflows.json", []))
+        runs = self._sanitize_runs_v3(self._read_json("runs.json", []))
+        settings = self._sanitize_settings_v3(self._read_json("settings.json", {}))
+        integrations = self._sanitize_integrations_v2(self._read_json("integrations.json", []))
+        bots = self._sanitize_bots_v2(self._read_json("bots.json", []))
+
+        self._write_json("workflows.json", workflows)
+        self._write_json("runs.json", runs)
+        self._write_json("settings.json", settings)
+        self._write_json("integrations.json", integrations)
+        self._write_json("bots.json", bots)
+
+        self._append_migration_history(migration_log)
+
+        initialized_at = self._ensure_string(existing_meta.get("initialized_at")) or now
+        self._write_schema_meta(
+            {
+                "schema_version": 3,
+                "initialized_at": initialized_at,
+                "updated_at": now,
+                "last_migration": "v2_to_v3",
             }
         )
 
@@ -166,6 +263,139 @@ class JsonStore:
             entry["tags"] = [str(tag).strip() for tag in tags] if isinstance(tags, list) else []
             entry["created_at"] = self._ensure_string(entry.get("created_at")) or self._iso_now()
             entry["updated_at"] = self._ensure_string(entry.get("updated_at")) or entry["created_at"]
+            normalized.append(entry)
+        return normalized
+
+    def _sanitize_graph_nodes_v3(self, payload: Any) -> list[dict[str, Any]]:
+        if not isinstance(payload, list):
+            return []
+        nodes: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for index, item in enumerate(payload):
+            if not isinstance(item, dict):
+                continue
+            node = dict(item)
+            node_id = self._ensure_string(node.get("id")) or f"node_{index + 1}"
+            if node_id in seen:
+                continue
+            seen.add(node_id)
+            node_type = self._ensure_string(node.get("type")).lower() or "action"
+            if node_type not in {"trigger", "action", "ai", "condition"}:
+                node_type = "action"
+            config = node.get("config")
+            metadata = node.get("metadata")
+            position = node.get("position")
+            x_candidate = node.get("x")
+            y_candidate = node.get("y")
+            if isinstance(position, dict):
+                x_candidate = position.get("x", x_candidate)
+                y_candidate = position.get("y", y_candidate)
+            x = int(round(self._coerce_float(x_candidate, default=80.0)))
+            y = int(round(self._coerce_float(y_candidate, default=80.0)))
+            width = int(round(self._coerce_float(node.get("width"), default=220.0, minimum=120.0)))
+            height = int(round(self._coerce_float(node.get("height"), default=120.0, minimum=80.0)))
+            normalized = dict(node)
+            normalized["id"] = node_id
+            normalized["name"] = self._ensure_string(node.get("name")) or f"{node_type.title()} Node"
+            normalized["type"] = node_type
+            normalized["x"] = x
+            normalized["y"] = y
+            normalized["position"] = {"x": x, "y": y}
+            normalized["width"] = width
+            normalized["height"] = height
+            normalized["config"] = config if isinstance(config, dict) else {}
+            normalized["metadata"] = metadata if isinstance(metadata, dict) else {}
+            nodes.append(normalized)
+        return nodes
+
+    def _sanitize_graph_edges_v3(
+        self,
+        payload: Any,
+        node_ids: set[str],
+    ) -> list[dict[str, Any]]:
+        if not isinstance(payload, list):
+            return []
+        edges: list[dict[str, Any]] = []
+        seen: set[tuple[str, str, str]] = set()
+        for index, item in enumerate(payload):
+            if not isinstance(item, dict):
+                continue
+            edge = dict(item)
+            source = self._ensure_string(edge.get("source"))
+            target = self._ensure_string(edge.get("target"))
+            if not source or not target or source not in node_ids or target not in node_ids:
+                continue
+            edge_type = self._ensure_string(edge.get("type")).lower() or "next"
+            condition = self._ensure_string(edge.get("condition")).lower() or edge_type
+            key = (source, target, edge_type)
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized = dict(edge)
+            normalized["id"] = self._ensure_string(edge.get("id")) or f"edge_{index + 1}"
+            normalized["source"] = source
+            normalized["target"] = target
+            normalized["source_node_id"] = source
+            normalized["target_node_id"] = target
+            normalized["type"] = edge_type
+            normalized["condition"] = condition
+            normalized["link_type"] = condition
+            normalized["label"] = self._ensure_string(edge.get("label"))
+            edges.append(normalized)
+        return edges
+
+    def _normalize_graph_v3(self, payload: Any) -> dict[str, Any]:
+        graph = dict(payload) if isinstance(payload, dict) else {}
+        node_payload = graph.get("nodes")
+        edge_payload = graph.get("edges")
+        if not isinstance(edge_payload, list):
+            edge_payload = graph.get("links")
+        nodes = self._sanitize_graph_nodes_v3(node_payload)
+        node_ids = {str(item.get("id", "")) for item in nodes if str(item.get("id", "")).strip()}
+        edges = self._sanitize_graph_edges_v3(edge_payload, node_ids)
+        viewport = graph.get("viewport")
+        if not isinstance(viewport, dict):
+            viewport = {}
+        entry_node_id = self._ensure_string(graph.get("entry_node_id"))
+        if entry_node_id not in node_ids:
+            entry_node_id = nodes[0]["id"] if nodes else ""
+
+        normalized = dict(graph)
+        normalized["schema_version"] = 3
+        normalized["nodes"] = nodes
+        normalized["edges"] = edges
+        # Keep links mirrored for compatibility with legacy editor/runtime consumers.
+        normalized["links"] = [dict(edge) for edge in edges]
+        normalized["entry_node_id"] = entry_node_id
+        normalized["viewport"] = {
+            "x": self._coerce_float(viewport.get("x"), default=0.0),
+            "y": self._coerce_float(viewport.get("y"), default=0.0),
+            "zoom": self._coerce_float(viewport.get("zoom"), default=1.0, minimum=0.05),
+        }
+        return normalized
+
+    def _sanitize_workflows_v3(self, payload: Any) -> list[dict[str, Any]]:
+        workflows = self._sanitize_workflows_v2(payload)
+        normalized: list[dict[str, Any]] = []
+        for item in workflows:
+            entry = dict(item)
+            entry["graph"] = self._normalize_graph_v3(entry.get("graph"))
+            execution_defaults = entry.get("execution_defaults")
+            if not isinstance(execution_defaults, dict):
+                execution_defaults = {}
+            entry["execution_defaults"] = {
+                "retry_max": self._coerce_int(execution_defaults.get("retry_max"), default=0, minimum=0),
+                "retry_backoff_ms": self._coerce_int(
+                    execution_defaults.get("retry_backoff_ms"),
+                    default=0,
+                    minimum=0,
+                ),
+                "timeout_sec": self._coerce_float(
+                    execution_defaults.get("timeout_sec"),
+                    default=0.0,
+                    minimum=0.0,
+                ),
+            }
             normalized.append(entry)
         return normalized
 
@@ -228,10 +458,42 @@ class JsonStore:
             normalized.append(entry)
         return normalized
 
+    def _sanitize_runs_v3(self, payload: Any) -> list[dict[str, Any]]:
+        runs = self._sanitize_runs_v2(payload)
+        normalized: list[dict[str, Any]] = []
+        for item in runs:
+            entry = dict(item)
+            timeline = entry.get("timeline")
+            if not isinstance(timeline, list):
+                timeline = entry.get("node_results", [])
+            node_results = self._sanitize_list_of_dicts(timeline)
+            entry["node_results"] = node_results
+            entry["timeline"] = node_results
+            if not self._ensure_string(entry.get("finished_at")) and str(entry.get("status", "")).lower() in {
+                "success",
+                "failed",
+                "cancelled",
+            }:
+                entry["finished_at"] = self._ensure_string(entry.get("updated_at")) or self._iso_now()
+            normalized.append(entry)
+        return normalized
+
     def _sanitize_settings_v2(self, payload: Any) -> dict[str, Any]:
         if not isinstance(payload, dict):
             return {}
         return dict(payload)
+
+    def _sanitize_settings_v3(self, payload: Any) -> dict[str, Any]:
+        settings = self._sanitize_settings_v2(payload)
+        if "canvas_minimap_x" in settings:
+            settings["canvas_minimap_x"] = self._coerce_int(settings.get("canvas_minimap_x"), default=0)
+        if "canvas_minimap_y" in settings:
+            settings["canvas_minimap_y"] = self._coerce_int(settings.get("canvas_minimap_y"), default=0)
+        if "reduce_motion" in settings:
+            settings["reduce_motion"] = self._ensure_bool(settings.get("reduce_motion"), False)
+        if "local_ai_enabled" in settings:
+            settings["local_ai_enabled"] = self._ensure_bool(settings.get("local_ai_enabled"), True)
+        return settings
 
     def _sanitize_integrations_v2(self, payload: Any) -> list[dict[str, Any]]:
         items = self._sanitize_list_of_dicts(payload)
@@ -392,19 +654,30 @@ class JsonStore:
             # Backwards-compatible fallback if data was written at root.
             data = raw
 
-        incoming_workflows = self._sanitize_workflows_v2(data.get("workflows", []))
-        incoming_runs = self._sanitize_runs_v2(data.get("runs", []))
+        incoming_workflows = self._sanitize_workflows_v3(data.get("workflows", []))
+        incoming_runs = self._sanitize_runs_v3(data.get("runs", []))
         incoming_integrations = self._sanitize_integrations_v2(data.get("integrations", []))
         incoming_bots = self._sanitize_bots_v2(data.get("bots", []))
-        incoming_settings = data.get("settings", {})
-        if not isinstance(incoming_settings, dict):
-            incoming_settings = {}
+        incoming_settings = self._sanitize_settings_v3(data.get("settings", {}))
         incoming_schema_meta = data.get("schema_meta", {})
         if not isinstance(incoming_schema_meta, dict):
             incoming_schema_meta = {}
         incoming_schema_migrations = data.get("schema_migrations", [])
         if not isinstance(incoming_schema_migrations, list):
             incoming_schema_migrations = []
+        format_name = self._ensure_string(raw.get("format")) or "6x-protocol.backup.v1"
+        if format_name not in {"6x-protocol.backup.v1"}:
+            raise ValueError(f"Unsupported backup format: {format_name}")
+        backup_schema_version = self._coerce_int(
+            raw.get("schema_version", incoming_schema_meta.get("schema_version", self.schema_version)),
+            default=self.schema_version,
+            minimum=MIN_STORE_SCHEMA_VERSION,
+        )
+        if backup_schema_version > STORE_SCHEMA_VERSION:
+            raise ValueError(
+                "Backup schema is newer than this server build "
+                f"(backup=v{backup_schema_version}, supported<=v{STORE_SCHEMA_VERSION})."
+            )
 
         if merge:
             workflows = self._merge_records_by_id(self.load_workflows(), incoming_workflows)
@@ -486,29 +759,31 @@ class JsonStore:
 
     def load_workflows(self) -> list[dict[str, Any]]:
         data = self._read_json("workflows.json", [])
-        return self._sanitize_workflows_v2(data)
+        return self._sanitize_workflows_v3(data)
 
     def save_workflows(self, workflows: list[dict[str, Any]]) -> None:
-        self._write_json("workflows.json", workflows)
+        self._write_json("workflows.json", self._sanitize_workflows_v3(workflows))
 
     def load_runs(self) -> list[dict[str, Any]]:
         data = self._read_json("runs.json", [])
-        return self._sanitize_runs_v2(data)
+        return self._sanitize_runs_v3(data)
 
     def save_runs(self, runs: list[dict[str, Any]]) -> None:
-        self._write_json("runs.json", runs)
+        self._write_json("runs.json", self._sanitize_runs_v3(runs))
 
     def load_settings(self, defaults: dict[str, Any]) -> dict[str, Any]:
         data = self._read_json("settings.json", defaults)
         if not isinstance(data, dict):
             return dict(defaults)
-        data = self.secrets.decrypt_settings(data)
+        data = self._sanitize_settings_v3(self.secrets.decrypt_settings(data))
         merged = dict(defaults)
         merged.update(data)
         return merged
 
     def save_settings(self, settings: dict[str, Any]) -> None:
-        encrypted = self.secrets.encrypt_settings(settings if isinstance(settings, dict) else {})
+        encrypted = self.secrets.encrypt_settings(
+            self._sanitize_settings_v3(settings if isinstance(settings, dict) else {})
+        )
         self._write_json("settings.json", encrypted)
 
     def load_integrations(self) -> list[dict[str, Any]]:
