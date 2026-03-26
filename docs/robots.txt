@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://synryzen.github.io/6X-Protocol/sitemap.xml

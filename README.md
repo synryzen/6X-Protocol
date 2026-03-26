@@ -123,6 +123,7 @@ See:
 - Onboarding quick start: [`docs/ONBOARDING_QUICKSTART.md`](docs/ONBOARDING_QUICKSTART.md)
 - First workflow tutorial: [`docs/TUTORIAL_FIRST_WORKFLOW.md`](docs/TUTORIAL_FIRST_WORKFLOW.md)
 - Community growth loop: [`docs/COMMUNITY_GROWTH_LOOP.md`](docs/COMMUNITY_GROWTH_LOOP.md)
+- SEO quickstart: [`docs/SEO_QUICKSTART.md`](docs/SEO_QUICKSTART.md)
 - Packaging/docs QA report: [`docs/PACKAGING_QA_REPORT_2026-03-24.md`](docs/PACKAGING_QA_REPORT_2026-03-24.md)
 - Latest release notes: [`docs/RELEASE_NOTES_v0.1.9.md`](docs/RELEASE_NOTES_v0.1.9.md)
 - Announcement copy kit: [`docs/ANNOUNCEMENT_KIT_v0.1.9.md`](docs/ANNOUNCEMENT_KIT_v0.1.9.md)
