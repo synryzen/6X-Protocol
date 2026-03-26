@@ -119,6 +119,7 @@ See:
 - Launch metrics interactive wrapper: [`scripts/launch_metrics_daily.sh`](scripts/launch_metrics_daily.sh)
 - Launch metrics GitHub sync: [`scripts/launch_metrics_sync_github.py`](scripts/launch_metrics_sync_github.py)
 - Launch metrics summary script: [`scripts/launch_metrics_summary.py`](scripts/launch_metrics_summary.py)
+- Runtime governance verifier: [`scripts/verify_runtime_governance.py`](scripts/verify_runtime_governance.py)
 - Onboarding quick start: [`docs/ONBOARDING_QUICKSTART.md`](docs/ONBOARDING_QUICKSTART.md)
 - First workflow tutorial: [`docs/TUTORIAL_FIRST_WORKFLOW.md`](docs/TUTORIAL_FIRST_WORKFLOW.md)
 - Community growth loop: [`docs/COMMUNITY_GROWTH_LOOP.md`](docs/COMMUNITY_GROWTH_LOOP.md)
@@ -142,6 +143,7 @@ See:
 - Docker API supports secret key rotation via `POST /api/v1/admin/secrets/rotate`
 - Docker managed secret adapter baseline is live (`SECRET_PROVIDER_MODE` with env/file/http reference resolution)
 - Docker runtime image/version governance baseline is live (`/api/v1/admin/runtime/governance` + meta status fields)
+- Release workflow now emits provenance attestations for packaged artifacts
 - Docker API now includes observability routes (`/api/v1/observability/summary`, `/api/v1/observability/runs`)
 - Docker API now includes admin backup/restore routes (`/api/v1/admin/backup`, `/api/v1/admin/restore`)
 - Docker store migration expansion is live (`v1->v2->v3`, schema guardrails, and migration snapshots)

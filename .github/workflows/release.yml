@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -41,6 +43,16 @@ jobs:
         with:
           name: release-packages
           path: |
+            dist/*.deb
+            dist/*.tar.gz
+            dist/*.AppImage
+            dist/*.flatpak
+            dist/SHA256SUMS.txt
+
+      - name: Generate Provenance Attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
             dist/*.deb
             dist/*.tar.gz
             dist/*.AppImage

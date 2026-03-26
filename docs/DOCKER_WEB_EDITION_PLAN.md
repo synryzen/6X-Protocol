@@ -74,6 +74,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Docker smoke test script
 - [x] Health checks and restart policies
 - [x] Release-grade image versioning governance baseline
+- [x] CI governance verification + release provenance attestation baseline
 
 ### M5: Hardening and team-readiness
 - [x] DB migration/versioning baseline (JSON store schema metadata + v1->v2 normalization)
@@ -121,6 +122,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Docker API now supports managed secret adapters (`env`/`file`/`chain`) with provider references and reload/status endpoints.
 - Docker API managed secret adapters now support external HTTP JSON providers (`secret://http/...`) in addition to env/file/chain modes.
 - Docker API now supports runtime image/version governance checks with compatibility and provenance diagnostics (`/api/v1/admin/runtime/governance`).
+- CI now verifies governance baseline files (`scripts/verify_runtime_governance.py`) and release workflow emits artifact provenance attestations.
 - Docker API now exposes admin backup/restore endpoints (`/api/v1/admin/backup`, `/api/v1/admin/restore`) backed by snapshot bundles from persistent data storage.
 - Docker API now exposes observability endpoints (`/api/v1/observability/summary`, `/api/v1/observability/runs`) for run/status/throughput diagnostics.
 - Onboarding docs are now published for quick start, first workflow tutorial, and post-launch community loop.

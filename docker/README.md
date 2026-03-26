@@ -96,6 +96,8 @@ Image/version governance baseline:
 - Governance status routes:
   - `GET /api/v1/admin/runtime/governance`
 - `/api/v1/meta` now includes runtime governance status fields for health dashboards.
+- CI guardrail: `python3 scripts/verify_runtime_governance.py`
+- Release workflow now publishes package provenance attestations.
 
 Storage schema baseline:
 - JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
