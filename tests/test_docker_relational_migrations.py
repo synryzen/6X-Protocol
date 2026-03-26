@@ -23,6 +23,10 @@ class RelationalMigrationsTests(unittest.TestCase):
             "RELATIONAL_MIGRATION_RETRY_ATTEMPTS",
             "RELATIONAL_MIGRATION_RETRY_DELAY_SEC",
             "RELATIONAL_MIGRATION_REQUIRED",
+            "RELATIONAL_MIGRATION_ENFORCE_COMPATIBILITY",
+            "RELATIONAL_ALLOW_UNKNOWN_REVISIONS",
+            "RELATIONAL_MIN_SCHEMA_VERSION",
+            "RELATIONAL_MAX_SCHEMA_VERSION",
         ):
             os.environ.pop(key, None)
 
@@ -32,6 +36,10 @@ class RelationalMigrationsTests(unittest.TestCase):
             "RELATIONAL_MIGRATION_RETRY_ATTEMPTS",
             "RELATIONAL_MIGRATION_RETRY_DELAY_SEC",
             "RELATIONAL_MIGRATION_REQUIRED",
+            "RELATIONAL_MIGRATION_ENFORCE_COMPATIBILITY",
+            "RELATIONAL_ALLOW_UNKNOWN_REVISIONS",
+            "RELATIONAL_MIN_SCHEMA_VERSION",
+            "RELATIONAL_MAX_SCHEMA_VERSION",
         ):
             os.environ.pop(key, None)
 
@@ -55,6 +63,42 @@ class RelationalMigrationsTests(unittest.TestCase):
         combined_sql = "\n".join(first.statements).lower()
         self.assertIn("sixpx_schema_migrations", combined_sql)
         self.assertIn("sixpx_runtime_state", combined_sql)
+
+    def test_revision_scaffold_includes_r0002_and_r0003(self):
+        revision_ids = [item.revision for item in self.module.RELATIONAL_REVISIONS]
+        self.assertIn("r0002_runtime_core_tables", revision_ids)
+        self.assertIn("r0003_runtime_observability_tables", revision_ids)
+
+        sql_blob = "\n".join(
+            "\n".join(item.statements).lower() for item in self.module.RELATIONAL_REVISIONS
+        )
+        self.assertIn("sixpx_workflows", sql_blob)
+        self.assertIn("sixpx_runs", sql_blob)
+        self.assertIn("sixpx_integrations", sql_blob)
+        self.assertIn("sixpx_bots", sql_blob)
+        self.assertIn("sixpx_settings", sql_blob)
+        self.assertIn("sixpx_run_events", sql_blob)
+        self.assertIn("sixpx_connector_executions", sql_blob)
+
+    def test_unknown_revision_is_error_when_not_allowed(self):
+        manager = self.module.RelationalMigrationManager(database_url="")
+        compatibility = manager.evaluate_schema_compatibility({"r9999_future_runtime"})
+        self.assertEqual("error", compatibility.get("status"))
+        self.assertGreater(int(compatibility.get("error_count", 0)), 0)
+
+    def test_unknown_revision_can_be_warning_when_allowed(self):
+        os.environ["RELATIONAL_ALLOW_UNKNOWN_REVISIONS"] = "true"
+        manager = self.module.RelationalMigrationManager(database_url="")
+        compatibility = manager.evaluate_schema_compatibility({"r9999_future_runtime"})
+        self.assertEqual("warn", compatibility.get("status"))
+        self.assertEqual(0, int(compatibility.get("error_count", 0)))
+
+    def test_schema_range_violation_is_error(self):
+        os.environ["RELATIONAL_MAX_SCHEMA_VERSION"] = "2"
+        manager = self.module.RelationalMigrationManager(database_url="")
+        compatibility = manager.evaluate_schema_compatibility({"r0003_runtime_observability_tables"})
+        self.assertEqual("error", compatibility.get("status"))
+        self.assertIn("exceeds maximum supported", " ".join(compatibility.get("errors", [])))
 
 
 if __name__ == "__main__":

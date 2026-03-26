@@ -103,11 +103,26 @@ if [[ -z "$RELATIONAL_MIGRATION_STATUS" || "$RELATIONAL_MIGRATION_STATUS" == "nu
   echo "Expected relational_migration_status in /api/v1/meta"
   exit 1
 fi
+RELATIONAL_COMPATIBILITY_STATUS="$(echo "$META_JSON" | jq -r '.relational_compatibility_status')"
+if [[ -z "$RELATIONAL_COMPATIBILITY_STATUS" || "$RELATIONAL_COMPATIBILITY_STATUS" == "null" ]]; then
+  echo "Expected relational_compatibility_status in /api/v1/meta"
+  exit 1
+fi
+RELATIONAL_SCHEMA_VERSION="$(echo "$META_JSON" | jq -r '.relational_schema_version')"
+if [[ "$RELATIONAL_SCHEMA_VERSION" == "null" || -z "$RELATIONAL_SCHEMA_VERSION" ]]; then
+  echo "Expected relational_schema_version in /api/v1/meta"
+  exit 1
+fi
 MIGRATIONS_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/runtime/migrations)"
 echo "$MIGRATIONS_JSON" | jq .
 MIGRATIONS_STATUS="$(echo "$MIGRATIONS_JSON" | jq -r '.status')"
 if [[ "$MIGRATIONS_STATUS" != "ok" && "$MIGRATIONS_STATUS" != "warn" && "$MIGRATIONS_STATUS" != "error" && "$MIGRATIONS_STATUS" != "disabled" ]]; then
   echo "Unexpected runtime migrations status '$MIGRATIONS_STATUS'"
+  exit 1
+fi
+MIGRATIONS_COMPATIBILITY_STATUS="$(echo "$MIGRATIONS_JSON" | jq -r '.compatibility_status')"
+if [[ "$MIGRATIONS_COMPATIBILITY_STATUS" != "ok" && "$MIGRATIONS_COMPATIBILITY_STATUS" != "warn" && "$MIGRATIONS_COMPATIBILITY_STATUS" != "error" && "$MIGRATIONS_COMPATIBILITY_STATUS" != "pending" ]]; then
+  echo "Unexpected runtime migrations compatibility status '$MIGRATIONS_COMPATIBILITY_STATUS'"
   exit 1
 fi
 

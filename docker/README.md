@@ -102,15 +102,26 @@ Image/version governance baseline:
 Relational migration scaffold baseline:
 - API startup now runs a Postgres migration scaffold when `DATABASE_URL` is set.
 - Tracks revisions in `sixpx_schema_migrations` and seeds runtime scaffold state in `sixpx_runtime_state`.
-- First tracked revision: `r0001_initial_runtime_scaffold`.
+- Tracked revisions:
+  - `r0001_initial_runtime_scaffold`
+  - `r0002_runtime_core_tables`
+  - `r0003_runtime_observability_tables`
 - Runtime migration status route:
   - `GET /api/v1/admin/runtime/migrations`
   - Optional refresh: `GET /api/v1/admin/runtime/migrations?refresh=true`
 - Controls:
   - `RELATIONAL_MIGRATION_REQUIRED`
+  - `RELATIONAL_MIGRATION_ENFORCE_COMPATIBILITY`
   - `RELATIONAL_MIGRATION_CONNECT_TIMEOUT_SEC`
   - `RELATIONAL_MIGRATION_RETRY_ATTEMPTS`
   - `RELATIONAL_MIGRATION_RETRY_DELAY_SEC`
+  - `RELATIONAL_ALLOW_UNKNOWN_REVISIONS`
+  - `RELATIONAL_MIN_SCHEMA_VERSION`
+  - `RELATIONAL_MAX_SCHEMA_VERSION`
+- Migration status now reports:
+  - `current_schema_version`
+  - `compatibility_status`
+  - `compatibility_errors` / `compatibility_warnings`
 
 Storage schema baseline:
 - JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
@@ -192,6 +203,6 @@ Execution routing behavior:
 
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
-2. Expand DB migration/versioning from relational scaffold (`r0001`) toward full Postgres repositories.
+2. Begin feature-flagged Postgres repository cutover using the tracked `r0001-r0003` schema baseline.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Complete deployment hardening beyond baseline (external secret stores + signed release digest policy).

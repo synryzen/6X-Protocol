@@ -124,10 +124,19 @@ app = FastAPI(
 @app.on_event("startup")
 def apply_relational_migrations_on_startup() -> None:
     result = relational_migrations.apply(app_version=APP_VERSION)
-    if result.get("status") == "error" and bool(result.get("required")):
+    should_block_startup = bool(result.get("required")) or bool(
+        result.get("enforce_compatibility", True)
+    )
+    if result.get("status") == "error" and should_block_startup:
+        details: list[str] = []
+        last_error = str(result.get("last_error", "")).strip()
+        if last_error:
+            details.append(last_error)
+        details.extend(str(item) for item in result.get("compatibility_errors", []) if str(item).strip())
+        detail_text = " | ".join(details) if details else "unknown error"
         raise RuntimeError(
-            "Relational migration is required but failed to apply: "
-            f"{result.get('last_error', 'unknown error')}"
+            "Relational migration startup guardrail blocked API startup: "
+            f"{detail_text}"
         )
 
 
@@ -451,6 +460,10 @@ def meta() -> dict[str, str]:
         "relational_migration_status": str(migration_status.get("status", "")),
         "relational_migration_applied_count": str(migration_status.get("applied_count", 0)),
         "relational_migration_pending_count": str(migration_status.get("pending_count", 0)),
+        "relational_schema_version": str(migration_status.get("current_schema_version", 0)),
+        "relational_min_schema_version": str(migration_status.get("min_supported_schema_version", 0)),
+        "relational_max_schema_version": str(migration_status.get("max_supported_schema_version", 0)),
+        "relational_compatibility_status": str(migration_status.get("compatibility_status", "")),
     }
 
 
