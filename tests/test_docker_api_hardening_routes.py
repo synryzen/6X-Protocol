@@ -43,6 +43,7 @@ class DockerApiHardeningRouteTests(unittest.TestCase):
             "/api/v1/admin/secrets/rotate",
             "/api/v1/admin/secrets/provider",
             "/api/v1/admin/secrets/provider/reload",
+            "/api/v1/admin/runtime/governance",
         }
         self.assertTrue(expected.issubset(paths), f"Missing API routes: {sorted(expected - paths)}")
 

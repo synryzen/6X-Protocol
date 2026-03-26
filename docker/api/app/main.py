@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.run_controller import ACTIVE_STATUSES, RunController
+from app.runtime_governance import runtime_governance_snapshot
 from app.schemas import (
     ALLOWED_PROVIDER,
     BotProfileIn,
@@ -385,6 +386,13 @@ def _observability_summary(runs: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _runtime_governance_payload() -> dict[str, Any]:
+    return runtime_governance_snapshot(
+        api_version=APP_VERSION,
+        store_schema_version=getattr(store, "schema_version", 0),
+    )
+
+
 @app.get("/healthz", tags=["health"])
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
@@ -398,6 +406,7 @@ def readyz() -> dict[str, str]:
 @app.get("/api/v1/meta", tags=["meta"])
 def meta() -> dict[str, str]:
     secret_resolver = getattr(store, "secret_resolver", None)
+    governance = _runtime_governance_payload()
     return {
         "name": APP_NAME,
         "version": APP_VERSION,
@@ -414,6 +423,10 @@ def meta() -> dict[str, str]:
         "secret_provider_file_loaded": "true"
         if bool(getattr(secret_resolver, "file_loaded", False))
         else "false",
+        "runtime_release_channel": str(governance.get("release_channel", "")),
+        "runtime_image_tag": str(governance.get("image_tag", "")),
+        "runtime_governance_status": str(governance.get("status", "")),
+        "runtime_governance_issue_count": str(governance.get("issue_count", 0)),
     }
 
 
@@ -607,6 +620,14 @@ def reload_secret_provider() -> dict[str, str]:
         "enabled": "true" if bool(getattr(resolver, "enabled", False)) else "false",
         "file_loaded": "true" if bool(getattr(resolver, "file_loaded", False)) else "false",
         "reloaded_at": utc_now_iso(),
+    }
+
+
+@app.get("/api/v1/admin/runtime/governance", tags=["admin"])
+def runtime_governance() -> dict[str, Any]:
+    return {
+        **_runtime_governance_payload(),
+        "generated_at": utc_now_iso(),
     }
 
 

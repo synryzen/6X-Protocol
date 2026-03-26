@@ -78,6 +78,19 @@ Managed secret adapter baseline:
   - `GET /api/v1/admin/secrets/provider`
   - `POST /api/v1/admin/secrets/provider/reload`
 
+Image/version governance baseline:
+- Configure runtime provenance and compatibility via:
+  - `SIXPX_IMAGE_TAG` (runtime image tag)
+  - `SIXPX_EXPECTED_IMAGE_TAG` (optional exact-tag assertion)
+  - `SIXPX_RELEASE_CHANNEL` (`dev|beta|rc|ga|stable|prod`)
+  - `SIXPX_BUILD_SHA` / `SIXPX_BUILD_DATE`
+  - `SIXPX_IMAGE_DIGEST` (recommended for `ga/stable/prod`)
+  - `SIXPX_MIN_API_VERSION` / `SIXPX_MAX_API_VERSION` (optional semver bounds)
+  - `SIXPX_MIN_STORE_SCHEMA_VERSION` / `SIXPX_MAX_STORE_SCHEMA_VERSION`
+- Governance status routes:
+  - `GET /api/v1/admin/runtime/governance`
+- `/api/v1/meta` now includes runtime governance status fields for health dashboards.
+
 Storage schema baseline:
 - JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
 - Migration history is recorded in `/data/6x-protocol/schema_migrations.json`.
@@ -106,6 +119,7 @@ Current API routes:
 - `POST /api/v1/admin/secrets/rotate`
 - `GET /api/v1/admin/secrets/provider`
 - `POST /api/v1/admin/secrets/provider/reload`
+- `GET /api/v1/admin/runtime/governance`
 - `GET/POST/PUT/DELETE /api/v1/workflows`
 - `PATCH /api/v1/workflows/{id}/graph`
 - `POST /api/v1/workflows/{id}/preflight`
@@ -158,4 +172,4 @@ Execution routing behavior:
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
 2. Expand DB migration/versioning from JSON `v3` baseline toward relational persistence boundaries.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
-4. Complete deployment hardening (secrets lifecycle + image/version governance).
+4. Complete deployment hardening beyond baseline (external secret stores + signed release digest policy).

@@ -22,6 +22,7 @@ services:
       - redis_data:/data
 
   api:
+    image: synryzen/6x-protocol-api:${SIXPX_IMAGE_TAG:-local-dev}
     build:
       context: ./api
       dockerfile: Dockerfile
@@ -41,6 +42,17 @@ services:
       SECRET_PROVIDER_MODE: ${SECRET_PROVIDER_MODE:-disabled}
       SECRET_PROVIDER_FILE: ${SECRET_PROVIDER_FILE:-/data/6x-protocol/managed-secrets.json}
       SECRET_PROVIDER_ENV_PREFIX: ${SECRET_PROVIDER_ENV_PREFIX:-}
+      SIXPX_IMAGE_TAG: ${SIXPX_IMAGE_TAG:-local-dev}
+      SIXPX_EXPECTED_IMAGE_TAG: ${SIXPX_EXPECTED_IMAGE_TAG:-local-dev}
+      SIXPX_IMAGE_DIGEST: ${SIXPX_IMAGE_DIGEST:-}
+      SIXPX_RELEASE_CHANNEL: ${SIXPX_RELEASE_CHANNEL:-beta}
+      SIXPX_BUILD_SHA: ${SIXPX_BUILD_SHA:-local}
+      SIXPX_BUILD_DATE: ${SIXPX_BUILD_DATE:-}
+      SIXPX_EXPECTED_API_VERSION: ${SIXPX_EXPECTED_API_VERSION:-}
+      SIXPX_MIN_API_VERSION: ${SIXPX_MIN_API_VERSION:-}
+      SIXPX_MAX_API_VERSION: ${SIXPX_MAX_API_VERSION:-}
+      SIXPX_MIN_STORE_SCHEMA_VERSION: ${SIXPX_MIN_STORE_SCHEMA_VERSION:-1}
+      SIXPX_MAX_STORE_SCHEMA_VERSION: ${SIXPX_MAX_STORE_SCHEMA_VERSION:-3}
     ports:
       - "${API_PORT:-8787}:8787"
     volumes:
@@ -52,6 +64,7 @@ services:
       retries: 5
 
   worker:
+    image: synryzen/6x-protocol-api:${SIXPX_IMAGE_TAG:-local-dev}
     build:
       context: ./api
       dockerfile: Dockerfile
@@ -70,10 +83,22 @@ services:
       SECRET_PROVIDER_MODE: ${SECRET_PROVIDER_MODE:-disabled}
       SECRET_PROVIDER_FILE: ${SECRET_PROVIDER_FILE:-/data/6x-protocol/managed-secrets.json}
       SECRET_PROVIDER_ENV_PREFIX: ${SECRET_PROVIDER_ENV_PREFIX:-}
+      SIXPX_IMAGE_TAG: ${SIXPX_IMAGE_TAG:-local-dev}
+      SIXPX_EXPECTED_IMAGE_TAG: ${SIXPX_EXPECTED_IMAGE_TAG:-local-dev}
+      SIXPX_IMAGE_DIGEST: ${SIXPX_IMAGE_DIGEST:-}
+      SIXPX_RELEASE_CHANNEL: ${SIXPX_RELEASE_CHANNEL:-beta}
+      SIXPX_BUILD_SHA: ${SIXPX_BUILD_SHA:-local}
+      SIXPX_BUILD_DATE: ${SIXPX_BUILD_DATE:-}
+      SIXPX_EXPECTED_API_VERSION: ${SIXPX_EXPECTED_API_VERSION:-}
+      SIXPX_MIN_API_VERSION: ${SIXPX_MIN_API_VERSION:-}
+      SIXPX_MAX_API_VERSION: ${SIXPX_MAX_API_VERSION:-}
+      SIXPX_MIN_STORE_SCHEMA_VERSION: ${SIXPX_MIN_STORE_SCHEMA_VERSION:-1}
+      SIXPX_MAX_STORE_SCHEMA_VERSION: ${SIXPX_MAX_STORE_SCHEMA_VERSION:-3}
     volumes:
       - api_data:/data
 
   web:
+    image: synryzen/6x-protocol-web:${SIXPX_IMAGE_TAG:-local-dev}
     build:
       context: ./web
       dockerfile: Dockerfile

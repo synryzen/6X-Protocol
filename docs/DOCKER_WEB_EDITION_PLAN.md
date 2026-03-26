@@ -73,7 +73,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] `.env.example`
 - [x] Docker smoke test script
 - [x] Health checks and restart policies
-- [ ] Release-grade image versioning strategy
+- [x] Release-grade image versioning governance baseline
 
 ### M5: Hardening and team-readiness
 - [x] DB migration/versioning baseline (JSON store schema metadata + v1->v2 normalization)
@@ -119,6 +119,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Docker API JSON storage now supports optional at-rest secret encryption (`SECRET_ENCRYPTION_KEY`) for sensitive settings and integration profile fields.
 - Docker API now supports secret key rotation (`/api/v1/admin/secrets/rotate`) for re-encrypting persisted settings/integration secret payloads.
 - Docker API now supports managed secret adapters (`env`/`file`/`chain`) with provider references and reload/status endpoints.
+- Docker API now supports runtime image/version governance checks with compatibility and provenance diagnostics (`/api/v1/admin/runtime/governance`).
 - Docker API now exposes admin backup/restore endpoints (`/api/v1/admin/backup`, `/api/v1/admin/restore`) backed by snapshot bundles from persistent data storage.
 - Docker API now exposes observability endpoints (`/api/v1/observability/summary`, `/api/v1/observability/runs`) for run/status/throughput diagnostics.
 - Onboarding docs are now published for quick start, first workflow tutorial, and post-launch community loop.
@@ -128,7 +129,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 2. Expand migration/versioned persistence workflow from JSON `v3` boundaries toward relational DB backends.
 3. Add external secret-store adapters and operational rotation automation.
 4. Expand integration profile UX toward full connector-field parity with desktop editor.
-5. Harden release image/version strategy for production lifecycle management.
+5. Enforce signed-image digest verification policy and CI release provenance attestation.
 
 ## Recommended Positioning
 - **Desktop mode:** local-first Linux native experience.

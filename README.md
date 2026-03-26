@@ -141,6 +141,7 @@ See:
 - Optional Docker secrets-at-rest baseline is live (`SECRET_ENCRYPTION_KEY` for encrypted settings/integration secrets)
 - Docker API supports secret key rotation via `POST /api/v1/admin/secrets/rotate`
 - Docker managed secret adapter baseline is live (`SECRET_PROVIDER_MODE` with env/file reference resolution)
+- Docker runtime image/version governance baseline is live (`/api/v1/admin/runtime/governance` + meta status fields)
 - Docker API now includes observability routes (`/api/v1/observability/summary`, `/api/v1/observability/runs`)
 - Docker API now includes admin backup/restore routes (`/api/v1/admin/backup`, `/api/v1/admin/restore`)
 - Docker store migration expansion is live (`v1->v2->v3`, schema guardrails, and migration snapshots)
@@ -151,7 +152,7 @@ Self-hosted web status: **Live public beta and smoke-validated**.
 Next high-value items toward GA:
 - Expand web panel from beta control-room UX to full production parity modules.
 - Expand migration strategy from JSON `v3` baseline to relational DB workflows.
-- Add managed-secret adapters and automated key rotation policies for team/hosted deployment paths.
+- Add external secret-store adapters and automated rotation workflows for team/hosted deployment paths.
 
 ## Package Build Commands
 Build local installer artifacts:
