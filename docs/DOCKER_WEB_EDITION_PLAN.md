@@ -83,6 +83,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Secret management hardening baseline (optional `SECRET_ENCRYPTION_KEY` at-rest encryption)
 - [x] Managed secret adapters baseline (`SECRET_PROVIDER_MODE`: env/file/chain + provider reload route)
 - [x] Backup/restore + observability endpoints
+- [x] Relational migration scaffold baseline (Postgres revision tracking + first schema revision)
 
 ## What Is Done Right Now
 - Docker compose stack starts and runs (`api`, `worker`, `web`, `postgres`, `redis`).
@@ -123,13 +124,14 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Docker API managed secret adapters now support external HTTP JSON providers (`secret://http/...`) in addition to env/file/chain modes.
 - Docker API now supports runtime image/version governance checks with compatibility and provenance diagnostics (`/api/v1/admin/runtime/governance`).
 - CI now verifies governance baseline files (`scripts/verify_runtime_governance.py`) and release workflow emits artifact provenance attestations.
+- Docker runtime now includes a relational migration scaffold (`r0001_initial_runtime_scaffold`) and migration status endpoint (`/api/v1/admin/runtime/migrations`).
 - Docker API now exposes admin backup/restore endpoints (`/api/v1/admin/backup`, `/api/v1/admin/restore`) backed by snapshot bundles from persistent data storage.
 - Docker API now exposes observability endpoints (`/api/v1/observability/summary`, `/api/v1/observability/runs`) for run/status/throughput diagnostics.
 - Onboarding docs are now published for quick start, first workflow tutorial, and post-launch community loop.
 
 ## Next To Reach GA (Post-Beta)
 1. Expand web panel modules to full parity UX beyond beta control room.
-2. Expand migration/versioned persistence workflow from JSON `v3` boundaries toward relational DB backends.
+2. Expand from relational scaffold (`r0001`) to full Postgres-backed repositories for workflows/runs/settings/integrations/bots.
 3. Add production-grade secret-store adapters (Vault/KMS) and operational rotation automation.
 4. Expand integration profile UX toward full connector-field parity with desktop editor.
 5. Enforce signed-image digest verification policy and CI release provenance attestation.

@@ -99,6 +99,19 @@ Image/version governance baseline:
 - CI guardrail: `python3 scripts/verify_runtime_governance.py`
 - Release workflow now publishes package provenance attestations.
 
+Relational migration scaffold baseline:
+- API startup now runs a Postgres migration scaffold when `DATABASE_URL` is set.
+- Tracks revisions in `sixpx_schema_migrations` and seeds runtime scaffold state in `sixpx_runtime_state`.
+- First tracked revision: `r0001_initial_runtime_scaffold`.
+- Runtime migration status route:
+  - `GET /api/v1/admin/runtime/migrations`
+  - Optional refresh: `GET /api/v1/admin/runtime/migrations?refresh=true`
+- Controls:
+  - `RELATIONAL_MIGRATION_REQUIRED`
+  - `RELATIONAL_MIGRATION_CONNECT_TIMEOUT_SEC`
+  - `RELATIONAL_MIGRATION_RETRY_ATTEMPTS`
+  - `RELATIONAL_MIGRATION_RETRY_DELAY_SEC`
+
 Storage schema baseline:
 - JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
 - Migration history is recorded in `/data/6x-protocol/schema_migrations.json`.
@@ -128,6 +141,7 @@ Current API routes:
 - `GET /api/v1/admin/secrets/provider`
 - `POST /api/v1/admin/secrets/provider/reload`
 - `GET /api/v1/admin/runtime/governance`
+- `GET /api/v1/admin/runtime/migrations`
 - `GET/POST/PUT/DELETE /api/v1/workflows`
 - `PATCH /api/v1/workflows/{id}/graph`
 - `POST /api/v1/workflows/{id}/preflight`
@@ -178,6 +192,6 @@ Execution routing behavior:
 
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
-2. Expand DB migration/versioning from JSON `v3` baseline toward relational persistence boundaries.
+2. Expand DB migration/versioning from relational scaffold (`r0001`) toward full Postgres repositories.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Complete deployment hardening beyond baseline (external secret stores + signed release digest policy).

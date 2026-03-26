@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.relational_migrations import RelationalMigrationManager
 from app.run_controller import ACTIVE_STATUSES, RunController
 from app.runtime_governance import runtime_governance_snapshot
 from app.schemas import (
@@ -109,12 +110,25 @@ INTEGRATION_CATALOG: list[dict[str, Any]] = [
 
 store = JsonStore()
 run_controller = RunController(store=store)
+relational_migrations = RelationalMigrationManager(
+    database_url=str(os.getenv("DATABASE_URL", "") or ""),
+)
 
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
     description="Scaffold API for the 6X-Protocol web/self-hosted edition.",
 )
+
+
+@app.on_event("startup")
+def apply_relational_migrations_on_startup() -> None:
+    result = relational_migrations.apply(app_version=APP_VERSION)
+    if result.get("status") == "error" and bool(result.get("required")):
+        raise RuntimeError(
+            "Relational migration is required but failed to apply: "
+            f"{result.get('last_error', 'unknown error')}"
+        )
 
 
 def _cors_allow_origins() -> list[str]:
@@ -407,6 +421,7 @@ def readyz() -> dict[str, str]:
 def meta() -> dict[str, str]:
     secret_resolver = getattr(store, "secret_resolver", None)
     governance = _runtime_governance_payload()
+    migration_status = relational_migrations.status()
     return {
         "name": APP_NAME,
         "version": APP_VERSION,
@@ -430,6 +445,12 @@ def meta() -> dict[str, str]:
         "runtime_image_tag": str(governance.get("image_tag", "")),
         "runtime_governance_status": str(governance.get("status", "")),
         "runtime_governance_issue_count": str(governance.get("issue_count", 0)),
+        "relational_migration_enabled": "true"
+        if bool(migration_status.get("enabled", False))
+        else "false",
+        "relational_migration_status": str(migration_status.get("status", "")),
+        "relational_migration_applied_count": str(migration_status.get("applied_count", 0)),
+        "relational_migration_pending_count": str(migration_status.get("pending_count", 0)),
     }
 
 
@@ -635,6 +656,21 @@ def runtime_governance() -> dict[str, Any]:
         **_runtime_governance_payload(),
         "generated_at": utc_now_iso(),
     }
+
+
+@app.get("/api/v1/admin/runtime/migrations", tags=["admin"])
+def runtime_migrations_status(
+    refresh: bool = Query(
+        default=False,
+        description="When true, re-run relational migration apply/check before returning status.",
+    ),
+) -> dict[str, Any]:
+    if refresh:
+        return {
+            **relational_migrations.apply(app_version=APP_VERSION),
+            "refreshed_at": utc_now_iso(),
+        }
+    return relational_migrations.status()
 
 
 @app.get("/api/v1/workflows", response_model=dict[str, list[WorkflowOut]], tags=["workflows"])

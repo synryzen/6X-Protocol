@@ -98,6 +98,18 @@ if [[ "$GOVERNANCE_STATUS" != "ok" && "$GOVERNANCE_STATUS" != "warn" && "$GOVERN
   echo "Unexpected governance status '$GOVERNANCE_STATUS'"
   exit 1
 fi
+RELATIONAL_MIGRATION_STATUS="$(echo "$META_JSON" | jq -r '.relational_migration_status')"
+if [[ -z "$RELATIONAL_MIGRATION_STATUS" || "$RELATIONAL_MIGRATION_STATUS" == "null" ]]; then
+  echo "Expected relational_migration_status in /api/v1/meta"
+  exit 1
+fi
+MIGRATIONS_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/runtime/migrations)"
+echo "$MIGRATIONS_JSON" | jq .
+MIGRATIONS_STATUS="$(echo "$MIGRATIONS_JSON" | jq -r '.status')"
+if [[ "$MIGRATIONS_STATUS" != "ok" && "$MIGRATIONS_STATUS" != "warn" && "$MIGRATIONS_STATUS" != "error" && "$MIGRATIONS_STATUS" != "disabled" ]]; then
+  echo "Unexpected runtime migrations status '$MIGRATIONS_STATUS'"
+  exit 1
+fi
 
 echo "[3/12] Creating workflow..."
 WORKFLOW_JSON="$(curl_api -X POST http://127.0.0.1:8787/api/v1/workflows \
