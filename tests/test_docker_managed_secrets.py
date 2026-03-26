@@ -1,7 +1,9 @@
 import importlib.util
 import json
 import os
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -38,6 +40,10 @@ class ManagedSecretsTests(unittest.TestCase):
             ("file", "providers.openai.key"),
             self.module.parse_secret_reference("secret://file/providers.openai.key"),
         )
+        self.assertEqual(
+            ("http", "providers.openai.key"),
+            self.module.parse_secret_reference("secret://http/providers.openai.key"),
+        )
 
     def test_env_mode_resolves_settings_ref(self):
         os.environ["OPENAI_TEST_KEY"] = "openai-secret-value"
@@ -68,6 +74,54 @@ class ManagedSecretsTests(unittest.TestCase):
             ]
         )
         self.assertEqual("file-openai-secret", profiles[0]["config"].get("api_key"))
+
+    def test_http_mode_resolves_integration_ref(self):
+        expected_token = "token-123"
+        payload = json.dumps({"providers": {"openai": {"api_key": "http-openai-secret"}}}).encode("utf-8")
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                if self.path != "/secrets":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                if self.headers.get("Authorization") != f"Bearer {expected_token}":
+                    self.send_response(401)
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, _fmt, *_args):  # noqa: D401
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            resolver = self.module.ManagedSecretResolver(
+                mode="http",
+                http_url=f"http://127.0.0.1:{server.server_port}/secrets",
+                http_auth_token=expected_token,
+                http_allow_insecure=True,
+            )
+            profiles = resolver.resolve_integration_profiles(
+                [
+                    {
+                        "id": "p1",
+                        "key": "http_request",
+                        "name": "Profile",
+                        "config": {"api_key": "secret://http/providers.openai.api_key"},
+                    }
+                ]
+            )
+            self.assertEqual("http-openai-secret", profiles[0]["config"].get("api_key"))
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            server.server_close()
 
 
 if __name__ == "__main__":

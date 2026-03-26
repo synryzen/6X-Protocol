@@ -80,6 +80,11 @@ if [[ -z "$SECRET_PROVIDER_MODE" || "$SECRET_PROVIDER_MODE" == "null" ]]; then
   echo "Expected secret_provider_mode in /api/v1/meta"
   exit 1
 fi
+SECRET_PROVIDER_HTTP_LOADED="$(echo "$META_JSON" | jq -r '.secret_provider_http_loaded')"
+if [[ -z "$SECRET_PROVIDER_HTTP_LOADED" || "$SECRET_PROVIDER_HTTP_LOADED" == "null" ]]; then
+  echo "Expected secret_provider_http_loaded in /api/v1/meta"
+  exit 1
+fi
 RUNTIME_GOVERNANCE_STATUS="$(echo "$META_JSON" | jq -r '.runtime_governance_status')"
 if [[ -z "$RUNTIME_GOVERNANCE_STATUS" || "$RUNTIME_GOVERNANCE_STATUS" == "null" ]]; then
   echo "Expected runtime_governance_status in /api/v1/meta"

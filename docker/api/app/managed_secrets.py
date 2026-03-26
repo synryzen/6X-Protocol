@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 from typing import Any
 
 SECRET_REF_PREFIX = "secret://"
@@ -40,7 +42,7 @@ def parse_secret_reference(value: str) -> tuple[str, str] | None:
         provider, key = remainder.split("/", 1)
         provider = provider.strip().lower()
         key = key.strip()
-        if provider in {"env", "file"} and key:
+        if provider in {"env", "file", "http"} and key:
             return provider, key
     return None
 
@@ -54,22 +56,42 @@ class ManagedSecretResolver:
         mode: str = "disabled",
         file_path: str = "",
         env_prefix: str = "",
+        http_url: str = "",
+        http_auth_token: str = "",
+        http_timeout_sec: float = 3.0,
+        http_allow_insecure: bool = False,
     ) -> None:
         normalized_mode = str(mode or "disabled").strip().lower()
-        if normalized_mode not in {"disabled", "env", "file", "chain"}:
+        if normalized_mode not in {"disabled", "env", "file", "http", "chain"}:
             normalized_mode = "disabled"
         self.mode = normalized_mode
         self.file_path = str(file_path or "").strip()
         self.env_prefix = str(env_prefix or "").strip()
+        self.http_url = str(http_url or "").strip()
+        self.http_auth_token = str(http_auth_token or "").strip()
+        try:
+            self.http_timeout_sec = max(0.5, float(http_timeout_sec))
+        except (TypeError, ValueError):
+            self.http_timeout_sec = 3.0
+        self.http_allow_insecure = bool(http_allow_insecure)
         self._file_cache: dict[str, Any] | None = None
         self._file_loaded = False
+        self._http_cache: dict[str, Any] | None = None
+        self._http_loaded = False
 
     @classmethod
     def from_env(cls) -> "ManagedSecretResolver":
+        allow_insecure_raw = str(
+            os.getenv("SECRET_PROVIDER_HTTP_ALLOW_INSECURE", "false") or "false"
+        ).strip().lower()
         return cls(
             mode=str(os.getenv("SECRET_PROVIDER_MODE", "disabled") or "disabled"),
             file_path=str(os.getenv("SECRET_PROVIDER_FILE", "") or ""),
             env_prefix=str(os.getenv("SECRET_PROVIDER_ENV_PREFIX", "") or ""),
+            http_url=str(os.getenv("SECRET_PROVIDER_HTTP_URL", "") or ""),
+            http_auth_token=str(os.getenv("SECRET_PROVIDER_HTTP_AUTH_TOKEN", "") or ""),
+            http_timeout_sec=str(os.getenv("SECRET_PROVIDER_HTTP_TIMEOUT_SEC", "3.0") or "3.0"),
+            http_allow_insecure=allow_insecure_raw in {"1", "true", "yes", "on"},
         )
 
     @property
@@ -79,6 +101,10 @@ class ManagedSecretResolver:
     @property
     def file_loaded(self) -> bool:
         return self._file_loaded
+
+    @property
+    def http_loaded(self) -> bool:
+        return self._http_loaded
 
     def _load_file_secrets(self) -> dict[str, Any]:
         if self._file_cache is not None:
@@ -100,6 +126,39 @@ class ManagedSecretResolver:
             self._file_cache = {}
             self._file_loaded = False
         return self._file_cache
+
+    def _load_http_secrets(self) -> dict[str, Any]:
+        if self._http_cache is not None:
+            return self._http_cache
+        if not self.http_url:
+            self._http_cache = {}
+            self._http_loaded = False
+            return self._http_cache
+        parsed = urlparse(self.http_url)
+        if parsed.scheme not in {"https", "http"}:
+            self._http_cache = {}
+            self._http_loaded = False
+            return self._http_cache
+        if parsed.scheme == "http" and not self.http_allow_insecure:
+            self._http_cache = {}
+            self._http_loaded = False
+            return self._http_cache
+        headers = {"Accept": "application/json"}
+        token = self.http_auth_token
+        if token:
+            header_value = token if token.lower().startswith("bearer ") else f"Bearer {token}"
+            headers["Authorization"] = header_value
+        request = Request(self.http_url, headers=headers, method="GET")
+        try:
+            with urlopen(request, timeout=self.http_timeout_sec) as response:
+                payload = response.read().decode("utf-8")
+            raw = json.loads(payload)
+            self._http_cache = raw if isinstance(raw, dict) else {}
+            self._http_loaded = True
+        except Exception:
+            self._http_cache = {}
+            self._http_loaded = False
+        return self._http_cache
 
     def _resolve_from_env(self, key: str) -> str | None:
         target = str(key or "").strip()
@@ -128,6 +187,20 @@ class ManagedSecretResolver:
         resolved = str(current).strip()
         return resolved or None
 
+    def _resolve_from_http(self, key_path: str) -> str | None:
+        key = str(key_path or "").strip()
+        if not key:
+            return None
+        current: Any = self._load_http_secrets()
+        for part in key.split("."):
+            if not isinstance(current, dict):
+                return None
+            current = current.get(part)
+        if current is None:
+            return None
+        resolved = str(current).strip()
+        return resolved or None
+
     def resolve_reference(self, reference: str) -> str | None:
         parsed = parse_secret_reference(reference)
         if parsed is None:
@@ -140,11 +213,15 @@ class ManagedSecretResolver:
             return self._resolve_from_env(key) if provider == "env" else None
         if self.mode == "file":
             return self._resolve_from_file(key) if provider == "file" else None
+        if self.mode == "http":
+            return self._resolve_from_http(key) if provider == "http" else None
         # chain mode
         if provider == "env":
             return self._resolve_from_env(key)
         if provider == "file":
             return self._resolve_from_file(key)
+        if provider == "http":
+            return self._resolve_from_http(key)
         return None
 
     def resolve_settings(self, settings: dict[str, Any]) -> dict[str, Any]:

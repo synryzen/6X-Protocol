@@ -119,6 +119,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Docker API JSON storage now supports optional at-rest secret encryption (`SECRET_ENCRYPTION_KEY`) for sensitive settings and integration profile fields.
 - Docker API now supports secret key rotation (`/api/v1/admin/secrets/rotate`) for re-encrypting persisted settings/integration secret payloads.
 - Docker API now supports managed secret adapters (`env`/`file`/`chain`) with provider references and reload/status endpoints.
+- Docker API managed secret adapters now support external HTTP JSON providers (`secret://http/...`) in addition to env/file/chain modes.
 - Docker API now supports runtime image/version governance checks with compatibility and provenance diagnostics (`/api/v1/admin/runtime/governance`).
 - Docker API now exposes admin backup/restore endpoints (`/api/v1/admin/backup`, `/api/v1/admin/restore`) backed by snapshot bundles from persistent data storage.
 - Docker API now exposes observability endpoints (`/api/v1/observability/summary`, `/api/v1/observability/runs`) for run/status/throughput diagnostics.
@@ -127,7 +128,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 ## Next To Reach GA (Post-Beta)
 1. Expand web panel modules to full parity UX beyond beta control room.
 2. Expand migration/versioned persistence workflow from JSON `v3` boundaries toward relational DB backends.
-3. Add external secret-store adapters and operational rotation automation.
+3. Add production-grade secret-store adapters (Vault/KMS) and operational rotation automation.
 4. Expand integration profile UX toward full connector-field parity with desktop editor.
 5. Enforce signed-image digest verification policy and CI release provenance attestation.
 

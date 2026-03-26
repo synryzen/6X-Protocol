@@ -423,6 +423,9 @@ def meta() -> dict[str, str]:
         "secret_provider_file_loaded": "true"
         if bool(getattr(secret_resolver, "file_loaded", False))
         else "false",
+        "secret_provider_http_loaded": "true"
+        if bool(getattr(secret_resolver, "http_loaded", False))
+        else "false",
         "runtime_release_channel": str(governance.get("release_channel", "")),
         "runtime_image_tag": str(governance.get("image_tag", "")),
         "runtime_governance_status": str(governance.get("status", "")),
@@ -604,7 +607,9 @@ def get_secret_provider() -> dict[str, str]:
         "mode": str(getattr(resolver, "mode", "disabled")),
         "enabled": "true" if bool(getattr(resolver, "enabled", False)) else "false",
         "file_loaded": "true" if bool(getattr(resolver, "file_loaded", False)) else "false",
+        "http_loaded": "true" if bool(getattr(resolver, "http_loaded", False)) else "false",
         "file_path": str(getattr(resolver, "file_path", "") or ""),
+        "http_url": str(getattr(resolver, "http_url", "") or ""),
         "env_prefix": str(getattr(resolver, "env_prefix", "") or ""),
     }
 
@@ -619,6 +624,7 @@ def reload_secret_provider() -> dict[str, str]:
         "mode": str(getattr(resolver, "mode", "disabled")),
         "enabled": "true" if bool(getattr(resolver, "enabled", False)) else "false",
         "file_loaded": "true" if bool(getattr(resolver, "file_loaded", False)) else "false",
+        "http_loaded": "true" if bool(getattr(resolver, "http_loaded", False)) else "false",
         "reloaded_at": utc_now_iso(),
     }
 
