@@ -28,3 +28,12 @@ This repo now includes:
 
 ## 5) If you switch to a custom domain
 - Update canonical URLs and sitemap URLs from `synryzen.github.io/6X-Protocol` to your custom domain.
+
+## 6) Automated SEO health check
+- Workflow: `.github/workflows/seo-health.yml` (runs on every push).
+- Validator script: `scripts/verify_seo_health.py`.
+- It verifies:
+  - canonical tags exist and map to real files
+  - `og:url` matches canonical
+  - canonical URLs are present in `docs/sitemap.xml`
+  - `docs/robots.txt` contains a sitemap entry
