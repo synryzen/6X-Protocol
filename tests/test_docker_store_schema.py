@@ -28,6 +28,12 @@ class DockerStoreSchemaTests(unittest.TestCase):
 
     def tearDown(self):
         os.environ.pop("SECRET_ENCRYPTION_KEY", None)
+        os.environ.pop("SECRET_PROVIDER_MODE", None)
+        os.environ.pop("SECRET_PROVIDER_FILE", None)
+        os.environ.pop("SECRET_PROVIDER_ENV_PREFIX", None)
+        os.environ.pop("OPENAI_MANAGED_KEY", None)
+        os.environ.pop("INTEGRATION_MANAGED_KEY", None)
+        os.environ.pop("ANTHROPIC_MANAGED_KEY", None)
         self.temp_dir.cleanup()
 
     def _write_json(self, name: str, payload):
@@ -336,6 +342,75 @@ class DockerStoreSchemaTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             store.restore_backup(self.data_dir / "future-backup.json", merge=False)
+
+    def test_managed_secret_env_refs_resolve_settings_and_integrations(self):
+        os.environ["SECRET_PROVIDER_MODE"] = "env"
+        os.environ["OPENAI_MANAGED_KEY"] = "openai-managed-secret"
+        os.environ["INTEGRATION_MANAGED_KEY"] = "integration-managed-secret"
+        store = self.module.JsonStore(data_dir=str(self.data_dir))
+
+        store.save_settings(
+            {
+                "openai_api_key_ref": "env:OPENAI_MANAGED_KEY",
+                "openai_api_key": "",
+            }
+        )
+        raw_settings = self._read_json("settings.json")
+        self.assertEqual("env:OPENAI_MANAGED_KEY", raw_settings.get("openai_api_key_ref"))
+        loaded_settings = store.load_settings({})
+        self.assertEqual("openai-managed-secret", loaded_settings.get("openai_api_key"))
+
+        store.save_integrations(
+            [
+                {
+                    "id": "i_env_ref",
+                    "key": "http_request",
+                    "name": "Env Ref Integration",
+                    "description": "",
+                    "config": {
+                        "api_key": "secret://env/INTEGRATION_MANAGED_KEY",
+                        "url": "https://example.com",
+                    },
+                    "enabled": True,
+                    "tags": [],
+                    "created_at": "2026-03-24T00:00:00+00:00",
+                    "updated_at": "2026-03-24T00:00:00+00:00",
+                }
+            ]
+        )
+        loaded_integrations = store.load_integrations()
+        self.assertEqual(
+            "integration-managed-secret",
+            loaded_integrations[0]["config"].get("api_key"),
+        )
+
+    def test_managed_secret_file_ref_resolves_settings(self):
+        secret_file = self.data_dir / "managed-secrets.json"
+        self._write_json(
+            "managed-secrets.json",
+            {
+                "providers": {
+                    "anthropic": {
+                        "key": "anthropic-managed-secret",
+                    }
+                }
+            },
+        )
+        os.environ["SECRET_PROVIDER_MODE"] = "file"
+        os.environ["SECRET_PROVIDER_FILE"] = str(secret_file)
+        store = self.module.JsonStore(data_dir=str(self.data_dir))
+
+        store.save_settings(
+            {
+                "anthropic_api_key_ref": "file:providers.anthropic.key",
+                "anthropic_api_key": "",
+            }
+        )
+        loaded_settings = store.load_settings({})
+        self.assertEqual(
+            "anthropic-managed-secret",
+            loaded_settings.get("anthropic_api_key"),
+        )
 
 
 if __name__ == "__main__":

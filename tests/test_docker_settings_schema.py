@@ -45,6 +45,9 @@ class DockerSettingsSchemaTests(unittest.TestCase):
         self.assertIn("canvas_minimap_x", DEFAULT_SETTINGS)
         self.assertIn("canvas_minimap_y", DEFAULT_SETTINGS)
         self.assertIn("canvas_minimap_user_placed", DEFAULT_SETTINGS)
+        self.assertIn("local_ai_api_key_ref", DEFAULT_SETTINGS)
+        self.assertIn("openai_api_key_ref", DEFAULT_SETTINGS)
+        self.assertIn("anthropic_api_key_ref", DEFAULT_SETTINGS)
 
     def test_normalize_settings_applies_backend_endpoint_defaults_and_model_sanitization(self):
         normalized = normalize_settings(

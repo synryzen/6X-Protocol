@@ -67,6 +67,17 @@ Optional secret encryption baseline:
 - Encrypted values are stored with prefix `enc:v1:` in JSON files and transparently decrypted by the API at runtime.
 - Rotate encrypted material using `POST /api/v1/admin/secrets/rotate` with `new_key_material`.
 
+Managed secret adapter baseline:
+- Configure `SECRET_PROVIDER_MODE` with one of: `disabled`, `env`, `file`, `chain`.
+- Resolve references in settings/integration configs using:
+  - `env:YOUR_ENV_KEY` or `secret://env/YOUR_ENV_KEY`
+  - `file:path.to.secret` or `secret://file/path.to.secret`
+- Optional file-backed provider path: `SECRET_PROVIDER_FILE` (default `/data/6x-protocol/managed-secrets.json`).
+- Optional env prefix: `SECRET_PROVIDER_ENV_PREFIX` (for prefixed env lookup fallback).
+- Provider status routes:
+  - `GET /api/v1/admin/secrets/provider`
+  - `POST /api/v1/admin/secrets/provider/reload`
+
 Storage schema baseline:
 - JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
 - Migration history is recorded in `/data/6x-protocol/schema_migrations.json`.
@@ -93,6 +104,8 @@ Current API routes:
 - `POST /api/v1/admin/backup`
 - `POST /api/v1/admin/restore`
 - `POST /api/v1/admin/secrets/rotate`
+- `GET /api/v1/admin/secrets/provider`
+- `POST /api/v1/admin/secrets/provider/reload`
 - `GET/POST/PUT/DELETE /api/v1/workflows`
 - `PATCH /api/v1/workflows/{id}/graph`
 - `POST /api/v1/workflows/{id}/preflight`

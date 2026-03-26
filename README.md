@@ -140,6 +140,7 @@ See:
 - Optional Docker API auth baseline is live (`API_AUTH_TOKEN`, `X-6X-API-Key`, or Bearer token), with web token input support
 - Optional Docker secrets-at-rest baseline is live (`SECRET_ENCRYPTION_KEY` for encrypted settings/integration secrets)
 - Docker API supports secret key rotation via `POST /api/v1/admin/secrets/rotate`
+- Docker managed secret adapter baseline is live (`SECRET_PROVIDER_MODE` with env/file reference resolution)
 - Docker API now includes observability routes (`/api/v1/observability/summary`, `/api/v1/observability/runs`)
 - Docker API now includes admin backup/restore routes (`/api/v1/admin/backup`, `/api/v1/admin/restore`)
 - Docker store migration expansion is live (`v1->v2->v3`, schema guardrails, and migration snapshots)

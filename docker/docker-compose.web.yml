@@ -38,6 +38,9 @@ services:
       CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       API_AUTH_TOKEN: ${API_AUTH_TOKEN:-}
       SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:-}
+      SECRET_PROVIDER_MODE: ${SECRET_PROVIDER_MODE:-disabled}
+      SECRET_PROVIDER_FILE: ${SECRET_PROVIDER_FILE:-/data/6x-protocol/managed-secrets.json}
+      SECRET_PROVIDER_ENV_PREFIX: ${SECRET_PROVIDER_ENV_PREFIX:-}
     ports:
       - "${API_PORT:-8787}:8787"
     volumes:
@@ -64,6 +67,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       SCAFFOLD_DATA_DIR: ${SCAFFOLD_DATA_DIR:-/data/6x-protocol}
       SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:-}
+      SECRET_PROVIDER_MODE: ${SECRET_PROVIDER_MODE:-disabled}
+      SECRET_PROVIDER_FILE: ${SECRET_PROVIDER_FILE:-/data/6x-protocol/managed-secrets.json}
+      SECRET_PROVIDER_ENV_PREFIX: ${SECRET_PROVIDER_ENV_PREFIX:-}
     volumes:
       - api_data:/data
 

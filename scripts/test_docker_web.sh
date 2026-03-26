@@ -75,6 +75,12 @@ if [[ "$STORE_SCHEMA_VERSION" != "3" ]]; then
   echo "Expected store_schema_version=3, got '$STORE_SCHEMA_VERSION'"
   exit 1
 fi
+SECRET_PROVIDER_MODE="$(echo "$META_JSON" | jq -r '.secret_provider_mode')"
+if [[ -z "$SECRET_PROVIDER_MODE" || "$SECRET_PROVIDER_MODE" == "null" ]]; then
+  echo "Expected secret_provider_mode in /api/v1/meta"
+  exit 1
+fi
+curl_api http://127.0.0.1:8787/api/v1/admin/secrets/provider | jq .
 
 echo "[3/12] Creating workflow..."
 WORKFLOW_JSON="$(curl_api -X POST http://127.0.0.1:8787/api/v1/workflows \

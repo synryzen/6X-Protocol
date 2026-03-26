@@ -6,6 +6,8 @@ import base64
 import hashlib
 from typing import Any
 
+from app.managed_secrets import is_secret_reference
+
 SECRET_PREFIX = "enc:v1:"
 
 _SECRET_FIELD_MARKERS = (
@@ -51,6 +53,8 @@ class SecretManager:
     def encrypt_text(self, value: Any) -> str:
         text = str(value or "")
         if not self.enabled or not text:
+            return text
+        if is_secret_reference(text):
             return text
         if text.startswith(SECRET_PREFIX):
             return text

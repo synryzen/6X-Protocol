@@ -13,6 +13,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from app.managed_secrets import ManagedSecretResolver
 from app.secret_manager import SecretManager
 
 MIN_STORE_SCHEMA_VERSION = 1
@@ -26,6 +27,7 @@ class JsonStore:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self.secrets = SecretManager(str(os.getenv("SECRET_ENCRYPTION_KEY", "") or ""))
+        self.secret_resolver = ManagedSecretResolver.from_env()
         self.schema_version = STORE_SCHEMA_VERSION
         self.ensure_schema()
 
@@ -757,6 +759,9 @@ class JsonStore:
             "integration_profiles": len(integrations),
         }
 
+    def refresh_managed_secret_resolver(self) -> None:
+        self.secret_resolver = ManagedSecretResolver.from_env()
+
     def load_workflows(self) -> list[dict[str, Any]]:
         data = self._read_json("workflows.json", [])
         return self._sanitize_workflows_v3(data)
@@ -776,6 +781,7 @@ class JsonStore:
         if not isinstance(data, dict):
             return dict(defaults)
         data = self._sanitize_settings_v3(self.secrets.decrypt_settings(data))
+        data = self.secret_resolver.resolve_settings(data)
         merged = dict(defaults)
         merged.update(data)
         return merged
@@ -789,7 +795,8 @@ class JsonStore:
     def load_integrations(self) -> list[dict[str, Any]]:
         data = self._read_json("integrations.json", [])
         sanitized = self._sanitize_integrations_v2(data)
-        return self.secrets.decrypt_integration_profiles(sanitized)
+        decrypted = self.secrets.decrypt_integration_profiles(sanitized)
+        return self.secret_resolver.resolve_integration_profiles(decrypted)
 
     def save_integrations(self, integrations: list[dict[str, Any]]) -> None:
         sanitized = self._sanitize_integrations_v2(integrations)

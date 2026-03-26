@@ -41,6 +41,8 @@ class DockerApiHardeningRouteTests(unittest.TestCase):
             "/api/v1/admin/backup",
             "/api/v1/admin/restore",
             "/api/v1/admin/secrets/rotate",
+            "/api/v1/admin/secrets/provider",
+            "/api/v1/admin/secrets/provider/reload",
         }
         self.assertTrue(expected.issubset(paths), f"Missing API routes: {sorted(expected - paths)}")
 
@@ -56,6 +58,7 @@ class DockerApiHardeningRouteTests(unittest.TestCase):
         self.assertIn("export_backup", methods)
         self.assertIn("restore_backup", methods)
         self.assertIn("default_backup_path", methods)
+        self.assertIn("refresh_managed_secret_resolver", methods)
 
 
 if __name__ == "__main__":

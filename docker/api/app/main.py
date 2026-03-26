@@ -397,6 +397,7 @@ def readyz() -> dict[str, str]:
 
 @app.get("/api/v1/meta", tags=["meta"])
 def meta() -> dict[str, str]:
+    secret_resolver = getattr(store, "secret_resolver", None)
     return {
         "name": APP_NAME,
         "version": APP_VERSION,
@@ -406,6 +407,13 @@ def meta() -> dict[str, str]:
         "store_schema_version": str(getattr(store, "schema_version", "")),
         "auth_enabled": "true" if bool(API_AUTH_TOKEN) else "false",
         "secret_encryption_enabled": "true" if bool(getattr(store.secrets, "enabled", False)) else "false",
+        "secret_provider_mode": str(getattr(secret_resolver, "mode", "disabled")),
+        "secret_provider_enabled": "true"
+        if bool(getattr(secret_resolver, "enabled", False))
+        else "false",
+        "secret_provider_file_loaded": "true"
+        if bool(getattr(secret_resolver, "file_loaded", False))
+        else "false",
     }
 
 
@@ -573,6 +581,32 @@ def rotate_secrets(payload: SecretRotateRequest) -> dict[str, Any]:
     return {
         "rotated_counts": rotated_counts,
         "rotated_at": utc_now_iso(),
+    }
+
+
+@app.get("/api/v1/admin/secrets/provider", tags=["admin"])
+def get_secret_provider() -> dict[str, str]:
+    resolver = getattr(store, "secret_resolver", None)
+    return {
+        "mode": str(getattr(resolver, "mode", "disabled")),
+        "enabled": "true" if bool(getattr(resolver, "enabled", False)) else "false",
+        "file_loaded": "true" if bool(getattr(resolver, "file_loaded", False)) else "false",
+        "file_path": str(getattr(resolver, "file_path", "") or ""),
+        "env_prefix": str(getattr(resolver, "env_prefix", "") or ""),
+    }
+
+
+@app.post("/api/v1/admin/secrets/provider/reload", tags=["admin"])
+def reload_secret_provider() -> dict[str, str]:
+    refresh_method = getattr(store, "refresh_managed_secret_resolver", None)
+    if callable(refresh_method):
+        refresh_method()
+    resolver = getattr(store, "secret_resolver", None)
+    return {
+        "mode": str(getattr(resolver, "mode", "disabled")),
+        "enabled": "true" if bool(getattr(resolver, "enabled", False)) else "false",
+        "file_loaded": "true" if bool(getattr(resolver, "file_loaded", False)) else "false",
+        "reloaded_at": utc_now_iso(),
     }
 
 

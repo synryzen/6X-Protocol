@@ -80,6 +80,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Migration expansion (v3 schema boundaries + safer data evolution guardrails)
 - [x] Auth layer baseline (optional `API_AUTH_TOKEN` for `/api/v1/*` + web token input)
 - [x] Secret management hardening baseline (optional `SECRET_ENCRYPTION_KEY` at-rest encryption)
+- [x] Managed secret adapters baseline (`SECRET_PROVIDER_MODE`: env/file/chain + provider reload route)
 - [x] Backup/restore + observability endpoints
 
 ## What Is Done Right Now
@@ -117,6 +118,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Docker JSON storage now enforces schema compatibility boundaries (`v3`), captures migration snapshots, and rejects unsupported future-schema data/backup imports.
 - Docker API JSON storage now supports optional at-rest secret encryption (`SECRET_ENCRYPTION_KEY`) for sensitive settings and integration profile fields.
 - Docker API now supports secret key rotation (`/api/v1/admin/secrets/rotate`) for re-encrypting persisted settings/integration secret payloads.
+- Docker API now supports managed secret adapters (`env`/`file`/`chain`) with provider references and reload/status endpoints.
 - Docker API now exposes admin backup/restore endpoints (`/api/v1/admin/backup`, `/api/v1/admin/restore`) backed by snapshot bundles from persistent data storage.
 - Docker API now exposes observability endpoints (`/api/v1/observability/summary`, `/api/v1/observability/runs`) for run/status/throughput diagnostics.
 - Onboarding docs are now published for quick start, first workflow tutorial, and post-launch community loop.

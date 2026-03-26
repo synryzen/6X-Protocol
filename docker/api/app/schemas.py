@@ -94,9 +94,12 @@ class SettingsPatch(BaseModel):
     local_ai_backend: str | None = None
     local_ai_endpoint: str | None = None
     local_ai_api_key: str | None = None
+    local_ai_api_key_ref: str | None = None
     default_local_model: str | None = None
     openai_api_key: str | None = None
+    openai_api_key_ref: str | None = None
     anthropic_api_key: str | None = None
+    anthropic_api_key_ref: str | None = None
     theme: str | None = None
     theme_preset: str | None = None
     ui_density: str | None = None
@@ -259,9 +262,12 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "local_ai_backend": "ollama",
     "local_ai_endpoint": "http://localhost:11434",
     "local_ai_api_key": "",
+    "local_ai_api_key_ref": "",
     "default_local_model": "",
     "openai_api_key": "",
+    "openai_api_key_ref": "",
     "anthropic_api_key": "",
+    "anthropic_api_key_ref": "",
     "theme": "dark",
     "theme_preset": "graphite",
     "ui_density": "comfortable",
@@ -450,9 +456,12 @@ def normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
         local_endpoint = default_endpoint_for_backend(merged["local_ai_backend"])
     merged["local_ai_endpoint"] = local_endpoint.rstrip("/")
     merged["local_ai_api_key"] = str(merged.get("local_ai_api_key", "")).strip()
+    merged["local_ai_api_key_ref"] = str(merged.get("local_ai_api_key_ref", "")).strip()
     merged["default_local_model"] = sanitize_model_name(str(merged.get("default_local_model", "")).strip())
     merged["openai_api_key"] = str(merged.get("openai_api_key", "")).strip()
+    merged["openai_api_key_ref"] = str(merged.get("openai_api_key_ref", "")).strip()
     merged["anthropic_api_key"] = str(merged.get("anthropic_api_key", "")).strip()
+    merged["anthropic_api_key_ref"] = str(merged.get("anthropic_api_key_ref", "")).strip()
     return merged
 
 
