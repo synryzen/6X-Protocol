@@ -151,6 +151,7 @@ See:
 - Docker store migration expansion is live (`v1->v2->v3`, schema guardrails, and migration snapshots)
 - Relational migration expansion is live (`r0001` + `r0002` + `r0003` + `r0004` + `r0005` + `r0006` tracked in Postgres via `/api/v1/admin/runtime/migrations`)
 - Relational schema compatibility guardrails are live (startup enforcement + min/max schema boundaries + unknown-revision policy)
+- Runtime migration ops now include safe constraint validation (`POST /api/v1/admin/runtime/migrations/validate` dry-run/apply)
 - Feature-flagged storage backend cutover is live (`SIXPX_STORAGE_BACKEND=json|postgres`, with safe JSON fallback)
 - Smoke test validated (March 24, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, observability + backup checks, timeline/log filters, integrations, bots, and settings patch flows
 

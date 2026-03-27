@@ -119,6 +119,9 @@ Relational migration scaffold baseline:
 - Runtime migration status route:
   - `GET /api/v1/admin/runtime/migrations`
   - Optional refresh: `GET /api/v1/admin/runtime/migrations?refresh=true`
+  - Constraint validation dry-run/apply:
+    - `POST /api/v1/admin/runtime/migrations/validate?apply=false`
+    - `POST /api/v1/admin/runtime/migrations/validate?apply=true&limit=50&stop_on_error=false`
 - Controls:
   - `SIXPX_STORAGE_BACKEND` (`json` or `postgres`)
   - `SIXPX_STORAGE_BACKEND_REQUIRED`

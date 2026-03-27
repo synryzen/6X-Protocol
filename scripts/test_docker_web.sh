@@ -141,6 +141,16 @@ if [[ "$MIGRATIONS_COMPATIBILITY_STATUS" != "ok" && "$MIGRATIONS_COMPATIBILITY_S
   exit 1
 fi
 
+MIGRATIONS_VALIDATE_JSON="$(
+  curl_api -X POST "http://127.0.0.1:8787/api/v1/admin/runtime/migrations/validate?apply=false&limit=50&stop_on_error=false"
+)"
+echo "$MIGRATIONS_VALIDATE_JSON" | jq .
+MIGRATIONS_VALIDATE_STATUS="$(echo "$MIGRATIONS_VALIDATE_JSON" | jq -r '.status')"
+if [[ "$MIGRATIONS_VALIDATE_STATUS" != "ok" && "$MIGRATIONS_VALIDATE_STATUS" != "warn" && "$MIGRATIONS_VALIDATE_STATUS" != "error" && "$MIGRATIONS_VALIDATE_STATUS" != "disabled" ]]; then
+  echo "Unexpected migration validate status '$MIGRATIONS_VALIDATE_STATUS'"
+  exit 1
+fi
+
 echo "[3/12] Creating workflow..."
 WORKFLOW_JSON="$(curl_api -X POST http://127.0.0.1:8787/api/v1/workflows \
   -H 'Content-Type: application/json' \

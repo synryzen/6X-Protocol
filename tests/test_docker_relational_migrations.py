@@ -108,6 +108,13 @@ class RelationalMigrationsTests(unittest.TestCase):
         self.assertEqual("error", compatibility.get("status"))
         self.assertIn("exceeds maximum supported", " ".join(compatibility.get("errors", [])))
 
+    def test_constraint_validation_disabled_without_database(self):
+        manager = self.module.RelationalMigrationManager(database_url="")
+        result = manager.validate_constraints(apply=False, limit=25)
+        self.assertEqual("disabled", result.get("status"))
+        self.assertFalse(bool(result.get("connected")))
+        self.assertEqual(0, int(result.get("attempted_count", 0)))
+
 
 if __name__ == "__main__":
     unittest.main()

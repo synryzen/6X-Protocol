@@ -29,6 +29,7 @@ class RelationalRevision:
 
 
 _REVISION_SCHEMA_RE = re.compile(r"^r(\d{4})[_\-].*$", re.IGNORECASE)
+_SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def revision_schema_version(revision: str) -> int:
@@ -36,6 +37,13 @@ def revision_schema_version(revision: str) -> int:
     if not matched:
         return 0
     return max(0, int(matched.group(1)))
+
+
+def _quote_identifier(value: Any) -> str:
+    identifier = str(value or "").strip()
+    if not identifier or not _SQL_IDENTIFIER_RE.match(identifier):
+        raise ValueError(f"Invalid SQL identifier: {identifier!r}")
+    return f'"{identifier}"'
 
 
 RELATIONAL_REVISIONS: tuple[RelationalRevision, ...] = (
@@ -595,6 +603,114 @@ class RelationalMigrationManager:
                 }
             )
         return constraints
+
+    def validate_constraints(
+        self,
+        *,
+        apply: bool = False,
+        limit: int = 50,
+        stop_on_error: bool = False,
+    ) -> dict[str, Any]:
+        snapshot: dict[str, Any] = {
+            "status": "disabled",
+            "enabled": bool(self.database_url),
+            "database_url_configured": bool(self.database_url),
+            "database_url_masked": mask_database_url(self.database_url),
+            "applied": bool(apply),
+            "stop_on_error": bool(stop_on_error),
+            "requested_limit": _to_int(limit, default=50, minimum=1, maximum=500),
+            "driver_available": False,
+            "connected": False,
+            "attempted_count": 0,
+            "validated_count": 0,
+            "failed_count": 0,
+            "remaining_count": 0,
+            "failed": [],
+            "remaining": [],
+            "last_error": "",
+            "checked_at": datetime.now(UTC).isoformat(),
+        }
+        if not self.database_url:
+            return snapshot
+
+        psycopg = self._import_psycopg()
+        if psycopg is None:
+            snapshot["status"] = "error"
+            snapshot["last_error"] = "psycopg driver not available"
+            return snapshot
+        snapshot["driver_available"] = True
+
+        requested_limit = int(snapshot["requested_limit"])
+        last_error = ""
+        for attempt in range(1, self.retry_attempts + 1):
+            try:
+                with psycopg.connect(self.database_url, connect_timeout=self.connect_timeout_sec) as connection:
+                    snapshot["connected"] = True
+                    constraints = self._load_unvalidated_constraints(connection)
+                    selected = list(constraints[:requested_limit])
+                    snapshot["attempted_count"] = len(selected)
+
+                    failures: list[dict[str, str]] = []
+                    validated = 0
+                    if apply:
+                        for item in selected:
+                            table_name = str(item.get("table", "")).strip()
+                            constraint_name = str(item.get("constraint", "")).strip()
+                            if not table_name or not constraint_name:
+                                failures.append(
+                                    {
+                                        "table": table_name,
+                                        "constraint": constraint_name,
+                                        "error": "Missing table/constraint name",
+                                    }
+                                )
+                                if stop_on_error:
+                                    break
+                                continue
+                            try:
+                                quoted_table = _quote_identifier(table_name)
+                                quoted_constraint = _quote_identifier(constraint_name)
+                                with connection.transaction():
+                                    with connection.cursor() as cursor:
+                                        cursor.execute(
+                                            f"ALTER TABLE {quoted_table} "
+                                            f"VALIDATE CONSTRAINT {quoted_constraint}"
+                                        )
+                                validated += 1
+                            except Exception as error:
+                                failures.append(
+                                    {
+                                        "table": table_name,
+                                        "constraint": constraint_name,
+                                        "error": str(error),
+                                    }
+                                )
+                                if stop_on_error:
+                                    break
+
+                    remaining = self._load_unvalidated_constraints(connection)
+                    snapshot["validated_count"] = validated
+                    snapshot["failed"] = failures
+                    snapshot["failed_count"] = len(failures)
+                    snapshot["remaining"] = remaining
+                    snapshot["remaining_count"] = len(remaining)
+                break
+            except Exception as error:
+                last_error = str(error)
+                if attempt < self.retry_attempts:
+                    sleep(self.retry_delay_sec)
+
+        snapshot["last_error"] = last_error
+        if not snapshot["connected"]:
+            snapshot["status"] = "error"
+        elif snapshot["failed_count"] > 0:
+            snapshot["status"] = "error" if stop_on_error else "warn"
+        elif snapshot["remaining_count"] > 0:
+            snapshot["status"] = "warn"
+        else:
+            snapshot["status"] = "ok"
+        snapshot["checked_at"] = datetime.now(UTC).isoformat()
+        return snapshot
 
     def evaluate_schema_compatibility(self, applied_revisions: set[str]) -> dict[str, Any]:
         applied = {item for item in applied_revisions if str(item).strip()}

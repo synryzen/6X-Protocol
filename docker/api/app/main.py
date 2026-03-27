@@ -703,6 +703,36 @@ def runtime_migrations_status(
     return relational_migrations.status()
 
 
+@app.post("/api/v1/admin/runtime/migrations/validate", tags=["admin"])
+def runtime_migrations_validate_constraints(
+    apply: bool = Query(
+        default=False,
+        description=(
+            "When false, returns dry-run snapshot of unvalidated constraints. "
+            "When true, attempts VALIDATE CONSTRAINT for selected items."
+        ),
+    ),
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=500,
+        description="Maximum number of unvalidated constraints to process in this call.",
+    ),
+    stop_on_error: bool = Query(
+        default=False,
+        description="When true, stop at first failed validation attempt.",
+    ),
+) -> dict[str, Any]:
+    return {
+        **relational_migrations.validate_constraints(
+            apply=apply,
+            limit=limit,
+            stop_on_error=stop_on_error,
+        ),
+        "requested_at": utc_now_iso(),
+    }
+
+
 @app.get("/api/v1/workflows", response_model=dict[str, list[WorkflowOut]], tags=["workflows"])
 def list_workflows(
     q: str | None = Query(default=None, description="Filter by name/description"),
