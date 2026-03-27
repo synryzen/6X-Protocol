@@ -26,8 +26,12 @@ class RuntimeGovernanceTests(unittest.TestCase):
             "SIXPX_BUILD_SHA",
             "SIXPX_BUILD_DATE",
             "SIXPX_EXPECTED_API_VERSION",
+            "SIXPX_EXPECTED_RELEASE_CHANNEL",
+            "SIXPX_EXPECTED_BUILD_SHA",
             "SIXPX_MIN_API_VERSION",
             "SIXPX_MAX_API_VERSION",
+            "SIXPX_ENFORCE_DIGEST_FOR_GA",
+            "SIXPX_ENFORCE_TAG_API_MATCH",
             "SIXPX_MIN_STORE_SCHEMA_VERSION",
             "SIXPX_MAX_STORE_SCHEMA_VERSION",
         ]
@@ -74,6 +78,35 @@ class RuntimeGovernanceTests(unittest.TestCase):
         self.assertEqual("warn", snapshot["status"])
         codes = {item.get("code") for item in snapshot.get("issues", [])}
         self.assertIn("image_tag_missing", codes)
+
+    def test_governance_requires_release_semver_tag_and_digest_for_ga(self):
+        os.environ["SIXPX_RELEASE_CHANNEL"] = "ga"
+        os.environ["SIXPX_IMAGE_TAG"] = "local-dev"
+        os.environ["SIXPX_BUILD_SHA"] = "abc1234"
+        os.environ["SIXPX_IMAGE_DIGEST"] = ""
+        snapshot = self.module.runtime_governance_snapshot(
+            api_version="0.5.0",
+            store_schema_version=3,
+        )
+        self.assertEqual("error", snapshot["status"])
+        codes = {item.get("code") for item in snapshot.get("issues", [])}
+        self.assertIn("image_digest_missing", codes)
+        self.assertIn("image_tag_not_release_semver", codes)
+
+    def test_governance_can_enforce_expected_release_channel_and_build_sha(self):
+        os.environ["SIXPX_IMAGE_TAG"] = "v0.5.0"
+        os.environ["SIXPX_RELEASE_CHANNEL"] = "beta"
+        os.environ["SIXPX_EXPECTED_RELEASE_CHANNEL"] = "ga"
+        os.environ["SIXPX_BUILD_SHA"] = "abc1234"
+        os.environ["SIXPX_EXPECTED_BUILD_SHA"] = "deadbeef"
+        snapshot = self.module.runtime_governance_snapshot(
+            api_version="0.5.0",
+            store_schema_version=3,
+        )
+        self.assertEqual("error", snapshot["status"])
+        codes = {item.get("code") for item in snapshot.get("issues", [])}
+        self.assertIn("release_channel_mismatch", codes)
+        self.assertIn("build_sha_mismatch", codes)
 
 
 if __name__ == "__main__":

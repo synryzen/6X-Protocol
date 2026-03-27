@@ -170,10 +170,10 @@
             <li>Observability endpoints are live (`/api/v1/observability/summary`, `/api/v1/observability/runs`).</li>
             <li>Optional secrets-at-rest encryption is live via `SECRET_ENCRYPTION_KEY`.</li>
             <li>Secrets rotation endpoint is live (`/api/v1/admin/secrets/rotate`).</li>
-            <li>Managed secret adapters are live (`env`/`file`/`http`/`vault`/`chain` + provider reload/status routes).</li>
+            <li>Managed secret adapters are live (`env`/`file`/`http`/`vault`/`chain` + provider diagnostics/reload/status routes).</li>
             <li>Schema migration expansion is live (`v3` boundaries + migration snapshots + future-schema guardrails).</li>
-            <li>Runtime image/version governance checks are live (`/api/v1/admin/runtime/governance` + meta status fields).</li>
-            <li>Relational migration expansion is live (`r0001-r0006` Postgres revision tracking + `/api/v1/admin/runtime/migrations`).</li>
+            <li>Runtime image/version governance checks are live (`/api/v1/admin/runtime/governance` + stricter release/image policy checks + meta status fields).</li>
+            <li>Relational migration expansion is live (`r0001-r0007` Postgres revision tracking + `/api/v1/admin/runtime/migrations`).</li>
             <li>Relational schema guardrails are live (startup enforcement + min/max schema version boundaries + unknown revision policy).</li>
             <li>Migration operations now include safe constraint validation (`/api/v1/admin/runtime/migrations/validate`, dry-run/apply).</li>
             <li>Authenticated apply-and-verify migration flow is live (`/api/v1/admin/runtime/migrations/validate/apply`, API token + reason required).</li>

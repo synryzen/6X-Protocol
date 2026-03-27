@@ -41,6 +41,10 @@ SECRET_ENCRYPTION_KEY_VALUE="${SECRET_ENCRYPTION_KEY:-}"
 if [[ -z "${SECRET_ENCRYPTION_KEY_VALUE}" ]] && [[ -f .env ]]; then
   SECRET_ENCRYPTION_KEY_VALUE="$(grep -E '^SECRET_ENCRYPTION_KEY=' .env | tail -n 1 | cut -d '=' -f2- | tr -d '\r' || true)"
 fi
+# Ensure smoke tests track latest relational schema boundary even if local docker/.env is stale.
+if [[ -z "${RELATIONAL_MAX_SCHEMA_VERSION:-}" ]]; then
+  export RELATIONAL_MAX_SCHEMA_VERSION=7
+fi
 
 CURL_BASE_ARGS=(-fsS)
 if [[ -n "${API_AUTH_TOKEN_VALUE}" ]]; then
@@ -105,7 +109,14 @@ if [[ -z "$RUNTIME_GOVERNANCE_STATUS" || "$RUNTIME_GOVERNANCE_STATUS" == "null" 
   echo "Expected runtime_governance_status in /api/v1/meta"
   exit 1
 fi
-curl_api http://127.0.0.1:8787/api/v1/admin/secrets/provider | jq .
+SECRET_PROVIDER_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/secrets/provider)"
+echo "$SECRET_PROVIDER_JSON" | jq .
+SECRET_PROVIDER_ADAPTERS_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/secrets/provider/adapters)"
+echo "$SECRET_PROVIDER_ADAPTERS_JSON" | jq .
+if [[ "$(echo "$SECRET_PROVIDER_ADAPTERS_JSON" | jq -r '.adapters | type')" != "object" ]]; then
+  echo "Expected adapters object in /api/v1/admin/secrets/provider/adapters"
+  exit 1
+fi
 GOVERNANCE_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/runtime/governance)"
 echo "$GOVERNANCE_JSON" | jq .
 GOVERNANCE_STATUS="$(echo "$GOVERNANCE_JSON" | jq -r '.status')"

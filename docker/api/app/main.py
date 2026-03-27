@@ -477,6 +477,11 @@ def meta() -> dict[str, str]:
         "secret_provider_vault_loaded": "true"
         if bool(getattr(secret_resolver, "vault_loaded", False))
         else "false",
+        "secret_provider_chain_order": ",".join(
+            str(item).strip()
+            for item in getattr(secret_resolver, "_chain_order", ())
+            if str(item).strip()
+        ),
         "runtime_release_channel": str(governance.get("release_channel", "")),
         "runtime_image_tag": str(governance.get("image_tag", "")),
         "runtime_governance_status": str(governance.get("status", "")),
@@ -493,6 +498,9 @@ def meta() -> dict[str, str]:
         "relational_compatibility_status": str(migration_status.get("compatibility_status", "")),
         "relational_unvalidated_constraint_count": str(
             migration_status.get("unvalidated_constraint_count", 0)
+        ),
+        "relational_schema_revision_audit_count": str(
+            migration_status.get("schema_revision_audit_count", 0)
         ),
     }
 
@@ -667,6 +675,9 @@ def rotate_secrets(payload: SecretRotateRequest) -> dict[str, Any]:
 @app.get("/api/v1/admin/secrets/provider", tags=["admin"])
 def get_secret_provider() -> dict[str, str]:
     resolver = getattr(store, "secret_resolver", None)
+    snapshot_method = getattr(resolver, "adapter_snapshot", None)
+    snapshot = snapshot_method() if callable(snapshot_method) else {}
+    chain_order = snapshot.get("chain_order", []) if isinstance(snapshot, dict) else []
     return {
         "mode": str(getattr(resolver, "mode", "disabled")),
         "enabled": "true" if bool(getattr(resolver, "enabled", False)) else "false",
@@ -677,6 +688,7 @@ def get_secret_provider() -> dict[str, str]:
         "http_url": str(getattr(resolver, "http_url", "") or ""),
         "vault_url": str(getattr(resolver, "vault_url", "") or ""),
         "env_prefix": str(getattr(resolver, "env_prefix", "") or ""),
+        "chain_order": ",".join(str(item).strip() for item in chain_order if str(item).strip()),
     }
 
 
@@ -686,13 +698,37 @@ def reload_secret_provider() -> dict[str, str]:
     if callable(refresh_method):
         refresh_method()
     resolver = getattr(store, "secret_resolver", None)
+    snapshot_method = getattr(resolver, "adapter_snapshot", None)
+    snapshot = snapshot_method() if callable(snapshot_method) else {}
+    chain_order = snapshot.get("chain_order", []) if isinstance(snapshot, dict) else []
     return {
         "mode": str(getattr(resolver, "mode", "disabled")),
         "enabled": "true" if bool(getattr(resolver, "enabled", False)) else "false",
         "file_loaded": "true" if bool(getattr(resolver, "file_loaded", False)) else "false",
         "http_loaded": "true" if bool(getattr(resolver, "http_loaded", False)) else "false",
         "vault_loaded": "true" if bool(getattr(resolver, "vault_loaded", False)) else "false",
+        "chain_order": ",".join(str(item).strip() for item in chain_order if str(item).strip()),
         "reloaded_at": utc_now_iso(),
+    }
+
+
+@app.get("/api/v1/admin/secrets/provider/adapters", tags=["admin"])
+def get_secret_provider_adapters() -> dict[str, Any]:
+    resolver = getattr(store, "secret_resolver", None)
+    snapshot_method = getattr(resolver, "adapter_snapshot", None)
+    if callable(snapshot_method):
+        snapshot = snapshot_method()
+        if isinstance(snapshot, dict):
+            return {
+                **snapshot,
+                "generated_at": utc_now_iso(),
+            }
+    return {
+        "mode": str(getattr(resolver, "mode", "disabled")),
+        "enabled": bool(getattr(resolver, "enabled", False)),
+        "chain_order": [],
+        "adapters": {},
+        "generated_at": utc_now_iso(),
     }
 
 

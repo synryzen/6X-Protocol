@@ -143,13 +143,13 @@ See:
 - Optional Docker API auth baseline is live (`API_AUTH_TOKEN`, `X-6X-API-Key`, or Bearer token), with web token input support
 - Optional Docker secrets-at-rest baseline is live (`SECRET_ENCRYPTION_KEY` for encrypted settings/integration secrets)
 - Docker API supports secret key rotation via `POST /api/v1/admin/secrets/rotate`
-- Docker managed secret adapter baseline is live (`SECRET_PROVIDER_MODE` with env/file/http/vault reference resolution)
-- Docker runtime image/version governance baseline is live (`/api/v1/admin/runtime/governance` + meta status fields)
+- Docker managed secret adapter baseline is live (`SECRET_PROVIDER_MODE` with env/file/http/vault/chain reference resolution + adapter diagnostics endpoint)
+- Docker runtime image/version governance baseline is live (`/api/v1/admin/runtime/governance` + release-channel/build/image policy checks + meta status fields)
 - Release workflow now emits provenance attestations for packaged artifacts
 - Docker API now includes observability routes (`/api/v1/observability/summary`, `/api/v1/observability/runs`)
 - Docker API now includes admin backup/restore routes (`/api/v1/admin/backup`, `/api/v1/admin/restore`)
 - Docker store migration expansion is live (`v1->v2->v3`, schema guardrails, and migration snapshots)
-- Relational migration expansion is live (`r0001` + `r0002` + `r0003` + `r0004` + `r0005` + `r0006` tracked in Postgres via `/api/v1/admin/runtime/migrations`)
+- Relational migration expansion is live (`r0001` + `r0002` + `r0003` + `r0004` + `r0005` + `r0006` + `r0007` tracked in Postgres via `/api/v1/admin/runtime/migrations`)
 - Relational schema compatibility guardrails are live (startup enforcement + min/max schema boundaries + unknown-revision policy)
 - Runtime migration ops now include safe constraint validation (`POST /api/v1/admin/runtime/migrations/validate` dry-run/apply)
 - Authenticated apply-and-verify migration flow is live (`POST /api/v1/admin/runtime/migrations/validate/apply` with audit reason/checkpoint logging)
@@ -160,7 +160,7 @@ Self-hosted web status: **Live public beta and smoke-validated**.
 
 Next high-value items toward GA:
 - Expand web panel from beta control-room UX to full production parity modules.
-- Expand Postgres runtime hardening (constraints/index parity + migration-backed data quality checks) on top of `r0001-r0006`.
+- Expand Postgres runtime hardening (constraints/index parity + migration-backed data quality checks) on top of `r0001-r0007`.
 - Add enterprise secret-store adapters beyond baseline (`vault`/`kms`) plus automated rotation workflows for team/hosted deployment paths.
 
 ## Package Build Commands

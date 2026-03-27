@@ -50,6 +50,14 @@ class ManagedSecretsTests(unittest.TestCase):
             ("vault", "providers.openai.key"),
             self.module.parse_secret_reference("secret://vault/providers.openai.key"),
         )
+        self.assertEqual(
+            ("chain", "providers.openai.key"),
+            self.module.parse_secret_reference("chain:providers.openai.key"),
+        )
+        self.assertEqual(
+            ("chain", "providers.openai.key"),
+            self.module.parse_secret_reference("secret://providers.openai.key"),
+        )
 
     def test_env_mode_resolves_settings_ref(self):
         os.environ["OPENAI_TEST_KEY"] = "openai-secret-value"
@@ -80,6 +88,30 @@ class ManagedSecretsTests(unittest.TestCase):
             ]
         )
         self.assertEqual("file-openai-secret", profiles[0]["config"].get("api_key"))
+
+    def test_chain_mode_resolves_without_provider_prefix(self):
+        os.environ["OPENAI_TEST_KEY"] = "env-chain-secret"
+        resolver = self.module.ManagedSecretResolver(mode="chain")
+        settings = resolver.resolve_settings(
+            {
+                "openai_api_key_ref": "secret://OPENAI_TEST_KEY",
+                "openai_api_key": "",
+            }
+        )
+        self.assertEqual("env-chain-secret", settings.get("openai_api_key"))
+
+    def test_adapter_snapshot_includes_chain_order_and_errors(self):
+        resolver = self.module.ManagedSecretResolver(
+            mode="chain",
+            file_path=str(self.data_dir / "missing-secrets.json"),
+            chain_order="file,env,http,vault",
+        )
+        _ = resolver.resolve_reference("secret://file/providers.openai.api_key")
+        snapshot = resolver.adapter_snapshot()
+        self.assertEqual(["file", "env", "http", "vault"], snapshot.get("chain_order", []))
+        adapters = snapshot.get("adapters", {})
+        self.assertIn("file", adapters)
+        self.assertIn("last_error", adapters.get("file", {}))
 
     def test_http_mode_resolves_integration_ref(self):
         expected_token = "token-123"

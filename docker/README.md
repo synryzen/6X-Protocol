@@ -76,6 +76,7 @@ Managed secret adapter baseline:
   - `vault:path.to.secret` or `secret://vault/path.to.secret` (from Vault JSON/KV response payload)
 - Optional file-backed provider path: `SECRET_PROVIDER_FILE` (default `/data/6x-protocol/managed-secrets.json`).
 - Optional env prefix: `SECRET_PROVIDER_ENV_PREFIX` (for prefixed env lookup fallback).
+- Optional chain mode lookup order: `SECRET_PROVIDER_CHAIN_ORDER` (default `env,file,http,vault`).
 - Optional HTTP provider settings:
   - `SECRET_PROVIDER_HTTP_URL`
   - `SECRET_PROVIDER_HTTP_AUTH_TOKEN`
@@ -88,6 +89,7 @@ Managed secret adapter baseline:
   - `SECRET_PROVIDER_VAULT_ALLOW_INSECURE` (`false` by default, enables non-HTTPS URLs only when true)
 - Provider status routes:
   - `GET /api/v1/admin/secrets/provider`
+  - `GET /api/v1/admin/secrets/provider/adapters`
   - `POST /api/v1/admin/secrets/provider/reload`
 
 Image/version governance baseline:
@@ -97,7 +99,9 @@ Image/version governance baseline:
   - `SIXPX_RELEASE_CHANNEL` (`dev|beta|rc|ga|stable|prod`)
   - `SIXPX_BUILD_SHA` / `SIXPX_BUILD_DATE`
   - `SIXPX_IMAGE_DIGEST` (recommended for `ga/stable/prod`)
+  - `SIXPX_EXPECTED_RELEASE_CHANNEL` / `SIXPX_EXPECTED_BUILD_SHA` (optional strict assertions)
   - `SIXPX_MIN_API_VERSION` / `SIXPX_MAX_API_VERSION` (optional semver bounds)
+  - `SIXPX_ENFORCE_DIGEST_FOR_GA` / `SIXPX_ENFORCE_TAG_API_MATCH` (policy toggles)
   - `SIXPX_MIN_STORE_SCHEMA_VERSION` / `SIXPX_MAX_STORE_SCHEMA_VERSION`
 - Governance status routes:
   - `GET /api/v1/admin/runtime/governance`
@@ -116,6 +120,7 @@ Relational migration scaffold baseline:
   - `r0004_runtime_metadata_columns`
   - `r0005_runtime_quality_constraints`
   - `r0006_runtime_evolution_checkpoints`
+  - `r0007_runtime_schema_revision_audit`
 - Runtime migration status route:
   - `GET /api/v1/admin/runtime/migrations`
   - Optional refresh: `GET /api/v1/admin/runtime/migrations?refresh=true`
@@ -227,6 +232,6 @@ Execution routing behavior:
 
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
-2. Continue feature-flagged Postgres repository cutover using the tracked `r0001-r0006` schema baseline.
+2. Continue feature-flagged Postgres repository cutover using the tracked `r0001-r0007` schema baseline.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Complete deployment hardening beyond baseline (external secret stores + signed release digest policy).

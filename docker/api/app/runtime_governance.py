@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import os
 import re
 from typing import Any
 
 ALLOWED_RELEASE_CHANNELS = {"dev", "beta", "rc", "ga", "stable", "prod"}
 _SEMVER_RE = re.compile(r"^\s*v?(\d+)\.(\d+)\.(\d+)(?:[-+][A-Za-z0-9.\-]+)?\s*$")
+_RELEASE_TAG_RE = re.compile(r"^\s*v\d+\.\d+\.\d+\s*$")
 
 
 def _clean(value: Any) -> str:
@@ -20,6 +22,19 @@ def _to_int(value: Any, *, default: int, minimum: int = 0) -> int:
     except (TypeError, ValueError):
         parsed = default
     return max(minimum, parsed)
+
+
+def _to_bool(value: Any, *, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
 def _parse_semver(value: str) -> tuple[int, int, int] | None:
@@ -45,8 +60,18 @@ def runtime_governance_snapshot(*, api_version: str, store_schema_version: int |
     build_sha = _clean(os.getenv("SIXPX_BUILD_SHA", ""))
     build_date = _clean(os.getenv("SIXPX_BUILD_DATE", ""))
     expected_api_version = _clean(os.getenv("SIXPX_EXPECTED_API_VERSION", ""))
+    expected_release_channel = _clean(os.getenv("SIXPX_EXPECTED_RELEASE_CHANNEL", "")).lower()
+    expected_build_sha = _clean(os.getenv("SIXPX_EXPECTED_BUILD_SHA", ""))
     min_api_version = _clean(os.getenv("SIXPX_MIN_API_VERSION", ""))
     max_api_version = _clean(os.getenv("SIXPX_MAX_API_VERSION", ""))
+    enforce_digest_for_ga = _to_bool(
+        os.getenv("SIXPX_ENFORCE_DIGEST_FOR_GA", "true"),
+        default=True,
+    )
+    enforce_tag_api_match = _to_bool(
+        os.getenv("SIXPX_ENFORCE_TAG_API_MATCH", "false"),
+        default=False,
+    )
     schema_version = _to_int(store_schema_version, default=0, minimum=0)
     min_store_schema = _to_int(os.getenv("SIXPX_MIN_STORE_SCHEMA_VERSION", "1"), default=1, minimum=1)
     max_store_schema = _to_int(
@@ -84,18 +109,50 @@ def runtime_governance_snapshot(*, api_version: str, store_schema_version: int |
             ),
         )
 
+    if expected_release_channel and expected_release_channel != release_channel:
+        add_issue(
+            severity="error",
+            code="release_channel_mismatch",
+            message=(
+                "Runtime release channel mismatch: "
+                f"expected '{expected_release_channel}', got '{release_channel}'."
+            ),
+        )
+
     if not build_sha:
         add_issue(
             severity="warn",
             code="build_sha_missing",
             message="SIXPX_BUILD_SHA is missing; build provenance is incomplete.",
         )
+    elif expected_build_sha and expected_build_sha != build_sha:
+        add_issue(
+            severity="error",
+            code="build_sha_mismatch",
+            message=(
+                "Runtime build SHA mismatch: "
+                f"expected '{expected_build_sha}', got '{build_sha}'."
+            ),
+        )
 
     if release_channel in {"ga", "stable", "prod"} and not image_digest:
         add_issue(
-            severity="warn",
+            severity="error" if enforce_digest_for_ga else "warn",
             code="image_digest_missing",
-            message="SIXPX_IMAGE_DIGEST is recommended for GA/stable/prod releases.",
+            message=(
+                "SIXPX_IMAGE_DIGEST is "
+                + ("required" if enforce_digest_for_ga else "recommended")
+                + " for GA/stable/prod releases."
+            ),
+        )
+    if release_channel in {"ga", "stable", "prod"} and image_tag and not _RELEASE_TAG_RE.match(image_tag):
+        add_issue(
+            severity="error",
+            code="image_tag_not_release_semver",
+            message=(
+                "GA/stable/prod channels require release-like image tags "
+                f"(v<major>.<minor>.<patch>), got '{image_tag}'."
+            ),
         )
 
     if schema_version < min_store_schema:
@@ -166,6 +223,45 @@ def runtime_governance_snapshot(*, api_version: str, store_schema_version: int |
                 ),
             )
 
+    if build_date:
+        try:
+            datetime.fromisoformat(build_date.replace("Z", "+00:00"))
+        except ValueError:
+            add_issue(
+                severity="warn",
+                code="build_date_invalid",
+                message=f"SIXPX_BUILD_DATE '{build_date}' is not valid ISO-8601.",
+            )
+    elif release_channel in {"ga", "stable", "prod"}:
+        add_issue(
+            severity="warn",
+            code="build_date_missing",
+            message="SIXPX_BUILD_DATE is recommended for GA/stable/prod releases.",
+        )
+
+    if (enforce_tag_api_match or release_channel in {"ga", "stable", "prod"}) and image_tag:
+        tag_semver = _parse_semver(image_tag)
+        if tag_semver is None:
+            add_issue(
+                severity="warn",
+                code="image_tag_not_semver_for_match",
+                message=f"Cannot compare image tag '{image_tag}' to API version.",
+            )
+        elif current_semver is None:
+            add_issue(
+                severity="warn",
+                code="api_version_not_semver_for_match",
+                message=f"Cannot compare API version '{api_version}' to image tag.",
+            )
+        elif _compare_semver(current_semver, tag_semver) != 0:
+            add_issue(
+                severity="error",
+                code="api_version_image_tag_mismatch",
+                message=(
+                    f"API version '{api_version}' does not match image tag '{image_tag}'."
+                ),
+            )
+
     error_count = sum(1 for item in issues if item.get("severity") == "error")
     warn_count = sum(1 for item in issues if item.get("severity") == "warn")
     status = "error" if error_count else "warn" if warn_count else "ok"
@@ -180,8 +276,12 @@ def runtime_governance_snapshot(*, api_version: str, store_schema_version: int |
         "build_sha": build_sha,
         "build_date": build_date,
         "expected_api_version": expected_api_version,
+        "expected_release_channel": expected_release_channel,
+        "expected_build_sha": expected_build_sha,
         "min_api_version": min_api_version,
         "max_api_version": max_api_version,
+        "enforce_digest_for_ga": bool(enforce_digest_for_ga),
+        "enforce_tag_api_match": bool(enforce_tag_api_match),
         "store_schema_version": schema_version,
         "min_store_schema_version": min_store_schema,
         "max_store_schema_version": max_store_schema,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import hashlib
 import json
 import os
 import re
@@ -398,6 +399,35 @@ RELATIONAL_REVISIONS: tuple[RelationalRevision, ...] = (
             """.strip(),
         ),
     ),
+    RelationalRevision(
+        revision="r0007_runtime_schema_revision_audit",
+        description=(
+            "Add explicit schema revision audit ledger for migration provenance and safer data evolution."
+        ),
+        statements=(
+            """
+            CREATE TABLE IF NOT EXISTS sixpx_schema_revision_audit (
+                audit_id BIGSERIAL PRIMARY KEY,
+                revision TEXT NOT NULL DEFAULT '',
+                schema_version INTEGER NOT NULL DEFAULT 0,
+                app_version TEXT NOT NULL DEFAULT '',
+                applied_by TEXT NOT NULL DEFAULT '',
+                source TEXT NOT NULL DEFAULT 'runtime',
+                revision_checksum TEXT NOT NULL DEFAULT '',
+                metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """.strip(),
+            """
+            CREATE INDEX IF NOT EXISTS idx_sixpx_schema_revision_audit_recorded
+            ON sixpx_schema_revision_audit (recorded_at DESC)
+            """.strip(),
+            """
+            CREATE INDEX IF NOT EXISTS idx_sixpx_schema_revision_audit_revision
+            ON sixpx_schema_revision_audit (revision)
+            """.strip(),
+        ),
+    ),
 )
 
 KNOWN_RELATIONAL_REVISIONS = {item.revision for item in RELATIONAL_REVISIONS}
@@ -530,6 +560,8 @@ class RelationalMigrationManager:
             "compatibility_warnings": [],
             "unvalidated_constraint_count": 0,
             "unvalidated_constraints": [],
+            "schema_revision_audit_available": False,
+            "schema_revision_audit_count": 0,
             "applied_count": 0,
             "pending_count": len(RELATIONAL_REVISIONS),
             "applied_revisions": [],
@@ -604,6 +636,20 @@ class RelationalMigrationManager:
                 }
             )
         return constraints
+
+    def _load_schema_revision_audit_count(self, connection) -> tuple[bool, int]:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT to_regclass('sixpx_schema_revision_audit')")
+                table = cursor.fetchone()
+                if not table or not table[0]:
+                    return False, 0
+                cursor.execute("SELECT COUNT(*) FROM sixpx_schema_revision_audit")
+                row = cursor.fetchone()
+                count = int(row[0]) if row and row[0] is not None else 0
+                return True, max(0, count)
+        except Exception:
+            return False, 0
 
     def validate_constraints(
         self,
@@ -832,6 +878,12 @@ class RelationalMigrationManager:
             "warnings": warnings,
         }
 
+    def _revision_checksum(self, revision: RelationalRevision) -> str:
+        payload = "\n".join(
+            [revision.revision, revision.description, *(item for item in revision.statements)]
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
     def _record_applied_revision(self, connection, revision: RelationalRevision, app_version: str) -> None:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -868,6 +920,59 @@ class RelationalMigrationManager:
             app_version=app_version,
             payload={"source": "migration_apply"},
         )
+        self._record_schema_revision_audit(
+            connection,
+            revision=revision,
+            app_version=app_version,
+            applied_by="migration-manager",
+            source="migration_apply",
+        )
+
+    def _record_schema_revision_audit(
+        self,
+        connection,
+        *,
+        revision: RelationalRevision,
+        app_version: str,
+        applied_by: str,
+        source: str,
+    ) -> bool:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regclass('sixpx_schema_revision_audit')")
+            audit_table = cursor.fetchone()
+            if not audit_table or not audit_table[0]:
+                return False
+            cursor.execute(
+                """
+                INSERT INTO sixpx_schema_revision_audit (
+                    revision,
+                    schema_version,
+                    app_version,
+                    applied_by,
+                    source,
+                    revision_checksum,
+                    metadata
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
+                """,
+                (
+                    revision.revision,
+                    revision.schema_version,
+                    str(app_version or "").strip(),
+                    str(applied_by or "").strip(),
+                    str(source or "").strip() or "runtime",
+                    self._revision_checksum(revision),
+                    json.dumps(
+                        {
+                            "description": revision.description,
+                            "statement_count": len(revision.statements),
+                        },
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    ),
+                ),
+            )
+        return True
 
     def _record_evolution_checkpoint(
         self,
@@ -924,6 +1029,8 @@ class RelationalMigrationManager:
 
         applied_revisions: set[str] = set()
         unvalidated_constraints: list[dict[str, str]] = []
+        schema_revision_audit_available = False
+        schema_revision_audit_count = 0
         last_error = ""
         connected = False
         for attempt in range(1, self.retry_attempts + 1):
@@ -945,6 +1052,10 @@ class RelationalMigrationManager:
                         applied_revisions.add(revision.revision)
                     connection.commit()
                     unvalidated_constraints = self._load_unvalidated_constraints(connection)
+                    (
+                        schema_revision_audit_available,
+                        schema_revision_audit_count,
+                    ) = self._load_schema_revision_audit_count(connection)
                 break
             except Exception as error:
                 last_error = str(error)
@@ -970,6 +1081,8 @@ class RelationalMigrationManager:
         snapshot["compatibility_warnings"] = list(compatibility.get("warnings", []))
         snapshot["unvalidated_constraints"] = list(unvalidated_constraints)
         snapshot["unvalidated_constraint_count"] = len(unvalidated_constraints)
+        snapshot["schema_revision_audit_available"] = bool(schema_revision_audit_available)
+        snapshot["schema_revision_audit_count"] = int(schema_revision_audit_count)
 
         snapshot["last_error"] = last_error
 

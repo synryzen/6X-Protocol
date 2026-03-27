@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 from typing import Any
 
 SECRET_REF_PREFIX = "secret://"
+SUPPORTED_SECRET_PROVIDERS = ("env", "file", "http", "vault")
 
 
 def _normalize_ref(value: str) -> str:
@@ -27,6 +28,7 @@ def is_secret_reference(value: Any) -> bool:
         or lowered.startswith("file:")
         or lowered.startswith("http:")
         or lowered.startswith("vault:")
+        or lowered.startswith("chain:")
     )
 
 
@@ -47,16 +49,33 @@ def parse_secret_reference(value: str) -> tuple[str, str] | None:
     if lowered.startswith("vault:"):
         key = text.split(":", 1)[1].strip()
         return ("vault", key) if key else None
+    if lowered.startswith("chain:"):
+        key = text.split(":", 1)[1].strip()
+        return ("chain", key) if key else None
     if lowered.startswith(SECRET_REF_PREFIX):
         remainder = text[len(SECRET_REF_PREFIX) :].strip()
-        if "/" not in remainder:
+        if not remainder:
             return None
+        if "/" not in remainder:
+            return ("chain", remainder)
         provider, key = remainder.split("/", 1)
         provider = provider.strip().lower()
         key = key.strip()
-        if provider in {"env", "file", "http", "vault"} and key:
+        if provider in {*(SUPPORTED_SECRET_PROVIDERS), "chain"} and key:
             return provider, key
     return None
+
+
+def _parse_chain_order(value: str) -> tuple[str, ...]:
+    raw = str(value or "").strip()
+    if not raw:
+        return SUPPORTED_SECRET_PROVIDERS
+    items = [item.strip().lower() for item in raw.split(",")]
+    deduped: list[str] = []
+    for item in items:
+        if item in SUPPORTED_SECRET_PROVIDERS and item not in deduped:
+            deduped.append(item)
+    return tuple(deduped) if deduped else SUPPORTED_SECRET_PROVIDERS
 
 
 class ManagedSecretResolver:
@@ -76,6 +95,7 @@ class ManagedSecretResolver:
         vault_auth_token: str = "",
         vault_timeout_sec: float = 3.0,
         vault_allow_insecure: bool = False,
+        chain_order: str = "",
     ) -> None:
         normalized_mode = str(mode or "disabled").strip().lower()
         if normalized_mode not in {"disabled", "env", "file", "http", "vault", "chain"}:
@@ -97,12 +117,17 @@ class ManagedSecretResolver:
         except (TypeError, ValueError):
             self.vault_timeout_sec = 3.0
         self.vault_allow_insecure = bool(vault_allow_insecure)
+        self._chain_order = _parse_chain_order(chain_order)
         self._file_cache: dict[str, Any] | None = None
         self._file_loaded = False
+        self._file_error = ""
         self._http_cache: dict[str, Any] | None = None
         self._http_loaded = False
+        self._http_error = ""
         self._vault_cache: dict[str, Any] | None = None
         self._vault_loaded = False
+        self._vault_error = ""
+        self._env_error = ""
 
     @classmethod
     def from_env(cls) -> "ManagedSecretResolver":
@@ -126,6 +151,7 @@ class ManagedSecretResolver:
                 os.getenv("SECRET_PROVIDER_VAULT_TIMEOUT_SEC", "3.0") or "3.0"
             ),
             vault_allow_insecure=vault_allow_insecure_raw in {"1", "true", "yes", "on"},
+            chain_order=str(os.getenv("SECRET_PROVIDER_CHAIN_ORDER", "") or ""),
         )
 
     @property
@@ -147,14 +173,17 @@ class ManagedSecretResolver:
     def _load_file_secrets(self) -> dict[str, Any]:
         if self._file_cache is not None:
             return self._file_cache
+        self._file_error = ""
         if not self.file_path:
             self._file_cache = {}
             self._file_loaded = False
+            self._file_error = "SECRET_PROVIDER_FILE is not configured."
             return self._file_cache
         path = Path(self.file_path).expanduser()
         if not path.exists():
             self._file_cache = {}
             self._file_loaded = False
+            self._file_error = f"File not found: {path}"
             return self._file_cache
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
@@ -163,23 +192,28 @@ class ManagedSecretResolver:
         except Exception:
             self._file_cache = {}
             self._file_loaded = False
+            self._file_error = "Failed to parse JSON secret file."
         return self._file_cache
 
     def _load_http_secrets(self) -> dict[str, Any]:
         if self._http_cache is not None:
             return self._http_cache
+        self._http_error = ""
         if not self.http_url:
             self._http_cache = {}
             self._http_loaded = False
+            self._http_error = "SECRET_PROVIDER_HTTP_URL is not configured."
             return self._http_cache
         parsed = urlparse(self.http_url)
         if parsed.scheme not in {"https", "http"}:
             self._http_cache = {}
             self._http_loaded = False
+            self._http_error = "HTTP secret URL must use http or https."
             return self._http_cache
         if parsed.scheme == "http" and not self.http_allow_insecure:
             self._http_cache = {}
             self._http_loaded = False
+            self._http_error = "Insecure HTTP is blocked (set SECRET_PROVIDER_HTTP_ALLOW_INSECURE=true)."
             return self._http_cache
         headers = {"Accept": "application/json"}
         token = self.http_auth_token
@@ -196,6 +230,7 @@ class ManagedSecretResolver:
         except Exception:
             self._http_cache = {}
             self._http_loaded = False
+            self._http_error = "Failed to load HTTP secret payload."
         return self._http_cache
 
     def _normalize_vault_payload(self, payload: Any) -> dict[str, Any]:
@@ -212,18 +247,22 @@ class ManagedSecretResolver:
     def _load_vault_secrets(self) -> dict[str, Any]:
         if self._vault_cache is not None:
             return self._vault_cache
+        self._vault_error = ""
         if not self.vault_url:
             self._vault_cache = {}
             self._vault_loaded = False
+            self._vault_error = "SECRET_PROVIDER_VAULT_URL is not configured."
             return self._vault_cache
         parsed = urlparse(self.vault_url)
         if parsed.scheme not in {"https", "http"}:
             self._vault_cache = {}
             self._vault_loaded = False
+            self._vault_error = "Vault URL must use http or https."
             return self._vault_cache
         if parsed.scheme == "http" and not self.vault_allow_insecure:
             self._vault_cache = {}
             self._vault_loaded = False
+            self._vault_error = "Insecure Vault HTTP is blocked (set SECRET_PROVIDER_VAULT_ALLOW_INSECURE=true)."
             return self._vault_cache
         headers = {"Accept": "application/json"}
         token = self.vault_auth_token
@@ -239,12 +278,14 @@ class ManagedSecretResolver:
         except Exception:
             self._vault_cache = {}
             self._vault_loaded = False
+            self._vault_error = "Failed to load Vault secret payload."
         return self._vault_cache
 
     def _resolve_from_env(self, key: str) -> str | None:
         target = str(key or "").strip()
         if not target:
             return None
+        self._env_error = ""
         direct = os.getenv(target)
         if direct is not None and str(direct).strip():
             return str(direct)
@@ -252,6 +293,7 @@ class ManagedSecretResolver:
             prefixed = os.getenv(f"{self.env_prefix}{target}")
             if prefixed is not None and str(prefixed).strip():
                 return str(prefixed)
+        self._env_error = f"Environment secret not found for key '{target}'."
         return None
 
     def _resolve_from_file(self, key_path: str) -> str | None:
@@ -313,6 +355,8 @@ class ManagedSecretResolver:
         if self.mode == "vault":
             return self._resolve_from_vault(key) if provider == "vault" else None
         # chain mode
+        if provider == "chain":
+            return self._resolve_from_chain(key)
         if provider == "env":
             return self._resolve_from_env(key)
         if provider == "file":
@@ -322,6 +366,57 @@ class ManagedSecretResolver:
         if provider == "vault":
             return self._resolve_from_vault(key)
         return None
+
+    def _resolve_from_chain(self, key: str) -> str | None:
+        target = str(key or "").strip()
+        if not target:
+            return None
+        for provider in self._chain_order:
+            if provider == "env":
+                resolved = self._resolve_from_env(target)
+            elif provider == "file":
+                resolved = self._resolve_from_file(target)
+            elif provider == "http":
+                resolved = self._resolve_from_http(target)
+            elif provider == "vault":
+                resolved = self._resolve_from_vault(target)
+            else:
+                resolved = None
+            if resolved is not None:
+                return resolved
+        return None
+
+    def adapter_snapshot(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "enabled": bool(self.enabled),
+            "chain_order": list(self._chain_order),
+            "adapters": {
+                "env": {
+                    "configured": True,
+                    "loaded": True,
+                    "last_error": self._env_error,
+                },
+                "file": {
+                    "configured": bool(self.file_path),
+                    "loaded": bool(self._file_loaded),
+                    "last_error": self._file_error,
+                    "path": self.file_path,
+                },
+                "http": {
+                    "configured": bool(self.http_url),
+                    "loaded": bool(self._http_loaded),
+                    "last_error": self._http_error,
+                    "url": self.http_url,
+                },
+                "vault": {
+                    "configured": bool(self.vault_url),
+                    "loaded": bool(self._vault_loaded),
+                    "last_error": self._vault_error,
+                    "url": self.vault_url,
+                },
+            },
+        }
 
     def resolve_settings(self, settings: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(settings, dict):
