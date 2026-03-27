@@ -115,6 +115,21 @@ class RelationalMigrationsTests(unittest.TestCase):
         self.assertFalse(bool(result.get("connected")))
         self.assertEqual(0, int(result.get("attempted_count", 0)))
 
+    def test_constraint_apply_validation_disabled_without_database(self):
+        manager = self.module.RelationalMigrationManager(database_url="")
+        result = manager.validate_constraints(
+            apply=True,
+            limit=10,
+            stop_on_error=True,
+            app_version="0.5.0-preview",
+            reason="test",
+            requested_by="unit-test",
+        )
+        self.assertEqual("disabled", result.get("status"))
+        self.assertEqual("test", result.get("reason"))
+        self.assertEqual("unit-test", result.get("requested_by"))
+        self.assertFalse(bool(result.get("checkpoint_recorded")))
+
 
 if __name__ == "__main__":
     unittest.main()

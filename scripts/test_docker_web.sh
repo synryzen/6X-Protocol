@@ -150,6 +150,33 @@ if [[ "$MIGRATIONS_VALIDATE_STATUS" != "ok" && "$MIGRATIONS_VALIDATE_STATUS" != 
   echo "Unexpected migration validate status '$MIGRATIONS_VALIDATE_STATUS'"
   exit 1
 fi
+if [[ -n "${API_AUTH_TOKEN_VALUE}" ]]; then
+  MIGRATIONS_VALIDATE_APPLY_JSON="$(
+    curl_api -X POST "http://127.0.0.1:8787/api/v1/admin/runtime/migrations/validate/apply" \
+      -H 'Content-Type: application/json' \
+      -d '{"limit":10,"stop_on_error":false,"reason":"docker smoke apply+verify","requested_by":"smoke-test"}'
+  )"
+  echo "$MIGRATIONS_VALIDATE_APPLY_JSON" | jq .
+  MIGRATIONS_VALIDATE_APPLY_STATUS="$(echo "$MIGRATIONS_VALIDATE_APPLY_JSON" | jq -r '.status')"
+  if [[ "$MIGRATIONS_VALIDATE_APPLY_STATUS" != "ok" && "$MIGRATIONS_VALIDATE_APPLY_STATUS" != "warn" && "$MIGRATIONS_VALIDATE_APPLY_STATUS" != "error" ]]; then
+    echo "Unexpected migration validate apply status '$MIGRATIONS_VALIDATE_APPLY_STATUS'"
+    exit 1
+  fi
+else
+  APPLY_TMP_BODY="$(mktemp)"
+  APPLY_STATUS_CODE="$(
+    curl -sS -o "$APPLY_TMP_BODY" -w "%{http_code}" \
+      -X POST "http://127.0.0.1:8787/api/v1/admin/runtime/migrations/validate/apply" \
+      -H 'Content-Type: application/json' \
+      -d '{"limit":10,"stop_on_error":false,"reason":"docker smoke apply+verify","requested_by":"smoke-test"}'
+  )"
+  cat "$APPLY_TMP_BODY" | jq .
+  rm -f "$APPLY_TMP_BODY"
+  if [[ "$APPLY_STATUS_CODE" != "412" ]]; then
+    echo "Expected migration validate apply status 412 when API_AUTH_TOKEN is unset, got '$APPLY_STATUS_CODE'"
+    exit 1
+  fi
+fi
 
 echo "[3/12] Creating workflow..."
 WORKFLOW_JSON="$(curl_api -X POST http://127.0.0.1:8787/api/v1/workflows \

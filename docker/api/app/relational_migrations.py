@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import json
 import os
 import re
 from time import sleep
@@ -610,6 +611,9 @@ class RelationalMigrationManager:
         apply: bool = False,
         limit: int = 50,
         stop_on_error: bool = False,
+        app_version: str = "",
+        reason: str = "",
+        requested_by: str = "",
     ) -> dict[str, Any]:
         snapshot: dict[str, Any] = {
             "status": "disabled",
@@ -627,6 +631,14 @@ class RelationalMigrationManager:
             "remaining_count": 0,
             "failed": [],
             "remaining": [],
+            "verify_after_apply": bool(apply),
+            "verified_removed_count": 0,
+            "still_pending_attempted": [],
+            "checkpoint_recorded": False,
+            "checkpoint_revision": "",
+            "checkpoint_error": "",
+            "reason": str(reason or "").strip(),
+            "requested_by": str(requested_by or "").strip(),
             "last_error": "",
             "checked_at": datetime.now(UTC).isoformat(),
         }
@@ -689,6 +701,59 @@ class RelationalMigrationManager:
                                     break
 
                     remaining = self._load_unvalidated_constraints(connection)
+                    attempted_pairs = {
+                        (
+                            str(item.get("table", "")).strip(),
+                            str(item.get("constraint", "")).strip(),
+                        )
+                        for item in selected
+                    }
+                    remaining_pairs = {
+                        (
+                            str(item.get("table", "")).strip(),
+                            str(item.get("constraint", "")).strip(),
+                        )
+                        for item in remaining
+                    }
+                    still_pending = sorted(
+                        [
+                            {"table": table_name, "constraint": constraint_name}
+                            for table_name, constraint_name in attempted_pairs.intersection(remaining_pairs)
+                            if table_name and constraint_name
+                        ],
+                        key=lambda item: (item["table"], item["constraint"]),
+                    )
+                    snapshot["still_pending_attempted"] = still_pending
+                    snapshot["verified_removed_count"] = max(
+                        0,
+                        int(snapshot["attempted_count"]) - len(still_pending),
+                    )
+
+                    if apply:
+                        checkpoint_revision = "ops_validate_constraints_apply"
+                        snapshot["checkpoint_revision"] = checkpoint_revision
+                        try:
+                            applied_revisions = self._load_applied_revisions(connection)
+                            compatibility = self.evaluate_schema_compatibility(applied_revisions)
+                            schema_version = int(compatibility.get("current_schema_version", 0))
+                            snapshot["checkpoint_recorded"] = self._record_evolution_checkpoint(
+                                connection,
+                                revision=checkpoint_revision,
+                                schema_version=schema_version,
+                                app_version=str(app_version or "").strip(),
+                                payload={
+                                    "attempted_count": int(snapshot["attempted_count"]),
+                                    "validated_count": int(validated),
+                                    "failed_count": len(failures),
+                                    "remaining_count": len(remaining),
+                                    "still_pending_attempted": still_pending,
+                                    "reason": str(reason or "").strip(),
+                                    "requested_by": str(requested_by or "").strip(),
+                                    "stop_on_error": bool(stop_on_error),
+                                },
+                            )
+                        except Exception as checkpoint_error:
+                            snapshot["checkpoint_error"] = str(checkpoint_error)
                     snapshot["validated_count"] = validated
                     snapshot["failed"] = failures
                     snapshot["failed_count"] = len(failures)
@@ -703,8 +768,12 @@ class RelationalMigrationManager:
         snapshot["last_error"] = last_error
         if not snapshot["connected"]:
             snapshot["status"] = "error"
+        elif apply and snapshot["checkpoint_error"]:
+            snapshot["status"] = "warn"
         elif snapshot["failed_count"] > 0:
             snapshot["status"] = "error" if stop_on_error else "warn"
+        elif apply and snapshot["still_pending_attempted"]:
+            snapshot["status"] = "warn"
         elif snapshot["remaining_count"] > 0:
             snapshot["status"] = "warn"
         else:
@@ -792,28 +861,52 @@ class RelationalMigrationManager:
                 """,
                 (revision.schema_version, revision.revision, app_version),
             )
-            cursor.execute(
-                "SELECT to_regclass('sixpx_data_evolution_checkpoints')"
-            )
+        self._record_evolution_checkpoint(
+            connection,
+            revision=revision.revision,
+            schema_version=revision.schema_version,
+            app_version=app_version,
+            payload={"source": "migration_apply"},
+        )
+
+    def _record_evolution_checkpoint(
+        self,
+        connection,
+        *,
+        revision: str,
+        schema_version: int,
+        app_version: str,
+        payload: Any,
+    ) -> bool:
+        if isinstance(payload, dict):
+            checkpoint_payload = dict(payload)
+        else:
+            checkpoint_payload = {"value": str(payload)}
+        payload_json = json.dumps(checkpoint_payload, separators=(",", ":"), sort_keys=True)
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regclass('sixpx_data_evolution_checkpoints')")
             checkpoint_table = cursor.fetchone()
-            if checkpoint_table and checkpoint_table[0]:
-                cursor.execute(
-                    """
-                    INSERT INTO sixpx_data_evolution_checkpoints (
-                        revision,
-                        schema_version,
-                        app_version,
-                        payload
-                    )
-                    VALUES (%s, %s, %s, %s::jsonb)
-                    """,
-                    (
-                        revision.revision,
-                        revision.schema_version,
-                        app_version,
-                        "{}",
-                    ),
+            if not checkpoint_table or not checkpoint_table[0]:
+                return False
+            cursor.execute(
+                """
+                INSERT INTO sixpx_data_evolution_checkpoints (
+                    revision,
+                    schema_version,
+                    app_version,
+                    payload
                 )
+                VALUES (%s, %s, %s, %s::jsonb)
+                """,
+                (
+                    str(revision or "").strip(),
+                    int(schema_version),
+                    str(app_version or "").strip(),
+                    payload_json,
+                ),
+            )
+        return True
 
     def apply(self, *, app_version: str) -> dict[str, Any]:
         if not self.database_url:

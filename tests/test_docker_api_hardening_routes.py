@@ -46,6 +46,7 @@ class DockerApiHardeningRouteTests(unittest.TestCase):
             "/api/v1/admin/runtime/governance",
             "/api/v1/admin/runtime/migrations",
             "/api/v1/admin/runtime/migrations/validate",
+            "/api/v1/admin/runtime/migrations/validate/apply",
         }
         self.assertTrue(expected.issubset(paths), f"Missing API routes: {sorted(expected - paths)}")
 

@@ -37,6 +37,7 @@ from app.schemas import (
     RunOut,
     RunPatch,
     RetryRunRequest,
+    MigrationValidateApplyRequest,
     SecretRotateRequest,
     SecretRotateResult,
     SettingsPatch,
@@ -188,6 +189,21 @@ def _request_api_token(request: Request) -> str:
         return direct_header
     auth_header = str(request.headers.get("authorization") or "").strip()
     return _extract_bearer_token(auth_header)
+
+
+def _assert_admin_apply_auth(request: Request) -> str:
+    if not API_AUTH_TOKEN:
+        raise HTTPException(
+            status_code=412,
+            detail="API_AUTH_TOKEN must be configured before using this endpoint.",
+        )
+    request_token = _request_api_token(request)
+    if request_token != API_AUTH_TOKEN:
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized: missing or invalid API token.",
+        )
+    return request_token
 
 
 def _is_auth_exempt_path(path: str) -> bool:
@@ -728,6 +744,32 @@ def runtime_migrations_validate_constraints(
             apply=apply,
             limit=limit,
             stop_on_error=stop_on_error,
+        ),
+        "requested_at": utc_now_iso(),
+    }
+
+
+@app.post("/api/v1/admin/runtime/migrations/validate/apply", tags=["admin"])
+def runtime_migrations_validate_constraints_apply(
+    payload: MigrationValidateApplyRequest,
+    request: Request,
+) -> dict[str, Any]:
+    _assert_admin_apply_auth(request)
+    reason = str(payload.reason or "").strip()
+    if not reason:
+        raise HTTPException(
+            status_code=400,
+            detail="reason is required for audited migration-validate apply operations.",
+        )
+    requested_by = str(payload.requested_by or "").strip() or "api-token-operator"
+    return {
+        **relational_migrations.validate_constraints(
+            apply=True,
+            limit=int(payload.limit),
+            stop_on_error=bool(payload.stop_on_error),
+            app_version=APP_VERSION,
+            reason=reason,
+            requested_by=requested_by,
         ),
         "requested_at": utc_now_iso(),
     }

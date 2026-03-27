@@ -126,6 +126,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - CI now verifies governance baseline files (`scripts/verify_runtime_governance.py`) and release workflow emits artifact provenance attestations.
 - Docker runtime now includes relational migration expansion (`r0001_initial_runtime_scaffold`, `r0002_runtime_core_tables`, `r0003_runtime_observability_tables`, `r0004_runtime_metadata_columns`, `r0005_runtime_quality_constraints`, `r0006_runtime_evolution_checkpoints`) plus migration status endpoint (`/api/v1/admin/runtime/migrations`).
 - Docker runtime now includes migration-ops endpoint for safe constraint validation (`/api/v1/admin/runtime/migrations/validate`, dry-run/apply modes).
+- Docker runtime now includes authenticated audited apply-and-verify migration flow (`/api/v1/admin/runtime/migrations/validate/apply`, API token + reason required).
 - Docker runtime now enforces relational schema compatibility guardrails (startup policy, min/max schema boundaries, unknown revision policy).
 - Storage backend selector is now live (`SIXPX_STORAGE_BACKEND=json|postgres`) with optional strict mode (`SIXPX_STORAGE_BACKEND_REQUIRED=true`).
 - Postgres repository path now supports workflows/runs/settings/integrations/bots behind the storage backend flag.

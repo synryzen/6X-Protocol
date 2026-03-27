@@ -201,6 +201,13 @@ class SecretRotateResult(BaseModel):
     rotated_at: str
 
 
+class MigrationValidateApplyRequest(BaseModel):
+    limit: int = Field(default=50, ge=1, le=500)
+    stop_on_error: bool = False
+    reason: str = ""
+    requested_by: str = ""
+
+
 class BotProfileIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     role: str = ""
