@@ -68,11 +68,12 @@ Optional secret encryption baseline:
 - Rotate encrypted material using `POST /api/v1/admin/secrets/rotate` with `new_key_material`.
 
 Managed secret adapter baseline:
-- Configure `SECRET_PROVIDER_MODE` with one of: `disabled`, `env`, `file`, `http`, `chain`.
+- Configure `SECRET_PROVIDER_MODE` with one of: `disabled`, `env`, `file`, `http`, `vault`, `chain`.
 - Resolve references in settings/integration configs using:
   - `env:YOUR_ENV_KEY` or `secret://env/YOUR_ENV_KEY`
   - `file:path.to.secret` or `secret://file/path.to.secret`
-  - `secret://http/path.to.secret` (from JSON fetched via HTTP provider URL)
+  - `http:path.to.secret` or `secret://http/path.to.secret` (from JSON fetched via HTTP provider URL)
+  - `vault:path.to.secret` or `secret://vault/path.to.secret` (from Vault JSON/KV response payload)
 - Optional file-backed provider path: `SECRET_PROVIDER_FILE` (default `/data/6x-protocol/managed-secrets.json`).
 - Optional env prefix: `SECRET_PROVIDER_ENV_PREFIX` (for prefixed env lookup fallback).
 - Optional HTTP provider settings:
@@ -80,6 +81,11 @@ Managed secret adapter baseline:
   - `SECRET_PROVIDER_HTTP_AUTH_TOKEN`
   - `SECRET_PROVIDER_HTTP_TIMEOUT_SEC` (default `3.0`)
   - `SECRET_PROVIDER_HTTP_ALLOW_INSECURE` (`false` by default, enables non-HTTPS URLs only when true)
+- Optional Vault provider settings:
+  - `SECRET_PROVIDER_VAULT_URL`
+  - `SECRET_PROVIDER_VAULT_AUTH_TOKEN`
+  - `SECRET_PROVIDER_VAULT_TIMEOUT_SEC` (default `3.0`)
+  - `SECRET_PROVIDER_VAULT_ALLOW_INSECURE` (`false` by default, enables non-HTTPS URLs only when true)
 - Provider status routes:
   - `GET /api/v1/admin/secrets/provider`
   - `POST /api/v1/admin/secrets/provider/reload`

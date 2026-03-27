@@ -1,4 +1,4 @@
-"""Managed secret adapter baseline for env/file-backed secret resolution."""
+"""Managed secret adapter baseline for env/file/http/vault secret resolution."""
 
 from __future__ import annotations
 
@@ -21,7 +21,13 @@ def is_secret_reference(value: Any) -> bool:
     if not text:
         return False
     lowered = text.lower()
-    return lowered.startswith(SECRET_REF_PREFIX) or lowered.startswith("env:") or lowered.startswith("file:")
+    return (
+        lowered.startswith(SECRET_REF_PREFIX)
+        or lowered.startswith("env:")
+        or lowered.startswith("file:")
+        or lowered.startswith("http:")
+        or lowered.startswith("vault:")
+    )
 
 
 def parse_secret_reference(value: str) -> tuple[str, str] | None:
@@ -35,6 +41,12 @@ def parse_secret_reference(value: str) -> tuple[str, str] | None:
     if lowered.startswith("file:"):
         key = text.split(":", 1)[1].strip()
         return ("file", key) if key else None
+    if lowered.startswith("http:"):
+        key = text.split(":", 1)[1].strip()
+        return ("http", key) if key else None
+    if lowered.startswith("vault:"):
+        key = text.split(":", 1)[1].strip()
+        return ("vault", key) if key else None
     if lowered.startswith(SECRET_REF_PREFIX):
         remainder = text[len(SECRET_REF_PREFIX) :].strip()
         if "/" not in remainder:
@@ -42,7 +54,7 @@ def parse_secret_reference(value: str) -> tuple[str, str] | None:
         provider, key = remainder.split("/", 1)
         provider = provider.strip().lower()
         key = key.strip()
-        if provider in {"env", "file", "http"} and key:
+        if provider in {"env", "file", "http", "vault"} and key:
             return provider, key
     return None
 
@@ -60,9 +72,13 @@ class ManagedSecretResolver:
         http_auth_token: str = "",
         http_timeout_sec: float = 3.0,
         http_allow_insecure: bool = False,
+        vault_url: str = "",
+        vault_auth_token: str = "",
+        vault_timeout_sec: float = 3.0,
+        vault_allow_insecure: bool = False,
     ) -> None:
         normalized_mode = str(mode or "disabled").strip().lower()
-        if normalized_mode not in {"disabled", "env", "file", "http", "chain"}:
+        if normalized_mode not in {"disabled", "env", "file", "http", "vault", "chain"}:
             normalized_mode = "disabled"
         self.mode = normalized_mode
         self.file_path = str(file_path or "").strip()
@@ -74,15 +90,27 @@ class ManagedSecretResolver:
         except (TypeError, ValueError):
             self.http_timeout_sec = 3.0
         self.http_allow_insecure = bool(http_allow_insecure)
+        self.vault_url = str(vault_url or "").strip()
+        self.vault_auth_token = str(vault_auth_token or "").strip()
+        try:
+            self.vault_timeout_sec = max(0.5, float(vault_timeout_sec))
+        except (TypeError, ValueError):
+            self.vault_timeout_sec = 3.0
+        self.vault_allow_insecure = bool(vault_allow_insecure)
         self._file_cache: dict[str, Any] | None = None
         self._file_loaded = False
         self._http_cache: dict[str, Any] | None = None
         self._http_loaded = False
+        self._vault_cache: dict[str, Any] | None = None
+        self._vault_loaded = False
 
     @classmethod
     def from_env(cls) -> "ManagedSecretResolver":
         allow_insecure_raw = str(
             os.getenv("SECRET_PROVIDER_HTTP_ALLOW_INSECURE", "false") or "false"
+        ).strip().lower()
+        vault_allow_insecure_raw = str(
+            os.getenv("SECRET_PROVIDER_VAULT_ALLOW_INSECURE", "false") or "false"
         ).strip().lower()
         return cls(
             mode=str(os.getenv("SECRET_PROVIDER_MODE", "disabled") or "disabled"),
@@ -92,6 +120,12 @@ class ManagedSecretResolver:
             http_auth_token=str(os.getenv("SECRET_PROVIDER_HTTP_AUTH_TOKEN", "") or ""),
             http_timeout_sec=str(os.getenv("SECRET_PROVIDER_HTTP_TIMEOUT_SEC", "3.0") or "3.0"),
             http_allow_insecure=allow_insecure_raw in {"1", "true", "yes", "on"},
+            vault_url=str(os.getenv("SECRET_PROVIDER_VAULT_URL", "") or ""),
+            vault_auth_token=str(os.getenv("SECRET_PROVIDER_VAULT_AUTH_TOKEN", "") or ""),
+            vault_timeout_sec=str(
+                os.getenv("SECRET_PROVIDER_VAULT_TIMEOUT_SEC", "3.0") or "3.0"
+            ),
+            vault_allow_insecure=vault_allow_insecure_raw in {"1", "true", "yes", "on"},
         )
 
     @property
@@ -105,6 +139,10 @@ class ManagedSecretResolver:
     @property
     def http_loaded(self) -> bool:
         return self._http_loaded
+
+    @property
+    def vault_loaded(self) -> bool:
+        return self._vault_loaded
 
     def _load_file_secrets(self) -> dict[str, Any]:
         if self._file_cache is not None:
@@ -160,6 +198,49 @@ class ManagedSecretResolver:
             self._http_loaded = False
         return self._http_cache
 
+    def _normalize_vault_payload(self, payload: Any) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            return {}
+        first = payload.get("data")
+        if isinstance(first, dict):
+            second = first.get("data")
+            if isinstance(second, dict):
+                return second
+            return first
+        return payload
+
+    def _load_vault_secrets(self) -> dict[str, Any]:
+        if self._vault_cache is not None:
+            return self._vault_cache
+        if not self.vault_url:
+            self._vault_cache = {}
+            self._vault_loaded = False
+            return self._vault_cache
+        parsed = urlparse(self.vault_url)
+        if parsed.scheme not in {"https", "http"}:
+            self._vault_cache = {}
+            self._vault_loaded = False
+            return self._vault_cache
+        if parsed.scheme == "http" and not self.vault_allow_insecure:
+            self._vault_cache = {}
+            self._vault_loaded = False
+            return self._vault_cache
+        headers = {"Accept": "application/json"}
+        token = self.vault_auth_token
+        if token:
+            headers["X-Vault-Token"] = token
+        request = Request(self.vault_url, headers=headers, method="GET")
+        try:
+            with urlopen(request, timeout=self.vault_timeout_sec) as response:
+                payload = response.read().decode("utf-8")
+            raw = json.loads(payload)
+            self._vault_cache = self._normalize_vault_payload(raw)
+            self._vault_loaded = bool(self._vault_cache)
+        except Exception:
+            self._vault_cache = {}
+            self._vault_loaded = False
+        return self._vault_cache
+
     def _resolve_from_env(self, key: str) -> str | None:
         target = str(key or "").strip()
         if not target:
@@ -201,6 +282,20 @@ class ManagedSecretResolver:
         resolved = str(current).strip()
         return resolved or None
 
+    def _resolve_from_vault(self, key_path: str) -> str | None:
+        key = str(key_path or "").strip()
+        if not key:
+            return None
+        current: Any = self._load_vault_secrets()
+        for part in key.split("."):
+            if not isinstance(current, dict):
+                return None
+            current = current.get(part)
+        if current is None:
+            return None
+        resolved = str(current).strip()
+        return resolved or None
+
     def resolve_reference(self, reference: str) -> str | None:
         parsed = parse_secret_reference(reference)
         if parsed is None:
@@ -215,6 +310,8 @@ class ManagedSecretResolver:
             return self._resolve_from_file(key) if provider == "file" else None
         if self.mode == "http":
             return self._resolve_from_http(key) if provider == "http" else None
+        if self.mode == "vault":
+            return self._resolve_from_vault(key) if provider == "vault" else None
         # chain mode
         if provider == "env":
             return self._resolve_from_env(key)
@@ -222,6 +319,8 @@ class ManagedSecretResolver:
             return self._resolve_from_file(key)
         if provider == "http":
             return self._resolve_from_http(key)
+        if provider == "vault":
+            return self._resolve_from_vault(key)
         return None
 
     def resolve_settings(self, settings: dict[str, Any]) -> dict[str, Any]:

@@ -120,8 +120,8 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Docker JSON storage now enforces schema compatibility boundaries (`v3`), captures migration snapshots, and rejects unsupported future-schema data/backup imports.
 - Docker API JSON storage now supports optional at-rest secret encryption (`SECRET_ENCRYPTION_KEY`) for sensitive settings and integration profile fields.
 - Docker API now supports secret key rotation (`/api/v1/admin/secrets/rotate`) for re-encrypting persisted settings/integration secret payloads.
-- Docker API now supports managed secret adapters (`env`/`file`/`chain`) with provider references and reload/status endpoints.
-- Docker API managed secret adapters now support external HTTP JSON providers (`secret://http/...`) in addition to env/file/chain modes.
+- Docker API now supports managed secret adapters (`env`/`file`/`http`/`vault`/`chain`) with provider references and reload/status endpoints.
+- Docker API managed secret adapters now support external HTTP JSON providers (`secret://http/...`) and Vault-style references (`secret://vault/...`).
 - Docker API now supports runtime image/version governance checks with compatibility and provenance diagnostics (`/api/v1/admin/runtime/governance`).
 - CI now verifies governance baseline files (`scripts/verify_runtime_governance.py`) and release workflow emits artifact provenance attestations.
 - Docker runtime now includes relational migration expansion (`r0001_initial_runtime_scaffold`, `r0002_runtime_core_tables`, `r0003_runtime_observability_tables`, `r0004_runtime_metadata_columns`) plus migration status endpoint (`/api/v1/admin/runtime/migrations`).
@@ -135,7 +135,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 ## Next To Reach GA (Post-Beta)
 1. Expand web panel modules to full parity UX beyond beta control room.
 2. Continue feature-flagged Postgres repository cutover using `r0001-r0004` schema baseline for workflows/runs/settings/integrations/bots.
-3. Add production-grade secret-store adapters (Vault/KMS) and operational rotation automation.
+3. Add production-grade managed secret hardening (Vault token lifecycle + KMS adapters) and operational rotation automation.
 4. Expand integration profile UX toward full connector-field parity with desktop editor.
 5. Enforce signed-image digest verification policy and CI release provenance attestation.
 

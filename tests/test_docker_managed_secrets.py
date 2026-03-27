@@ -29,9 +29,11 @@ class ManagedSecretsTests(unittest.TestCase):
         os.environ.pop("OPENAI_TEST_KEY", None)
         self.temp_dir.cleanup()
 
-    def test_parse_secret_reference_supports_env_and_file(self):
+    def test_parse_secret_reference_supports_env_file_http_and_vault(self):
         self.assertEqual(("env", "OPENAI_TEST_KEY"), self.module.parse_secret_reference("env:OPENAI_TEST_KEY"))
         self.assertEqual(("file", "providers.openai.key"), self.module.parse_secret_reference("file:providers.openai.key"))
+        self.assertEqual(("http", "providers.openai.key"), self.module.parse_secret_reference("http:providers.openai.key"))
+        self.assertEqual(("vault", "providers.openai.key"), self.module.parse_secret_reference("vault:providers.openai.key"))
         self.assertEqual(
             ("env", "OPENAI_TEST_KEY"),
             self.module.parse_secret_reference("secret://env/OPENAI_TEST_KEY"),
@@ -43,6 +45,10 @@ class ManagedSecretsTests(unittest.TestCase):
         self.assertEqual(
             ("http", "providers.openai.key"),
             self.module.parse_secret_reference("secret://http/providers.openai.key"),
+        )
+        self.assertEqual(
+            ("vault", "providers.openai.key"),
+            self.module.parse_secret_reference("secret://vault/providers.openai.key"),
         )
 
     def test_env_mode_resolves_settings_ref(self):
@@ -118,6 +124,66 @@ class ManagedSecretsTests(unittest.TestCase):
                 ]
             )
             self.assertEqual("http-openai-secret", profiles[0]["config"].get("api_key"))
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            server.server_close()
+
+    def test_vault_mode_resolves_integration_ref(self):
+        expected_token = "vault-token-456"
+        payload = json.dumps(
+            {
+                "data": {
+                    "data": {
+                        "providers": {
+                            "openai": {
+                                "api_key": "vault-openai-secret",
+                            }
+                        }
+                    }
+                }
+            }
+        ).encode("utf-8")
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                if self.path != "/v1/kv/data/secrets":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                if self.headers.get("X-Vault-Token") != expected_token:
+                    self.send_response(403)
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, _fmt, *_args):  # noqa: D401
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            resolver = self.module.ManagedSecretResolver(
+                mode="vault",
+                vault_url=f"http://127.0.0.1:{server.server_port}/v1/kv/data/secrets",
+                vault_auth_token=expected_token,
+                vault_allow_insecure=True,
+            )
+            profiles = resolver.resolve_integration_profiles(
+                [
+                    {
+                        "id": "p1",
+                        "key": "http_request",
+                        "name": "Profile",
+                        "config": {"api_key": "secret://vault/providers.openai.api_key"},
+                    }
+                ]
+            )
+            self.assertEqual("vault-openai-secret", profiles[0]["config"].get("api_key"))
         finally:
             server.shutdown()
             thread.join(timeout=2)
