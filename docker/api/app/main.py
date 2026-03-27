@@ -50,7 +50,7 @@ from app.schemas import (
     normalize_settings,
     utc_now_iso,
 )
-from app.storage import JsonStore
+from app.storage import create_store
 from app.workflow_preflight import preflight_graph
 
 APP_NAME = "6X-Protocol API"
@@ -108,7 +108,7 @@ INTEGRATION_CATALOG: list[dict[str, Any]] = [
     {"key": "approval_gate", "name": "Approval Gate", "category": "workflow", "required_fields": []},
 ]
 
-store = JsonStore()
+store = create_store()
 run_controller = RunController(store=store)
 relational_migrations = RelationalMigrationManager(
     database_url=str(os.getenv("DATABASE_URL", "") or ""),
@@ -124,6 +124,7 @@ app = FastAPI(
 @app.on_event("startup")
 def apply_relational_migrations_on_startup() -> None:
     result = relational_migrations.apply(app_version=APP_VERSION)
+    requires_relational_ok = str(getattr(store, "storage_backend", "json")).strip().lower() == "postgres"
     should_block_startup = bool(result.get("required")) or bool(
         result.get("enforce_compatibility", True)
     )
@@ -137,6 +138,11 @@ def apply_relational_migrations_on_startup() -> None:
         raise RuntimeError(
             "Relational migration startup guardrail blocked API startup: "
             f"{detail_text}"
+        )
+    if requires_relational_ok and str(result.get("status", "")).strip().lower() != "ok":
+        raise RuntimeError(
+            "Postgres storage backend requires relational migrations status 'ok', "
+            f"but got '{result.get('status', '')}' (pending={result.get('pending_count', 0)})."
         )
 
 
@@ -435,7 +441,9 @@ def meta() -> dict[str, str]:
         "name": APP_NAME,
         "version": APP_VERSION,
         "timestamp": datetime.now(UTC).isoformat(),
-        "storage": "json",
+        "storage": str(getattr(store, "storage_backend", "json")),
+        "storage_requested": str(getattr(store, "storage_backend_requested", "")),
+        "storage_fallback": "true" if bool(getattr(store, "storage_backend_fallback", False)) else "false",
         "data_dir": str(store.data_dir),
         "store_schema_version": str(getattr(store, "schema_version", "")),
         "auth_enabled": "true" if bool(API_AUTH_TOKEN) else "false",

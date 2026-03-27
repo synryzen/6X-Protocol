@@ -1,7 +1,8 @@
-"""Simple JSON storage layer for the web-edition API scaffold.
+"""Storage layer for the web-edition API scaffold.
 
-This intentionally uses JSON files for fast iteration. The schema is stable enough
-that we can later swap this for Postgres repositories behind the same interface.
+JSON storage remains the default and safest path.
+Postgres repositories can be enabled with `SIXPX_STORAGE_BACKEND=postgres`
+for staged runtime cutover while preserving API compatibility.
 """
 
 from __future__ import annotations
@@ -12,12 +13,14 @@ import os
 import threading
 from pathlib import Path
 from typing import Any
+import logging
 
 from app.managed_secrets import ManagedSecretResolver
 from app.secret_manager import SecretManager
 
 MIN_STORE_SCHEMA_VERSION = 1
 STORE_SCHEMA_VERSION = 3
+_LOG = logging.getLogger("6xp-storage")
 
 
 class JsonStore:
@@ -25,6 +28,7 @@ class JsonStore:
         default_dir = Path("/data/6x-protocol")
         self.data_dir = Path(data_dir or os.getenv("SCAFFOLD_DATA_DIR") or default_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.storage_backend = "json"
         self._lock = threading.RLock()
         self.secrets = SecretManager(str(os.getenv("SECRET_ENCRYPTION_KEY", "") or ""))
         self.secret_resolver = ManagedSecretResolver.from_env()
@@ -910,3 +914,448 @@ class JsonStore:
 
     def save_bots(self, bots: list[dict[str, Any]]) -> None:
         self._write_json("bots.json", bots)
+
+
+class PostgresStore(JsonStore):
+    """Feature-flagged Postgres-backed repositories with JSON fallback compatibility."""
+
+    def __init__(self, data_dir: str | None = None, database_url: str | None = None) -> None:
+        super().__init__(data_dir=data_dir)
+        self.storage_backend = "postgres"
+        self.database_url = str(database_url or os.getenv("DATABASE_URL") or "").strip()
+        self._psycopg = self._import_psycopg()
+
+    def _import_psycopg(self):
+        try:
+            import psycopg  # type: ignore
+        except Exception:
+            return None
+        return psycopg
+
+    def _connect(self):
+        if not self.database_url:
+            raise RuntimeError("Postgres backend requires DATABASE_URL.")
+        if self._psycopg is None:
+            raise RuntimeError("Postgres backend requires psycopg driver.")
+        return self._psycopg.connect(self.database_url, connect_timeout=3)
+
+    def _json_value(self, value: Any) -> str:
+        return json.dumps(value if value is not None else {})
+
+    def _iso_from_db(self, value: Any) -> str:
+        if value is None:
+            return ""
+        if hasattr(value, "isoformat"):
+            try:
+                return str(value.isoformat())
+            except Exception:
+                return str(value)
+        return str(value)
+
+    def _replace_delete_missing(self, connection, table: str, existing_ids: set[str], desired_ids: set[str]) -> None:
+        stale_ids = [item for item in existing_ids if item not in desired_ids]
+        if not stale_ids:
+            return
+        with connection.cursor() as cursor:
+            for item_id in stale_ids:
+                cursor.execute(f"DELETE FROM {table} WHERE id = %s", (item_id,))
+
+    def load_workflows(self) -> list[dict[str, Any]]:
+        with self._connect() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, name, description, graph, status, tags, metadata, created_at, updated_at
+                FROM sixpx_workflows
+                ORDER BY updated_at DESC
+                """
+            )
+            rows = cursor.fetchall() or []
+        workflows: list[dict[str, Any]] = []
+        for row in rows:
+            metadata = row[6] if isinstance(row[6], dict) else {}
+            execution_defaults = metadata.get("execution_defaults")
+            workflow = {
+                "id": str(row[0] or "").strip(),
+                "name": str(row[1] or "").strip(),
+                "description": str(row[2] or "").strip(),
+                "graph": row[3] if isinstance(row[3], dict) else {},
+                "status": str(row[4] or "draft").strip() or "draft",
+                "tags": row[5] if isinstance(row[5], list) else [],
+                "created_at": self._iso_from_db(row[7]) or self._iso_now(),
+                "updated_at": self._iso_from_db(row[8]) or self._iso_now(),
+            }
+            if isinstance(execution_defaults, dict):
+                workflow["execution_defaults"] = execution_defaults
+            workflows.append(workflow)
+        return self._sanitize_workflows_v3(workflows)
+
+    def save_workflows(self, workflows: list[dict[str, Any]]) -> None:
+        normalized = self._sanitize_workflows_v3(workflows)
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT id FROM sixpx_workflows")
+                existing_ids = {str(item[0]).strip() for item in (cursor.fetchall() or []) if item}
+            desired_ids = {str(item.get("id", "")).strip() for item in normalized if str(item.get("id", "")).strip()}
+            self._replace_delete_missing(connection, "sixpx_workflows", existing_ids, desired_ids)
+            with connection.cursor() as cursor:
+                for workflow in normalized:
+                    workflow_id = str(workflow.get("id", "")).strip()
+                    if not workflow_id:
+                        continue
+                    metadata = {}
+                    if isinstance(workflow.get("execution_defaults"), dict):
+                        metadata["execution_defaults"] = dict(workflow["execution_defaults"])
+                    cursor.execute(
+                        """
+                        INSERT INTO sixpx_workflows
+                            (id, name, description, graph, status, tags, metadata, created_at, updated_at)
+                        VALUES
+                            (
+                                %s, %s, %s, %s::jsonb, %s, %s::jsonb, %s::jsonb,
+                                %s::timestamptz, %s::timestamptz
+                            )
+                        ON CONFLICT (id) DO UPDATE SET
+                            name = EXCLUDED.name,
+                            description = EXCLUDED.description,
+                            graph = EXCLUDED.graph,
+                            status = EXCLUDED.status,
+                            tags = EXCLUDED.tags,
+                            metadata = EXCLUDED.metadata,
+                            updated_at = EXCLUDED.updated_at
+                        """,
+                        (
+                            workflow_id,
+                            str(workflow.get("name", "")).strip(),
+                            str(workflow.get("description", "")).strip(),
+                            self._json_value(workflow.get("graph", {})),
+                            str(workflow.get("status", "draft")).strip() or "draft",
+                            self._json_value(workflow.get("tags", [])),
+                            self._json_value(metadata),
+                            str(workflow.get("created_at", "")).strip() or self._iso_now(),
+                            str(workflow.get("updated_at", "")).strip() or self._iso_now(),
+                        ),
+                    )
+            connection.commit()
+
+    def load_runs(self) -> list[dict[str, Any]]:
+        with self._connect() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, workflow_id, workflow_name, status, trigger, summary, log, payload, created_at, updated_at, finished_at
+                FROM sixpx_runs
+                ORDER BY created_at DESC
+                """
+            )
+            rows = cursor.fetchall() or []
+        runs: list[dict[str, Any]] = []
+        for row in rows:
+            payload = dict(row[7]) if isinstance(row[7], dict) else {}
+            payload["id"] = str(row[0] or "").strip()
+            payload["workflow_id"] = str(row[1] or "").strip()
+            payload["workflow_name"] = str(row[2] or "").strip()
+            payload["status"] = str(row[3] or "").strip()
+            payload["trigger"] = str(row[4] or "").strip()
+            payload["summary"] = str(row[5] or "").strip()
+            payload["log"] = str(row[6] or "").strip()
+            payload["created_at"] = self._iso_from_db(row[8]) or self._iso_now()
+            payload["updated_at"] = self._iso_from_db(row[9]) or payload["created_at"]
+            payload["finished_at"] = self._iso_from_db(row[10])
+            runs.append(payload)
+        return self._sanitize_runs_v3(runs)
+
+    def save_runs(self, runs: list[dict[str, Any]]) -> None:
+        normalized = self._sanitize_runs_v3(runs)
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT id FROM sixpx_runs")
+                existing_ids = {str(item[0]).strip() for item in (cursor.fetchall() or []) if item}
+            desired_ids = {str(item.get("id", "")).strip() for item in normalized if str(item.get("id", "")).strip()}
+            self._replace_delete_missing(connection, "sixpx_runs", existing_ids, desired_ids)
+            with connection.cursor() as cursor:
+                for run in normalized:
+                    run_id = str(run.get("id", "")).strip()
+                    if not run_id:
+                        continue
+                    cursor.execute(
+                        """
+                        INSERT INTO sixpx_runs
+                            (id, workflow_id, workflow_name, status, trigger, summary, log, payload, created_at, updated_at, finished_at)
+                        VALUES
+                            (
+                                %s, %s, %s, %s, %s, %s, %s, %s::jsonb,
+                                %s::timestamptz, %s::timestamptz, NULLIF(%s, '')::timestamptz
+                            )
+                        ON CONFLICT (id) DO UPDATE SET
+                            workflow_id = EXCLUDED.workflow_id,
+                            workflow_name = EXCLUDED.workflow_name,
+                            status = EXCLUDED.status,
+                            trigger = EXCLUDED.trigger,
+                            summary = EXCLUDED.summary,
+                            log = EXCLUDED.log,
+                            payload = EXCLUDED.payload,
+                            updated_at = EXCLUDED.updated_at,
+                            finished_at = EXCLUDED.finished_at
+                        """,
+                        (
+                            run_id,
+                            str(run.get("workflow_id", "")).strip(),
+                            str(run.get("workflow_name", "")).strip(),
+                            str(run.get("status", "")).strip(),
+                            str(run.get("trigger", "")).strip(),
+                            str(run.get("summary", "")).strip(),
+                            str(run.get("log", "")).strip(),
+                            self._json_value(run),
+                            str(run.get("created_at", "")).strip() or self._iso_now(),
+                            str(run.get("updated_at", "")).strip() or self._iso_now(),
+                            str(run.get("finished_at", "")).strip(),
+                        ),
+                    )
+            connection.commit()
+
+    def load_settings(self, defaults: dict[str, Any]) -> dict[str, Any]:
+        with self._connect() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT setting_value
+                FROM sixpx_settings
+                WHERE setting_key = 'app_settings'
+                LIMIT 1
+                """
+            )
+            row = cursor.fetchone()
+        data = row[0] if row and isinstance(row[0], dict) else {}
+        data = self._sanitize_settings_v3(self.secrets.decrypt_settings(data))
+        data = self.secret_resolver.resolve_settings(data)
+        merged = dict(defaults)
+        merged.update(data)
+        return merged
+
+    def save_settings(self, settings: dict[str, Any]) -> None:
+        encrypted = self.secrets.encrypt_settings(
+            self._sanitize_settings_v3(settings if isinstance(settings, dict) else {})
+        )
+        with self._connect() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO sixpx_settings (setting_key, setting_value, updated_at)
+                VALUES ('app_settings', %s::jsonb, NOW())
+                ON CONFLICT (setting_key) DO UPDATE SET
+                    setting_value = EXCLUDED.setting_value,
+                    updated_at = NOW()
+                """,
+                (self._json_value(encrypted),),
+            )
+            connection.commit()
+
+    def load_integrations(self) -> list[dict[str, Any]]:
+        with self._connect() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, integration_key, name, description, config, enabled, tags, metadata, created_at, updated_at
+                FROM sixpx_integrations
+                ORDER BY updated_at DESC
+                """
+            )
+            rows = cursor.fetchall() or []
+        profiles: list[dict[str, Any]] = []
+        for row in rows:
+            metadata = row[7] if isinstance(row[7], dict) else {}
+            profile = {
+                "id": str(row[0] or "").strip(),
+                "key": str(row[1] or "").strip().lower(),
+                "name": str(row[2] or "").strip(),
+                "description": str(row[3] or "").strip(),
+                "config": row[4] if isinstance(row[4], dict) else {},
+                "enabled": bool(row[5]),
+                "tags": row[6] if isinstance(row[6], list) else [],
+                "last_test_status": str(metadata.get("last_test_status", "")).strip(),
+                "last_test_message": str(metadata.get("last_test_message", "")).strip(),
+                "last_tested_at": str(metadata.get("last_tested_at", "")).strip(),
+                "created_at": self._iso_from_db(row[8]) or self._iso_now(),
+                "updated_at": self._iso_from_db(row[9]) or self._iso_now(),
+            }
+            profiles.append(profile)
+        sanitized = self._sanitize_integrations_v2(profiles)
+        decrypted = self.secrets.decrypt_integration_profiles(sanitized)
+        return self.secret_resolver.resolve_integration_profiles(decrypted)
+
+    def save_integrations(self, integrations: list[dict[str, Any]]) -> None:
+        sanitized = self._sanitize_integrations_v2(integrations)
+        encrypted = self.secrets.encrypt_integration_profiles(sanitized)
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT id FROM sixpx_integrations")
+                existing_ids = {str(item[0]).strip() for item in (cursor.fetchall() or []) if item}
+            desired_ids = {str(item.get("id", "")).strip() for item in encrypted if str(item.get("id", "")).strip()}
+            self._replace_delete_missing(connection, "sixpx_integrations", existing_ids, desired_ids)
+            with connection.cursor() as cursor:
+                for profile in encrypted:
+                    profile_id = str(profile.get("id", "")).strip()
+                    if not profile_id:
+                        continue
+                    metadata = {
+                        "last_test_status": str(profile.get("last_test_status", "")).strip(),
+                        "last_test_message": str(profile.get("last_test_message", "")).strip(),
+                        "last_tested_at": str(profile.get("last_tested_at", "")).strip(),
+                    }
+                    cursor.execute(
+                        """
+                        INSERT INTO sixpx_integrations
+                            (id, integration_key, name, description, config, enabled, tags, metadata, created_at, updated_at)
+                        VALUES
+                            (
+                                %s, %s, %s, %s, %s::jsonb, %s, %s::jsonb, %s::jsonb,
+                                %s::timestamptz, %s::timestamptz
+                            )
+                        ON CONFLICT (id) DO UPDATE SET
+                            integration_key = EXCLUDED.integration_key,
+                            name = EXCLUDED.name,
+                            description = EXCLUDED.description,
+                            config = EXCLUDED.config,
+                            enabled = EXCLUDED.enabled,
+                            tags = EXCLUDED.tags,
+                            metadata = EXCLUDED.metadata,
+                            updated_at = EXCLUDED.updated_at
+                        """,
+                        (
+                            profile_id,
+                            str(profile.get("key", "")).strip().lower(),
+                            str(profile.get("name", "")).strip(),
+                            str(profile.get("description", "")).strip(),
+                            self._json_value(profile.get("config", {})),
+                            bool(profile.get("enabled", True)),
+                            self._json_value(profile.get("tags", [])),
+                            self._json_value(metadata),
+                            str(profile.get("created_at", "")).strip() or self._iso_now(),
+                            str(profile.get("updated_at", "")).strip() or self._iso_now(),
+                        ),
+                    )
+            connection.commit()
+
+    def load_bots(self) -> list[dict[str, Any]]:
+        with self._connect() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, name, role, provider, model, config, enabled, tags, metadata, created_at, updated_at
+                FROM sixpx_bots
+                ORDER BY updated_at DESC
+                """
+            )
+            rows = cursor.fetchall() or []
+        bots: list[dict[str, Any]] = []
+        for row in rows:
+            config = row[5] if isinstance(row[5], dict) else {}
+            metadata = row[8] if isinstance(row[8], dict) else {}
+            bot = {
+                "id": str(row[0] or "").strip(),
+                "name": str(row[1] or "").strip(),
+                "role": str(row[2] or "").strip(),
+                "provider": str(row[3] or "local").strip() or "local",
+                "model": str(row[4] or "").strip(),
+                "temperature": config.get("temperature"),
+                "max_tokens": config.get("max_tokens"),
+                "system_prompt": str(config.get("system_prompt", "")).strip(),
+                "enabled": bool(row[6]),
+                "tags": row[7] if isinstance(row[7], list) else [],
+                "last_test_status": str(metadata.get("last_test_status", "")).strip(),
+                "last_test_message": str(metadata.get("last_test_message", "")).strip(),
+                "last_test_output": str(metadata.get("last_test_output", "")).strip(),
+                "last_tested_at": str(metadata.get("last_tested_at", "")).strip(),
+                "created_at": self._iso_from_db(row[9]) or self._iso_now(),
+                "updated_at": self._iso_from_db(row[10]) or self._iso_now(),
+            }
+            bots.append(bot)
+        return self._sanitize_bots_v2(bots)
+
+    def save_bots(self, bots: list[dict[str, Any]]) -> None:
+        normalized = self._sanitize_bots_v2(bots)
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT id FROM sixpx_bots")
+                existing_ids = {str(item[0]).strip() for item in (cursor.fetchall() or []) if item}
+            desired_ids = {str(item.get("id", "")).strip() for item in normalized if str(item.get("id", "")).strip()}
+            self._replace_delete_missing(connection, "sixpx_bots", existing_ids, desired_ids)
+            with connection.cursor() as cursor:
+                for bot in normalized:
+                    bot_id = str(bot.get("id", "")).strip()
+                    if not bot_id:
+                        continue
+                    config = {
+                        "temperature": bot.get("temperature"),
+                        "max_tokens": bot.get("max_tokens"),
+                        "system_prompt": str(bot.get("system_prompt", "")).strip(),
+                    }
+                    metadata = {
+                        "last_test_status": str(bot.get("last_test_status", "")).strip(),
+                        "last_test_message": str(bot.get("last_test_message", "")).strip(),
+                        "last_test_output": str(bot.get("last_test_output", "")).strip(),
+                        "last_tested_at": str(bot.get("last_tested_at", "")).strip(),
+                    }
+                    cursor.execute(
+                        """
+                        INSERT INTO sixpx_bots
+                            (id, name, role, provider, model, config, enabled, tags, metadata, created_at, updated_at)
+                        VALUES
+                            (
+                                %s, %s, %s, %s, %s, %s::jsonb, %s, %s::jsonb, %s::jsonb,
+                                %s::timestamptz, %s::timestamptz
+                            )
+                        ON CONFLICT (id) DO UPDATE SET
+                            name = EXCLUDED.name,
+                            role = EXCLUDED.role,
+                            provider = EXCLUDED.provider,
+                            model = EXCLUDED.model,
+                            config = EXCLUDED.config,
+                            enabled = EXCLUDED.enabled,
+                            tags = EXCLUDED.tags,
+                            metadata = EXCLUDED.metadata,
+                            updated_at = EXCLUDED.updated_at
+                        """,
+                        (
+                            bot_id,
+                            str(bot.get("name", "")).strip(),
+                            str(bot.get("role", "")).strip(),
+                            str(bot.get("provider", "local")).strip() or "local",
+                            str(bot.get("model", "")).strip(),
+                            self._json_value(config),
+                            bool(bot.get("enabled", True)),
+                            self._json_value(bot.get("tags", [])),
+                            self._json_value(metadata),
+                            str(bot.get("created_at", "")).strip() or self._iso_now(),
+                            str(bot.get("updated_at", "")).strip() or self._iso_now(),
+                        ),
+                    )
+            connection.commit()
+
+
+def create_store(data_dir: str | None = None) -> JsonStore:
+    requested_backend = str(os.getenv("SIXPX_STORAGE_BACKEND", "json") or "json").strip().lower() or "json"
+    backend_required = str(os.getenv("SIXPX_STORAGE_BACKEND_REQUIRED", "false")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    database_url = str(os.getenv("DATABASE_URL", "") or "").strip()
+
+    if requested_backend == "postgres":
+        try:
+            store = PostgresStore(data_dir=data_dir, database_url=database_url)
+            # Sanity probe to fail fast when backend is requested without requiring schema tables yet.
+            with store._connect() as connection, connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                _ = cursor.fetchone()
+            setattr(store, "storage_backend_requested", requested_backend)
+            setattr(store, "storage_backend_fallback", False)
+            return store
+        except Exception as error:
+            if backend_required:
+                raise RuntimeError(
+                    "SIXPX_STORAGE_BACKEND=postgres requested but Postgres backend could not initialize."
+                ) from error
+            _LOG.warning("Postgres store unavailable; falling back to JSON store (%s).", error)
+
+    fallback = JsonStore(data_dir=data_dir)
+    setattr(fallback, "storage_backend_requested", requested_backend)
+    setattr(fallback, "storage_backend_fallback", requested_backend != "json")
+    return fallback

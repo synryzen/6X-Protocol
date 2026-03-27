@@ -148,15 +148,16 @@ See:
 - Docker API now includes observability routes (`/api/v1/observability/summary`, `/api/v1/observability/runs`)
 - Docker API now includes admin backup/restore routes (`/api/v1/admin/backup`, `/api/v1/admin/restore`)
 - Docker store migration expansion is live (`v1->v2->v3`, schema guardrails, and migration snapshots)
-- Relational migration expansion is live (`r0001` + `r0002` + `r0003` tracked in Postgres via `/api/v1/admin/runtime/migrations`)
+- Relational migration expansion is live (`r0001` + `r0002` + `r0003` + `r0004` tracked in Postgres via `/api/v1/admin/runtime/migrations`)
 - Relational schema compatibility guardrails are live (startup enforcement + min/max schema boundaries + unknown-revision policy)
+- Feature-flagged storage backend cutover is live (`SIXPX_STORAGE_BACKEND=json|postgres`, with safe JSON fallback)
 - Smoke test validated (March 24, 2026): `./scripts/test_docker_web.sh` including workflow/runs, retry-from-failed-node, observability + backup checks, timeline/log filters, integrations, bots, and settings patch flows
 
 Self-hosted web status: **Live public beta and smoke-validated**.
 
 Next high-value items toward GA:
 - Expand web panel from beta control-room UX to full production parity modules.
-- Begin feature-flagged Postgres repository cutover (workflows/runs/settings/integrations/bots) using the tracked `r0001-r0003` baseline.
+- Continue feature-flagged Postgres repository cutover (workflows/runs/settings/integrations/bots) using the tracked `r0001-r0004` baseline.
 - Add external secret-store adapters and automated rotation workflows for team/hosted deployment paths.
 
 ## Package Build Commands

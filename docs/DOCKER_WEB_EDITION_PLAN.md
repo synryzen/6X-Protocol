@@ -83,7 +83,7 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - [x] Secret management hardening baseline (optional `SECRET_ENCRYPTION_KEY` at-rest encryption)
 - [x] Managed secret adapters baseline (`SECRET_PROVIDER_MODE`: env/file/chain + provider reload route)
 - [x] Backup/restore + observability endpoints
-- [x] Relational migration scaffold expansion (Postgres revision tracking + `r0001-r0003` schema baseline)
+- [x] Relational migration scaffold expansion (Postgres revision tracking + `r0001-r0004` schema baseline)
 
 ## What Is Done Right Now
 - Docker compose stack starts and runs (`api`, `worker`, `web`, `postgres`, `redis`).
@@ -124,15 +124,17 @@ This path keeps the Linux desktop strong while expanding to cross-platform acces
 - Docker API managed secret adapters now support external HTTP JSON providers (`secret://http/...`) in addition to env/file/chain modes.
 - Docker API now supports runtime image/version governance checks with compatibility and provenance diagnostics (`/api/v1/admin/runtime/governance`).
 - CI now verifies governance baseline files (`scripts/verify_runtime_governance.py`) and release workflow emits artifact provenance attestations.
-- Docker runtime now includes relational migration expansion (`r0001_initial_runtime_scaffold`, `r0002_runtime_core_tables`, `r0003_runtime_observability_tables`) plus migration status endpoint (`/api/v1/admin/runtime/migrations`).
+- Docker runtime now includes relational migration expansion (`r0001_initial_runtime_scaffold`, `r0002_runtime_core_tables`, `r0003_runtime_observability_tables`, `r0004_runtime_metadata_columns`) plus migration status endpoint (`/api/v1/admin/runtime/migrations`).
 - Docker runtime now enforces relational schema compatibility guardrails (startup policy, min/max schema boundaries, unknown revision policy).
+- Storage backend selector is now live (`SIXPX_STORAGE_BACKEND=json|postgres`) with optional strict mode (`SIXPX_STORAGE_BACKEND_REQUIRED=true`).
+- Postgres repository path now supports workflows/runs/settings/integrations/bots behind the storage backend flag.
 - Docker API now exposes admin backup/restore endpoints (`/api/v1/admin/backup`, `/api/v1/admin/restore`) backed by snapshot bundles from persistent data storage.
 - Docker API now exposes observability endpoints (`/api/v1/observability/summary`, `/api/v1/observability/runs`) for run/status/throughput diagnostics.
 - Onboarding docs are now published for quick start, first workflow tutorial, and post-launch community loop.
 
 ## Next To Reach GA (Post-Beta)
 1. Expand web panel modules to full parity UX beyond beta control room.
-2. Begin feature-flagged Postgres repository cutover using `r0001-r0003` schema baseline for workflows/runs/settings/integrations/bots.
+2. Continue feature-flagged Postgres repository cutover using `r0001-r0004` schema baseline for workflows/runs/settings/integrations/bots.
 3. Add production-grade secret-store adapters (Vault/KMS) and operational rotation automation.
 4. Expand integration profile UX toward full connector-field parity with desktop editor.
 5. Enforce signed-image digest verification policy and CI release provenance attestation.

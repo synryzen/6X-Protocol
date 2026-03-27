@@ -43,6 +43,8 @@ class DockerStoreSchemaTests(unittest.TestCase):
         os.environ.pop("RELATIONAL_ALLOW_UNKNOWN_REVISIONS", None)
         os.environ.pop("RELATIONAL_MIN_SCHEMA_VERSION", None)
         os.environ.pop("RELATIONAL_MAX_SCHEMA_VERSION", None)
+        os.environ.pop("SIXPX_STORAGE_BACKEND", None)
+        os.environ.pop("SIXPX_STORAGE_BACKEND_REQUIRED", None)
         os.environ.pop("OPENAI_MANAGED_KEY", None)
         os.environ.pop("INTEGRATION_MANAGED_KEY", None)
         os.environ.pop("ANTHROPIC_MANAGED_KEY", None)

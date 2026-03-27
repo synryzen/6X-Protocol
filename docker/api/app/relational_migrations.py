@@ -219,6 +219,26 @@ RELATIONAL_REVISIONS: tuple[RelationalRevision, ...] = (
             """.strip(),
         ),
     ),
+    RelationalRevision(
+        revision="r0004_runtime_metadata_columns",
+        description=(
+            "Add metadata columns for workflow/integration/bot repositories used by Postgres cutover."
+        ),
+        statements=(
+            """
+            ALTER TABLE sixpx_workflows
+            ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+            """.strip(),
+            """
+            ALTER TABLE sixpx_integrations
+            ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+            """.strip(),
+            """
+            ALTER TABLE sixpx_bots
+            ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+            """.strip(),
+        ),
+    ),
 )
 
 KNOWN_RELATIONAL_REVISIONS = {item.revision for item in RELATIONAL_REVISIONS}

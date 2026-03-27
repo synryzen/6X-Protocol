@@ -75,6 +75,16 @@ if [[ "$STORE_SCHEMA_VERSION" != "3" ]]; then
   echo "Expected store_schema_version=3, got '$STORE_SCHEMA_VERSION'"
   exit 1
 fi
+STORAGE_BACKEND="$(echo "$META_JSON" | jq -r '.storage')"
+if [[ -z "$STORAGE_BACKEND" || "$STORAGE_BACKEND" == "null" ]]; then
+  echo "Expected storage backend value in /api/v1/meta"
+  exit 1
+fi
+STORAGE_REQUESTED="$(echo "$META_JSON" | jq -r '.storage_requested')"
+if [[ -z "$STORAGE_REQUESTED" || "$STORAGE_REQUESTED" == "null" ]]; then
+  echo "Expected storage_requested value in /api/v1/meta"
+  exit 1
+fi
 SECRET_PROVIDER_MODE="$(echo "$META_JSON" | jq -r '.secret_provider_mode')"
 if [[ -z "$SECRET_PROVIDER_MODE" || "$SECRET_PROVIDER_MODE" == "null" ]]; then
   echo "Expected secret_provider_mode in /api/v1/meta"

@@ -106,10 +106,13 @@ Relational migration scaffold baseline:
   - `r0001_initial_runtime_scaffold`
   - `r0002_runtime_core_tables`
   - `r0003_runtime_observability_tables`
+  - `r0004_runtime_metadata_columns`
 - Runtime migration status route:
   - `GET /api/v1/admin/runtime/migrations`
   - Optional refresh: `GET /api/v1/admin/runtime/migrations?refresh=true`
 - Controls:
+  - `SIXPX_STORAGE_BACKEND` (`json` or `postgres`)
+  - `SIXPX_STORAGE_BACKEND_REQUIRED`
   - `RELATIONAL_MIGRATION_REQUIRED`
   - `RELATIONAL_MIGRATION_ENFORCE_COMPATIBILITY`
   - `RELATIONAL_MIGRATION_CONNECT_TIMEOUT_SEC`
@@ -122,6 +125,12 @@ Relational migration scaffold baseline:
   - `current_schema_version`
   - `compatibility_status`
   - `compatibility_errors` / `compatibility_warnings`
+
+Storage backend cutover (feature-flagged):
+- Default remains JSON: `SIXPX_STORAGE_BACKEND=json`
+- Enable Postgres repositories: `SIXPX_STORAGE_BACKEND=postgres`
+- Strict mode: `SIXPX_STORAGE_BACKEND_REQUIRED=true` (fails startup if postgres backend is unavailable)
+- When Postgres backend is active, API startup requires relational migration status `ok`.
 
 Storage schema baseline:
 - JSON persistence now tracks schema metadata in `/data/6x-protocol/schema_meta.json`.
@@ -203,6 +212,6 @@ Execution routing behavior:
 
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
-2. Begin feature-flagged Postgres repository cutover using the tracked `r0001-r0003` schema baseline.
+2. Continue feature-flagged Postgres repository cutover using the tracked `r0001-r0004` schema baseline.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Complete deployment hardening beyond baseline (external secret stores + signed release digest policy).
