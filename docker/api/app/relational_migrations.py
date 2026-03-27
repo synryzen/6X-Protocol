@@ -363,6 +363,32 @@ RELATIONAL_REVISIONS: tuple[RelationalRevision, ...] = (
             """.strip(),
         ),
     ),
+    RelationalRevision(
+        revision="r0006_runtime_evolution_checkpoints",
+        description=(
+            "Add migration checkpoint history table to support safer schema evolution tracking."
+        ),
+        statements=(
+            """
+            CREATE TABLE IF NOT EXISTS sixpx_data_evolution_checkpoints (
+                checkpoint_id BIGSERIAL PRIMARY KEY,
+                revision TEXT NOT NULL DEFAULT '',
+                schema_version INTEGER NOT NULL DEFAULT 0,
+                app_version TEXT NOT NULL DEFAULT '',
+                payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+                recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """.strip(),
+            """
+            CREATE INDEX IF NOT EXISTS idx_sixpx_evolution_checkpoints_recorded_at
+            ON sixpx_data_evolution_checkpoints (recorded_at DESC)
+            """.strip(),
+            """
+            CREATE INDEX IF NOT EXISTS idx_sixpx_evolution_checkpoints_revision
+            ON sixpx_data_evolution_checkpoints (revision)
+            """.strip(),
+        ),
+    ),
 )
 
 KNOWN_RELATIONAL_REVISIONS = {item.revision for item in RELATIONAL_REVISIONS}
@@ -493,6 +519,8 @@ class RelationalMigrationManager:
             "compatibility_issue_count": 0,
             "compatibility_errors": [],
             "compatibility_warnings": [],
+            "unvalidated_constraint_count": 0,
+            "unvalidated_constraints": [],
             "applied_count": 0,
             "pending_count": len(RELATIONAL_REVISIONS),
             "applied_revisions": [],
@@ -532,6 +560,41 @@ class RelationalMigrationManager:
                 continue
             revisions.add(str(row[0]).strip())
         return revisions
+
+    def _load_unvalidated_constraints(self, connection) -> list[dict[str, str]]:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT cls.relname AS table_name, con.conname AS constraint_name
+                    FROM pg_constraint con
+                    JOIN pg_class cls ON cls.oid = con.conrelid
+                    JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace
+                    WHERE nsp.nspname = CURRENT_SCHEMA()
+                      AND cls.relname LIKE 'sixpx\\_%' ESCAPE '\\'
+                      AND NOT con.convalidated
+                    ORDER BY cls.relname, con.conname
+                    """
+                )
+                rows = cursor.fetchall() or []
+        except Exception:
+            return []
+
+        constraints: list[dict[str, str]] = []
+        for row in rows:
+            if not row or len(row) < 2:
+                continue
+            table_name = str(row[0] or "").strip()
+            constraint_name = str(row[1] or "").strip()
+            if not table_name or not constraint_name:
+                continue
+            constraints.append(
+                {
+                    "table": table_name,
+                    "constraint": constraint_name,
+                }
+            )
+        return constraints
 
     def evaluate_schema_compatibility(self, applied_revisions: set[str]) -> dict[str, Any]:
         applied = {item for item in applied_revisions if str(item).strip()}
@@ -613,6 +676,28 @@ class RelationalMigrationManager:
                 """,
                 (revision.schema_version, revision.revision, app_version),
             )
+            cursor.execute(
+                "SELECT to_regclass('sixpx_data_evolution_checkpoints')"
+            )
+            checkpoint_table = cursor.fetchone()
+            if checkpoint_table and checkpoint_table[0]:
+                cursor.execute(
+                    """
+                    INSERT INTO sixpx_data_evolution_checkpoints (
+                        revision,
+                        schema_version,
+                        app_version,
+                        payload
+                    )
+                    VALUES (%s, %s, %s, %s::jsonb)
+                    """,
+                    (
+                        revision.revision,
+                        revision.schema_version,
+                        app_version,
+                        "{}",
+                    ),
+                )
 
     def apply(self, *, app_version: str) -> dict[str, Any]:
         if not self.database_url:
@@ -629,6 +714,7 @@ class RelationalMigrationManager:
         snapshot["driver_available"] = True
 
         applied_revisions: set[str] = set()
+        unvalidated_constraints: list[dict[str, str]] = []
         last_error = ""
         connected = False
         for attempt in range(1, self.retry_attempts + 1):
@@ -649,6 +735,7 @@ class RelationalMigrationManager:
                             self._record_applied_revision(connection, revision, app_version)
                         applied_revisions.add(revision.revision)
                     connection.commit()
+                    unvalidated_constraints = self._load_unvalidated_constraints(connection)
                 break
             except Exception as error:
                 last_error = str(error)
@@ -672,6 +759,8 @@ class RelationalMigrationManager:
         snapshot["compatibility_issue_count"] = int(compatibility.get("issue_count", 0))
         snapshot["compatibility_errors"] = list(compatibility.get("errors", []))
         snapshot["compatibility_warnings"] = list(compatibility.get("warnings", []))
+        snapshot["unvalidated_constraints"] = list(unvalidated_constraints)
+        snapshot["unvalidated_constraint_count"] = len(unvalidated_constraints)
 
         snapshot["last_error"] = last_error
 

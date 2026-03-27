@@ -115,6 +115,7 @@ Relational migration scaffold baseline:
   - `r0003_runtime_observability_tables`
   - `r0004_runtime_metadata_columns`
   - `r0005_runtime_quality_constraints`
+  - `r0006_runtime_evolution_checkpoints`
 - Runtime migration status route:
   - `GET /api/v1/admin/runtime/migrations`
   - Optional refresh: `GET /api/v1/admin/runtime/migrations?refresh=true`
@@ -220,6 +221,6 @@ Execution routing behavior:
 
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
-2. Continue feature-flagged Postgres repository cutover using the tracked `r0001-r0005` schema baseline.
+2. Continue feature-flagged Postgres repository cutover using the tracked `r0001-r0006` schema baseline.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Complete deployment hardening beyond baseline (external secret stores + signed release digest policy).

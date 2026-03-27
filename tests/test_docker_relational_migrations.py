@@ -70,6 +70,7 @@ class RelationalMigrationsTests(unittest.TestCase):
         self.assertIn("r0003_runtime_observability_tables", revision_ids)
         self.assertIn("r0004_runtime_metadata_columns", revision_ids)
         self.assertIn("r0005_runtime_quality_constraints", revision_ids)
+        self.assertIn("r0006_runtime_evolution_checkpoints", revision_ids)
 
         sql_blob = "\n".join(
             "\n".join(item.statements).lower() for item in self.module.RELATIONAL_REVISIONS
@@ -84,6 +85,8 @@ class RelationalMigrationsTests(unittest.TestCase):
         self.assertIn("add column if not exists metadata", sql_blob)
         self.assertIn("sixpx_workflows_graph_is_object", sql_blob)
         self.assertIn("sixpx_connector_duration_nonnegative", sql_blob)
+        self.assertIn("sixpx_data_evolution_checkpoints", sql_blob)
+        self.assertIn("idx_sixpx_evolution_checkpoints_recorded_at", sql_blob)
 
     def test_unknown_revision_is_error_when_not_allowed(self):
         manager = self.module.RelationalMigrationManager(database_url="")

@@ -475,6 +475,9 @@ def meta() -> dict[str, str]:
         "relational_min_schema_version": str(migration_status.get("min_supported_schema_version", 0)),
         "relational_max_schema_version": str(migration_status.get("max_supported_schema_version", 0)),
         "relational_compatibility_status": str(migration_status.get("compatibility_status", "")),
+        "relational_unvalidated_constraint_count": str(
+            migration_status.get("unvalidated_constraint_count", 0)
+        ),
     }
 
 
