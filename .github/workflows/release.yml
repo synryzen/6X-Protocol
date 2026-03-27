@@ -33,10 +33,19 @@ jobs:
           chmod +x /tmp/appimagetool
           echo "APPIMAGETOOL=/tmp/appimagetool" >> "$GITHUB_ENV"
 
+      - name: Verify Release Governance Baseline
+        run: |
+          python3 scripts/verify_release_governance.py
+
       - name: Build Linux Packages
         run: |
           chmod +x scripts/build_*.sh
           REQUIRE_ALL_PACKAGES=1 ./scripts/build_packages.sh
+
+      - name: Verify Tagged Artifact Version Policy
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python3 scripts/verify_release_governance.py --expect-tag "${GITHUB_REF_NAME}" --dist-dir "dist"
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4

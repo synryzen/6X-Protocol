@@ -33,6 +33,10 @@ jobs:
         run: |
           python3 scripts/verify_runtime_governance.py
 
+      - name: Verify Release Governance Baseline
+        run: |
+          python3 scripts/verify_release_governance.py
+
       - name: Ensure Bytecode Files Are Not Tracked
         run: |
           if git ls-files | grep -E '(^|/)__pycache__/|\.pyc$' | grep -Ev '^\.venv/'; then

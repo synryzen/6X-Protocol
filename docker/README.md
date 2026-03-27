@@ -103,6 +103,7 @@ Image/version governance baseline:
   - `GET /api/v1/admin/runtime/governance`
 - `/api/v1/meta` now includes runtime governance status fields for health dashboards.
 - CI guardrail: `python3 scripts/verify_runtime_governance.py`
+- Release guardrail: `python3 scripts/verify_release_governance.py`
 - Release workflow now publishes package provenance attestations.
 
 Relational migration scaffold baseline:
@@ -113,6 +114,7 @@ Relational migration scaffold baseline:
   - `r0002_runtime_core_tables`
   - `r0003_runtime_observability_tables`
   - `r0004_runtime_metadata_columns`
+  - `r0005_runtime_quality_constraints`
 - Runtime migration status route:
   - `GET /api/v1/admin/runtime/migrations`
   - Optional refresh: `GET /api/v1/admin/runtime/migrations?refresh=true`
@@ -218,6 +220,6 @@ Execution routing behavior:
 
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
-2. Continue feature-flagged Postgres repository cutover using the tracked `r0001-r0004` schema baseline.
+2. Continue feature-flagged Postgres repository cutover using the tracked `r0001-r0005` schema baseline.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Complete deployment hardening beyond baseline (external secret stores + signed release digest policy).

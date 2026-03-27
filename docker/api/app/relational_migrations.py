@@ -239,6 +239,130 @@ RELATIONAL_REVISIONS: tuple[RelationalRevision, ...] = (
             """.strip(),
         ),
     ),
+    RelationalRevision(
+        revision="r0005_runtime_quality_constraints",
+        description=(
+            "Add runtime data-quality guardrails and performance indexes for Postgres-backed repositories."
+        ),
+        statements=(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sixpx_runs_workflow_status_updated
+            ON sixpx_runs (workflow_id, status, updated_at DESC)
+            """.strip(),
+            """
+            CREATE INDEX IF NOT EXISTS idx_sixpx_run_events_status_event_at
+            ON sixpx_run_events (status, event_at DESC)
+            """.strip(),
+            """
+            CREATE INDEX IF NOT EXISTS idx_sixpx_connector_exec_provider_status_created
+            ON sixpx_connector_executions (provider, status, created_at DESC)
+            """.strip(),
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'sixpx_workflows_graph_is_object'
+                ) THEN
+                    ALTER TABLE sixpx_workflows
+                    ADD CONSTRAINT sixpx_workflows_graph_is_object
+                    CHECK (jsonb_typeof(graph) = 'object') NOT VALID;
+                END IF;
+            END
+            $$
+            """.strip(),
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'sixpx_workflows_tags_is_array'
+                ) THEN
+                    ALTER TABLE sixpx_workflows
+                    ADD CONSTRAINT sixpx_workflows_tags_is_array
+                    CHECK (jsonb_typeof(tags) = 'array') NOT VALID;
+                END IF;
+            END
+            $$
+            """.strip(),
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'sixpx_runs_payload_is_object'
+                ) THEN
+                    ALTER TABLE sixpx_runs
+                    ADD CONSTRAINT sixpx_runs_payload_is_object
+                    CHECK (jsonb_typeof(payload) = 'object') NOT VALID;
+                END IF;
+            END
+            $$
+            """.strip(),
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'sixpx_integrations_config_is_object'
+                ) THEN
+                    ALTER TABLE sixpx_integrations
+                    ADD CONSTRAINT sixpx_integrations_config_is_object
+                    CHECK (jsonb_typeof(config) = 'object') NOT VALID;
+                END IF;
+            END
+            $$
+            """.strip(),
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'sixpx_integrations_tags_is_array'
+                ) THEN
+                    ALTER TABLE sixpx_integrations
+                    ADD CONSTRAINT sixpx_integrations_tags_is_array
+                    CHECK (jsonb_typeof(tags) = 'array') NOT VALID;
+                END IF;
+            END
+            $$
+            """.strip(),
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'sixpx_bots_config_is_object'
+                ) THEN
+                    ALTER TABLE sixpx_bots
+                    ADD CONSTRAINT sixpx_bots_config_is_object
+                    CHECK (jsonb_typeof(config) = 'object') NOT VALID;
+                END IF;
+            END
+            $$
+            """.strip(),
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'sixpx_bots_tags_is_array'
+                ) THEN
+                    ALTER TABLE sixpx_bots
+                    ADD CONSTRAINT sixpx_bots_tags_is_array
+                    CHECK (jsonb_typeof(tags) = 'array') NOT VALID;
+                END IF;
+            END
+            $$
+            """.strip(),
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'sixpx_connector_duration_nonnegative'
+                ) THEN
+                    ALTER TABLE sixpx_connector_executions
+                    ADD CONSTRAINT sixpx_connector_duration_nonnegative
+                    CHECK (duration_ms >= 0) NOT VALID;
+                END IF;
+            END
+            $$
+            """.strip(),
+        ),
+    ),
 )
 
 KNOWN_RELATIONAL_REVISIONS = {item.revision for item in RELATIONAL_REVISIONS}
