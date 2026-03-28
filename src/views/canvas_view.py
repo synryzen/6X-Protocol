@@ -9360,10 +9360,6 @@ class CanvasView(Gtk.Box):
             stage_node_id = str(getattr(self, "stage_drag_node_id", "") or "").strip()
             if stage_node_id and stage_node_id != active_node_id:
                 return
-            if stage_node_id == active_node_id:
-                # Stage drag-update callbacks already drive motion for this node.
-                # Skip pointer-motion fallback in parallel to prevent visible shake.
-                return
 
         if active_driver not in {"stage"}:
             return
@@ -9910,10 +9906,15 @@ class CanvasView(Gtk.Box):
         if observed_stage:
             observed_x = float(observed_stage[0])
             observed_y = float(observed_stage[1])
-            # Prefer absolute stage coordinates when available; this is more stable
-            # than widget-local offsets while widgets are moving under the pointer.
-            pointer_stage_x = observed_x
-            pointer_stage_y = observed_y
+            # Keep offset-based drag motion as primary source and only trust observed
+            # coordinates when they are reasonably close. This avoids large jumps on
+            # GTK stacks where translated coordinates can drift while node widgets
+            # move under the pointer during drag updates.
+            drift = abs(observed_x - pointer_stage_x) + abs(observed_y - pointer_stage_y)
+            tolerance = max(24.0, float(self.card_screen_width()) * 0.6)
+            if drift <= tolerance:
+                pointer_stage_x = observed_x
+                pointer_stage_y = observed_y
         state = _gesture.get_current_event_state()
         self.apply_active_node_drag_position(
             node_id,

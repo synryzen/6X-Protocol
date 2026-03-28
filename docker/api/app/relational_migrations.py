@@ -7,7 +7,7 @@ import hashlib
 import json
 import os
 import re
-from time import sleep
+from time import monotonic, sleep
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -535,6 +535,33 @@ class RelationalMigrationManager:
         except (TypeError, ValueError):
             self.retry_delay_sec = 1.0
         self.required = _to_bool(os.getenv("RELATIONAL_MIGRATION_REQUIRED", "false"), default=False)
+        self.lock_enabled = _to_bool(
+            os.getenv("RELATIONAL_MIGRATION_LOCK_ENABLED", "true"),
+            default=True,
+        )
+        self.lock_required = _to_bool(
+            os.getenv("RELATIONAL_MIGRATION_LOCK_REQUIRED", "true"),
+            default=True,
+        )
+        self.lock_id = _to_int(
+            os.getenv("RELATIONAL_MIGRATION_LOCK_ID", "6007001"),
+            default=6007001,
+            minimum=1,
+        )
+        try:
+            self.lock_timeout_sec = max(
+                0.5,
+                float(os.getenv("RELATIONAL_MIGRATION_LOCK_TIMEOUT_SEC", "12.0")),
+            )
+        except (TypeError, ValueError):
+            self.lock_timeout_sec = 12.0
+        try:
+            self.lock_poll_sec = max(
+                0.05,
+                float(os.getenv("RELATIONAL_MIGRATION_LOCK_POLL_SEC", "0.2")),
+            )
+        except (TypeError, ValueError):
+            self.lock_poll_sec = 0.2
         self._last_snapshot: dict[str, Any] = self._base_snapshot(status="disabled")
 
     def _base_snapshot(self, *, status: str) -> dict[str, Any]:
@@ -546,6 +573,12 @@ class RelationalMigrationManager:
             "allow_unknown_revisions": bool(self.allow_unknown_revisions),
             "database_url_configured": bool(self.database_url),
             "database_url_masked": mask_database_url(self.database_url),
+            "migration_lock_enabled": bool(self.lock_enabled),
+            "migration_lock_required": bool(self.lock_required),
+            "migration_lock_id": int(self.lock_id),
+            "migration_lock_timeout_sec": float(self.lock_timeout_sec),
+            "migration_lock_status": "idle",
+            "migration_lock_acquired": False,
             "driver_available": False,
             "connected": False,
             "revision_count": len(RELATIONAL_REVISIONS),
@@ -651,6 +684,33 @@ class RelationalMigrationManager:
         except Exception:
             return False, 0
 
+    def _acquire_migration_lock(self, connection) -> tuple[bool, str]:
+        if not self.lock_enabled:
+            return True, "disabled"
+
+        deadline = monotonic() + self.lock_timeout_sec
+        while monotonic() <= deadline:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT pg_try_advisory_lock(%s)", (int(self.lock_id),))
+                    row = cursor.fetchone()
+                    locked = bool(row[0]) if row else False
+                if locked:
+                    return True, "acquired"
+            except Exception as error:
+                return False, f"error:{error}"
+            sleep(self.lock_poll_sec)
+        return False, "timeout"
+
+    def _release_migration_lock(self, connection) -> None:
+        if not self.lock_enabled:
+            return
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_advisory_unlock(%s)", (int(self.lock_id),))
+        except Exception:
+            return
+
     def validate_constraints(
         self,
         *,
@@ -666,6 +726,12 @@ class RelationalMigrationManager:
             "enabled": bool(self.database_url),
             "database_url_configured": bool(self.database_url),
             "database_url_masked": mask_database_url(self.database_url),
+            "migration_lock_enabled": bool(self.lock_enabled),
+            "migration_lock_required": bool(self.lock_required),
+            "migration_lock_id": int(self.lock_id),
+            "migration_lock_timeout_sec": float(self.lock_timeout_sec),
+            "migration_lock_status": "idle",
+            "migration_lock_acquired": False,
             "applied": bool(apply),
             "stop_on_error": bool(stop_on_error),
             "requested_limit": _to_int(limit, default=50, minimum=1, maximum=500),
@@ -710,41 +776,55 @@ class RelationalMigrationManager:
 
                     failures: list[dict[str, str]] = []
                     validated = 0
+                    lock_acquired = False
                     if apply:
-                        for item in selected:
-                            table_name = str(item.get("table", "")).strip()
-                            constraint_name = str(item.get("constraint", "")).strip()
-                            if not table_name or not constraint_name:
-                                failures.append(
-                                    {
-                                        "table": table_name,
-                                        "constraint": constraint_name,
-                                        "error": "Missing table/constraint name",
-                                    }
-                                )
-                                if stop_on_error:
-                                    break
-                                continue
-                            try:
-                                quoted_table = _quote_identifier(table_name)
-                                quoted_constraint = _quote_identifier(constraint_name)
-                                with connection.transaction():
-                                    with connection.cursor() as cursor:
-                                        cursor.execute(
-                                            f"ALTER TABLE {quoted_table} "
-                                            f"VALIDATE CONSTRAINT {quoted_constraint}"
-                                        )
-                                validated += 1
-                            except Exception as error:
-                                failures.append(
-                                    {
-                                        "table": table_name,
-                                        "constraint": constraint_name,
-                                        "error": str(error),
-                                    }
-                                )
-                                if stop_on_error:
-                                    break
+                        lock_acquired, lock_status = self._acquire_migration_lock(connection)
+                        snapshot["migration_lock_status"] = lock_status
+                        snapshot["migration_lock_acquired"] = bool(lock_acquired)
+                        if not lock_acquired and self.lock_required:
+                            snapshot["last_error"] = (
+                                "Migration lock acquisition failed before constraint apply: "
+                                f"{lock_status}"
+                            )
+                            break
+                        try:
+                            for item in selected:
+                                table_name = str(item.get("table", "")).strip()
+                                constraint_name = str(item.get("constraint", "")).strip()
+                                if not table_name or not constraint_name:
+                                    failures.append(
+                                        {
+                                            "table": table_name,
+                                            "constraint": constraint_name,
+                                            "error": "Missing table/constraint name",
+                                        }
+                                    )
+                                    if stop_on_error:
+                                        break
+                                    continue
+                                try:
+                                    quoted_table = _quote_identifier(table_name)
+                                    quoted_constraint = _quote_identifier(constraint_name)
+                                    with connection.transaction():
+                                        with connection.cursor() as cursor:
+                                            cursor.execute(
+                                                f"ALTER TABLE {quoted_table} "
+                                                f"VALIDATE CONSTRAINT {quoted_constraint}"
+                                            )
+                                    validated += 1
+                                except Exception as error:
+                                    failures.append(
+                                        {
+                                            "table": table_name,
+                                            "constraint": constraint_name,
+                                            "error": str(error),
+                                        }
+                                    )
+                                    if stop_on_error:
+                                        break
+                        finally:
+                            if lock_acquired:
+                                self._release_migration_lock(connection)
 
                     remaining = self._load_unvalidated_constraints(connection)
                     attempted_pairs = {
@@ -811,9 +891,22 @@ class RelationalMigrationManager:
                 if attempt < self.retry_attempts:
                     sleep(self.retry_delay_sec)
 
-        snapshot["last_error"] = last_error
+        snapshot["last_error"] = str(snapshot.get("last_error", "") or last_error)
         if not snapshot["connected"]:
             snapshot["status"] = "error"
+        elif (
+            apply
+            and bool(snapshot.get("migration_lock_enabled", False))
+            and bool(snapshot.get("migration_lock_required", False))
+            and not bool(snapshot.get("migration_lock_acquired", False))
+        ):
+            snapshot["status"] = "error"
+        elif (
+            apply
+            and bool(snapshot.get("migration_lock_enabled", False))
+            and not bool(snapshot.get("migration_lock_acquired", False))
+        ):
+            snapshot["status"] = "warn"
         elif apply and snapshot["checkpoint_error"]:
             snapshot["status"] = "warn"
         elif snapshot["failed_count"] > 0:
@@ -1033,29 +1126,44 @@ class RelationalMigrationManager:
         schema_revision_audit_count = 0
         last_error = ""
         connected = False
+        lock_acquired = False
+        lock_status = "idle"
         for attempt in range(1, self.retry_attempts + 1):
             try:
                 with psycopg.connect(self.database_url, connect_timeout=self.connect_timeout_sec) as connection:
                     connected = True
-                    self._ensure_migration_table(connection)
-                    connection.commit()
-                    applied_revisions = self._load_applied_revisions(connection)
-                    for revision in RELATIONAL_REVISIONS:
-                        if revision.revision in applied_revisions:
-                            continue
-                        with connection.transaction():
-                            for statement in revision.statements:
-                                if str(statement).strip():
-                                    with connection.cursor() as cursor:
-                                        cursor.execute(statement)
-                            self._record_applied_revision(connection, revision, app_version)
-                        applied_revisions.add(revision.revision)
-                    connection.commit()
-                    unvalidated_constraints = self._load_unvalidated_constraints(connection)
-                    (
-                        schema_revision_audit_available,
-                        schema_revision_audit_count,
-                    ) = self._load_schema_revision_audit_count(connection)
+                    lock_acquired, lock_status = self._acquire_migration_lock(connection)
+                    snapshot["migration_lock_status"] = lock_status
+                    snapshot["migration_lock_acquired"] = bool(lock_acquired)
+                    if not lock_acquired and self.lock_required:
+                        last_error = (
+                            "Migration lock acquisition failed before schema apply: "
+                            f"{lock_status}"
+                        )
+                        break
+                    try:
+                        self._ensure_migration_table(connection)
+                        connection.commit()
+                        applied_revisions = self._load_applied_revisions(connection)
+                        for revision in RELATIONAL_REVISIONS:
+                            if revision.revision in applied_revisions:
+                                continue
+                            with connection.transaction():
+                                for statement in revision.statements:
+                                    if str(statement).strip():
+                                        with connection.cursor() as cursor:
+                                            cursor.execute(statement)
+                                self._record_applied_revision(connection, revision, app_version)
+                            applied_revisions.add(revision.revision)
+                        connection.commit()
+                        unvalidated_constraints = self._load_unvalidated_constraints(connection)
+                        (
+                            schema_revision_audit_available,
+                            schema_revision_audit_count,
+                        ) = self._load_schema_revision_audit_count(connection)
+                    finally:
+                        if lock_acquired:
+                            self._release_migration_lock(connection)
                 break
             except Exception as error:
                 last_error = str(error)
@@ -1087,7 +1195,14 @@ class RelationalMigrationManager:
         snapshot["last_error"] = last_error
 
         has_compatibility_errors = bool(snapshot["compatibility_errors"])
-        if connected and not pending_revisions and not has_compatibility_errors:
+        if (
+            connected
+            and bool(snapshot.get("migration_lock_enabled", False))
+            and bool(snapshot.get("migration_lock_required", False))
+            and not bool(snapshot.get("migration_lock_acquired", False))
+        ):
+            snapshot["status"] = "error"
+        elif connected and not pending_revisions and not has_compatibility_errors:
             snapshot["status"] = "ok"
         elif connected and has_compatibility_errors:
             snapshot["status"] = "error" if self.enforce_compatibility else "warn"
@@ -1095,6 +1210,14 @@ class RelationalMigrationManager:
             snapshot["status"] = "warn"
         else:
             snapshot["status"] = "error"
+        if (
+            connected
+            and bool(snapshot.get("migration_lock_enabled", False))
+            and not bool(snapshot.get("migration_lock_required", False))
+            and not bool(snapshot.get("migration_lock_acquired", False))
+            and snapshot["status"] == "ok"
+        ):
+            snapshot["status"] = "warn"
         snapshot["checked_at"] = datetime.now(UTC).isoformat()
 
         self._last_snapshot = snapshot

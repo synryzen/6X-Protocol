@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import json
 import os
 from pathlib import Path
@@ -128,6 +129,8 @@ class ManagedSecretResolver:
         self._vault_loaded = False
         self._vault_error = ""
         self._env_error = ""
+        self._diagnostics: list[dict[str, str]] = []
+        self._max_diagnostics = 80
 
     @classmethod
     def from_env(cls) -> "ManagedSecretResolver":
@@ -178,21 +181,25 @@ class ManagedSecretResolver:
             self._file_cache = {}
             self._file_loaded = False
             self._file_error = "SECRET_PROVIDER_FILE is not configured."
+            self._record_diagnostic(adapter="file", action="load", status="warn", detail=self._file_error)
             return self._file_cache
         path = Path(self.file_path).expanduser()
         if not path.exists():
             self._file_cache = {}
             self._file_loaded = False
             self._file_error = f"File not found: {path}"
+            self._record_diagnostic(adapter="file", action="load", status="warn", detail=self._file_error)
             return self._file_cache
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
             self._file_cache = raw if isinstance(raw, dict) else {}
             self._file_loaded = True
+            self._record_diagnostic(adapter="file", action="load", status="ok", detail="File secrets loaded.")
         except Exception:
             self._file_cache = {}
             self._file_loaded = False
             self._file_error = "Failed to parse JSON secret file."
+            self._record_diagnostic(adapter="file", action="load", status="error", detail=self._file_error)
         return self._file_cache
 
     def _load_http_secrets(self) -> dict[str, Any]:
@@ -203,17 +210,20 @@ class ManagedSecretResolver:
             self._http_cache = {}
             self._http_loaded = False
             self._http_error = "SECRET_PROVIDER_HTTP_URL is not configured."
+            self._record_diagnostic(adapter="http", action="load", status="warn", detail=self._http_error)
             return self._http_cache
         parsed = urlparse(self.http_url)
         if parsed.scheme not in {"https", "http"}:
             self._http_cache = {}
             self._http_loaded = False
             self._http_error = "HTTP secret URL must use http or https."
+            self._record_diagnostic(adapter="http", action="load", status="error", detail=self._http_error)
             return self._http_cache
         if parsed.scheme == "http" and not self.http_allow_insecure:
             self._http_cache = {}
             self._http_loaded = False
             self._http_error = "Insecure HTTP is blocked (set SECRET_PROVIDER_HTTP_ALLOW_INSECURE=true)."
+            self._record_diagnostic(adapter="http", action="load", status="error", detail=self._http_error)
             return self._http_cache
         headers = {"Accept": "application/json"}
         token = self.http_auth_token
@@ -227,10 +237,12 @@ class ManagedSecretResolver:
             raw = json.loads(payload)
             self._http_cache = raw if isinstance(raw, dict) else {}
             self._http_loaded = True
+            self._record_diagnostic(adapter="http", action="load", status="ok", detail="HTTP secrets loaded.")
         except Exception:
             self._http_cache = {}
             self._http_loaded = False
             self._http_error = "Failed to load HTTP secret payload."
+            self._record_diagnostic(adapter="http", action="load", status="error", detail=self._http_error)
         return self._http_cache
 
     def _normalize_vault_payload(self, payload: Any) -> dict[str, Any]:
@@ -252,17 +264,20 @@ class ManagedSecretResolver:
             self._vault_cache = {}
             self._vault_loaded = False
             self._vault_error = "SECRET_PROVIDER_VAULT_URL is not configured."
+            self._record_diagnostic(adapter="vault", action="load", status="warn", detail=self._vault_error)
             return self._vault_cache
         parsed = urlparse(self.vault_url)
         if parsed.scheme not in {"https", "http"}:
             self._vault_cache = {}
             self._vault_loaded = False
             self._vault_error = "Vault URL must use http or https."
+            self._record_diagnostic(adapter="vault", action="load", status="error", detail=self._vault_error)
             return self._vault_cache
         if parsed.scheme == "http" and not self.vault_allow_insecure:
             self._vault_cache = {}
             self._vault_loaded = False
             self._vault_error = "Insecure Vault HTTP is blocked (set SECRET_PROVIDER_VAULT_ALLOW_INSECURE=true)."
+            self._record_diagnostic(adapter="vault", action="load", status="error", detail=self._vault_error)
             return self._vault_cache
         headers = {"Accept": "application/json"}
         token = self.vault_auth_token
@@ -275,10 +290,12 @@ class ManagedSecretResolver:
             raw = json.loads(payload)
             self._vault_cache = self._normalize_vault_payload(raw)
             self._vault_loaded = bool(self._vault_cache)
+            self._record_diagnostic(adapter="vault", action="load", status="ok", detail="Vault secrets loaded.")
         except Exception:
             self._vault_cache = {}
             self._vault_loaded = False
             self._vault_error = "Failed to load Vault secret payload."
+            self._record_diagnostic(adapter="vault", action="load", status="error", detail=self._vault_error)
         return self._vault_cache
 
     def _resolve_from_env(self, key: str) -> str | None:
@@ -288,12 +305,25 @@ class ManagedSecretResolver:
         self._env_error = ""
         direct = os.getenv(target)
         if direct is not None and str(direct).strip():
+            self._record_diagnostic(
+                adapter="env",
+                action="resolve",
+                status="ok",
+                detail=f"Resolved key '{target}' from direct env.",
+            )
             return str(direct)
         if self.env_prefix:
             prefixed = os.getenv(f"{self.env_prefix}{target}")
             if prefixed is not None and str(prefixed).strip():
+                self._record_diagnostic(
+                    adapter="env",
+                    action="resolve",
+                    status="ok",
+                    detail=f"Resolved key '{target}' from prefixed env.",
+                )
                 return str(prefixed)
         self._env_error = f"Environment secret not found for key '{target}'."
+        self._record_diagnostic(adapter="env", action="resolve", status="warn", detail=self._env_error)
         return None
 
     def _resolve_from_file(self, key_path: str) -> str | None:
@@ -383,7 +413,19 @@ class ManagedSecretResolver:
             else:
                 resolved = None
             if resolved is not None:
+                self._record_diagnostic(
+                    adapter="chain",
+                    action="resolve",
+                    status="ok",
+                    detail=f"Resolved key '{target}' via provider '{provider}'.",
+                )
                 return resolved
+        self._record_diagnostic(
+            adapter="chain",
+            action="resolve",
+            status="warn",
+            detail=f"Failed to resolve key '{target}' via chain providers.",
+        )
         return None
 
     def adapter_snapshot(self) -> dict[str, Any]:
@@ -416,6 +458,85 @@ class ManagedSecretResolver:
                     "url": self.vault_url,
                 },
             },
+        }
+
+    def _record_diagnostic(self, *, adapter: str, action: str, status: str, detail: str) -> None:
+        entry = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "adapter": str(adapter or "").strip().lower(),
+            "action": str(action or "").strip().lower(),
+            "status": str(status or "").strip().lower(),
+            "detail": str(detail or "").strip()[:240],
+        }
+        self._diagnostics.append(entry)
+        if len(self._diagnostics) > self._max_diagnostics:
+            self._diagnostics = self._diagnostics[-self._max_diagnostics :]
+
+    def recent_diagnostics(self, *, limit: int = 40) -> list[dict[str, str]]:
+        size = max(1, min(int(limit), self._max_diagnostics))
+        return list(self._diagnostics[-size:])
+
+    def _clear_runtime_caches(self) -> None:
+        self._file_cache = None
+        self._file_loaded = False
+        self._file_error = ""
+        self._http_cache = None
+        self._http_loaded = False
+        self._http_error = ""
+        self._vault_cache = None
+        self._vault_loaded = False
+        self._vault_error = ""
+        self._env_error = ""
+
+    def health_probe(self, *, force_reload: bool = False) -> dict[str, Any]:
+        if force_reload:
+            self._clear_runtime_caches()
+            self._record_diagnostic(
+                adapter="resolver",
+                action="probe",
+                status="ok",
+                detail="Forced runtime cache refresh before probe.",
+            )
+
+        adapters_to_probe: list[str] = []
+        if self.mode == "chain":
+            adapters_to_probe = list(self._chain_order)
+        elif self.mode in SUPPORTED_SECRET_PROVIDERS:
+            adapters_to_probe = [self.mode]
+
+        for adapter in adapters_to_probe:
+            if adapter == "env":
+                self._record_diagnostic(
+                    adapter="env",
+                    action="probe",
+                    status="ok",
+                    detail="Environment adapter is available.",
+                )
+            elif adapter == "file":
+                _ = self._load_file_secrets()
+            elif adapter == "http":
+                _ = self._load_http_secrets()
+            elif adapter == "vault":
+                _ = self._load_vault_secrets()
+
+        snapshot = self.adapter_snapshot()
+        summary_status = "ok"
+        adapter_items = snapshot.get("adapters", {}) if isinstance(snapshot, dict) else {}
+        for name in ("file", "http", "vault"):
+            adapter_state = adapter_items.get(name, {}) if isinstance(adapter_items, dict) else {}
+            configured = bool(adapter_state.get("configured", False))
+            loaded = bool(adapter_state.get("loaded", False))
+            last_error = str(adapter_state.get("last_error", "")).strip()
+            if configured and not loaded:
+                summary_status = "warn" if summary_status != "error" else summary_status
+            if configured and last_error and not loaded:
+                summary_status = "warn" if summary_status != "error" else summary_status
+
+        return {
+            **snapshot,
+            "status": summary_status,
+            "force_reload": bool(force_reload),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     def resolve_settings(self, settings: dict[str, Any]) -> dict[str, Any]:

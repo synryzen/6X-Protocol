@@ -44,6 +44,8 @@ class DockerApiHardeningRouteTests(unittest.TestCase):
             "/api/v1/admin/secrets/provider",
             "/api/v1/admin/secrets/provider/reload",
             "/api/v1/admin/secrets/provider/adapters",
+            "/api/v1/admin/secrets/provider/health",
+            "/api/v1/admin/secrets/provider/diagnostics",
             "/api/v1/admin/runtime/governance",
             "/api/v1/admin/runtime/migrations",
             "/api/v1/admin/runtime/migrations/validate",

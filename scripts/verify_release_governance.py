@@ -15,6 +15,8 @@ REQUIRED_RELEASE_WORKFLOW_SNIPPETS = {
     "id-token: write",
     "uses: actions/attest-build-provenance@v2",
     "uses: softprops/action-gh-release@v2",
+    "Verify Tagged Artifact Version Policy",
+    '--expect-tag "${GITHUB_REF_NAME}" --dist-dir "dist"',
     "dist/SHA256SUMS.txt",
     "REQUIRE_ALL_PACKAGES=1 ./scripts/build_packages.sh",
 }
@@ -30,6 +32,11 @@ REQUIRED_ENV_KEYS = {
     "SIXPX_ENFORCE_TAG_API_MATCH",
     "SIXPX_MIN_STORE_SCHEMA_VERSION",
     "SIXPX_MAX_STORE_SCHEMA_VERSION",
+    "RELATIONAL_MIGRATION_LOCK_ENABLED",
+    "RELATIONAL_MIGRATION_LOCK_REQUIRED",
+    "RELATIONAL_MIGRATION_LOCK_ID",
+    "RELATIONAL_MIGRATION_LOCK_TIMEOUT_SEC",
+    "RELATIONAL_MIGRATION_LOCK_POLL_SEC",
 }
 
 TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")

@@ -24,6 +24,11 @@ class RelationalMigrationsTests(unittest.TestCase):
             "RELATIONAL_MIGRATION_RETRY_DELAY_SEC",
             "RELATIONAL_MIGRATION_REQUIRED",
             "RELATIONAL_MIGRATION_ENFORCE_COMPATIBILITY",
+            "RELATIONAL_MIGRATION_LOCK_ENABLED",
+            "RELATIONAL_MIGRATION_LOCK_REQUIRED",
+            "RELATIONAL_MIGRATION_LOCK_ID",
+            "RELATIONAL_MIGRATION_LOCK_TIMEOUT_SEC",
+            "RELATIONAL_MIGRATION_LOCK_POLL_SEC",
             "RELATIONAL_ALLOW_UNKNOWN_REVISIONS",
             "RELATIONAL_MIN_SCHEMA_VERSION",
             "RELATIONAL_MAX_SCHEMA_VERSION",
@@ -37,6 +42,11 @@ class RelationalMigrationsTests(unittest.TestCase):
             "RELATIONAL_MIGRATION_RETRY_DELAY_SEC",
             "RELATIONAL_MIGRATION_REQUIRED",
             "RELATIONAL_MIGRATION_ENFORCE_COMPATIBILITY",
+            "RELATIONAL_MIGRATION_LOCK_ENABLED",
+            "RELATIONAL_MIGRATION_LOCK_REQUIRED",
+            "RELATIONAL_MIGRATION_LOCK_ID",
+            "RELATIONAL_MIGRATION_LOCK_TIMEOUT_SEC",
+            "RELATIONAL_MIGRATION_LOCK_POLL_SEC",
             "RELATIONAL_ALLOW_UNKNOWN_REVISIONS",
             "RELATIONAL_MIN_SCHEMA_VERSION",
             "RELATIONAL_MAX_SCHEMA_VERSION",
@@ -54,6 +64,15 @@ class RelationalMigrationsTests(unittest.TestCase):
         self.assertEqual("disabled", result.get("status"))
         self.assertFalse(bool(result.get("enabled")))
         self.assertEqual(len(self.module.RELATIONAL_REVISIONS), int(result.get("pending_count", 0)))
+
+    def test_lock_defaults_are_exposed_in_snapshot(self):
+        manager = self.module.RelationalMigrationManager(database_url="")
+        snapshot = manager.status()
+        self.assertTrue(bool(snapshot.get("migration_lock_enabled")))
+        self.assertTrue(bool(snapshot.get("migration_lock_required")))
+        self.assertEqual(6007001, int(snapshot.get("migration_lock_id", 0)))
+        self.assertEqual("idle", snapshot.get("migration_lock_status"))
+        self.assertFalse(bool(snapshot.get("migration_lock_acquired")))
 
     def test_revision_scaffold_contains_first_revision(self):
         revisions = self.module.RELATIONAL_REVISIONS

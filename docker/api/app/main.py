@@ -732,6 +732,55 @@ def get_secret_provider_adapters() -> dict[str, Any]:
     }
 
 
+@app.get("/api/v1/admin/secrets/provider/health", tags=["admin"])
+def get_secret_provider_health(
+    force_reload: bool = Query(
+        default=False,
+        description="When true, clears adapter caches and reloads provider sources before probing.",
+    ),
+) -> dict[str, Any]:
+    resolver = getattr(store, "secret_resolver", None)
+    probe_method = getattr(resolver, "health_probe", None)
+    if callable(probe_method):
+        health = probe_method(force_reload=bool(force_reload))
+        if isinstance(health, dict):
+            return health
+    return {
+        "status": "disabled",
+        "mode": str(getattr(resolver, "mode", "disabled")),
+        "enabled": bool(getattr(resolver, "enabled", False)),
+        "chain_order": [],
+        "adapters": {},
+        "force_reload": bool(force_reload),
+        "generated_at": utc_now_iso(),
+    }
+
+
+@app.get("/api/v1/admin/secrets/provider/diagnostics", tags=["admin"])
+def get_secret_provider_diagnostics(
+    limit: int = Query(
+        default=40,
+        ge=1,
+        le=200,
+        description="Maximum number of recent provider diagnostics entries to return.",
+    ),
+) -> dict[str, Any]:
+    resolver = getattr(store, "secret_resolver", None)
+    diagnostics_method = getattr(resolver, "recent_diagnostics", None)
+    items: list[dict[str, Any]] = []
+    if callable(diagnostics_method):
+        raw_items = diagnostics_method(limit=int(limit))
+        if isinstance(raw_items, list):
+            items = [item for item in raw_items if isinstance(item, dict)]
+    return {
+        "mode": str(getattr(resolver, "mode", "disabled")),
+        "enabled": bool(getattr(resolver, "enabled", False)),
+        "total": len(items),
+        "items": items,
+        "generated_at": utc_now_iso(),
+    }
+
+
 @app.get("/api/v1/admin/runtime/governance", tags=["admin"])
 def runtime_governance() -> dict[str, Any]:
     return {

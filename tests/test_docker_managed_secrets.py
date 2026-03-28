@@ -113,6 +113,18 @@ class ManagedSecretsTests(unittest.TestCase):
         self.assertIn("file", adapters)
         self.assertIn("last_error", adapters.get("file", {}))
 
+    def test_health_probe_and_recent_diagnostics_are_available(self):
+        resolver = self.module.ManagedSecretResolver(
+            mode="chain",
+            file_path=str(self.data_dir / "missing-secrets.json"),
+            chain_order="file,env",
+        )
+        health = resolver.health_probe(force_reload=True)
+        self.assertIn("status", health)
+        diagnostics = resolver.recent_diagnostics(limit=10)
+        self.assertIsInstance(diagnostics, list)
+        self.assertGreaterEqual(len(diagnostics), 1)
+
     def test_http_mode_resolves_integration_ref(self):
         expected_token = "token-123"
         payload = json.dumps({"providers": {"openai": {"api_key": "http-openai-secret"}}}).encode("utf-8")

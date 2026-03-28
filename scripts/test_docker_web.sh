@@ -117,6 +117,18 @@ if [[ "$(echo "$SECRET_PROVIDER_ADAPTERS_JSON" | jq -r '.adapters | type')" != "
   echo "Expected adapters object in /api/v1/admin/secrets/provider/adapters"
   exit 1
 fi
+SECRET_PROVIDER_HEALTH_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/secrets/provider/health?force_reload=true)"
+echo "$SECRET_PROVIDER_HEALTH_JSON" | jq .
+if [[ "$(echo "$SECRET_PROVIDER_HEALTH_JSON" | jq -r '.status')" == "null" ]]; then
+  echo "Expected status in /api/v1/admin/secrets/provider/health"
+  exit 1
+fi
+SECRET_PROVIDER_DIAGNOSTICS_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/secrets/provider/diagnostics?limit=20)"
+echo "$SECRET_PROVIDER_DIAGNOSTICS_JSON" | jq .
+if [[ "$(echo "$SECRET_PROVIDER_DIAGNOSTICS_JSON" | jq -r '.items | type')" != "array" ]]; then
+  echo "Expected items array in /api/v1/admin/secrets/provider/diagnostics"
+  exit 1
+fi
 GOVERNANCE_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/runtime/governance)"
 echo "$GOVERNANCE_JSON" | jq .
 GOVERNANCE_STATUS="$(echo "$GOVERNANCE_JSON" | jq -r '.status')"
