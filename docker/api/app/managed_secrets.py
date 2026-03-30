@@ -1,4 +1,4 @@
-"""Managed secret adapter baseline for env/file/http/vault secret resolution."""
+"""Managed secret adapter baseline for env/envfile/file/http/vault secret resolution."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 from typing import Any
 
 SECRET_REF_PREFIX = "secret://"
-SUPPORTED_SECRET_PROVIDERS = ("env", "file", "http", "vault")
+SUPPORTED_SECRET_PROVIDERS = ("env", "envfile", "file", "http", "vault")
 
 
 def _normalize_ref(value: str) -> str:
@@ -26,6 +26,7 @@ def is_secret_reference(value: Any) -> bool:
     return (
         lowered.startswith(SECRET_REF_PREFIX)
         or lowered.startswith("env:")
+        or lowered.startswith("envfile:")
         or lowered.startswith("file:")
         or lowered.startswith("http:")
         or lowered.startswith("vault:")
@@ -41,6 +42,9 @@ def parse_secret_reference(value: str) -> tuple[str, str] | None:
     if lowered.startswith("env:"):
         key = text.split(":", 1)[1].strip()
         return ("env", key) if key else None
+    if lowered.startswith("envfile:"):
+        key = text.split(":", 1)[1].strip()
+        return ("envfile", key) if key else None
     if lowered.startswith("file:"):
         key = text.split(":", 1)[1].strip()
         return ("file", key) if key else None
@@ -87,6 +91,7 @@ class ManagedSecretResolver:
         *,
         mode: str = "disabled",
         file_path: str = "",
+        env_file_path: str = "",
         env_prefix: str = "",
         http_url: str = "",
         http_auth_token: str = "",
@@ -99,10 +104,11 @@ class ManagedSecretResolver:
         chain_order: str = "",
     ) -> None:
         normalized_mode = str(mode or "disabled").strip().lower()
-        if normalized_mode not in {"disabled", "env", "file", "http", "vault", "chain"}:
+        if normalized_mode not in {"disabled", "env", "envfile", "file", "http", "vault", "chain"}:
             normalized_mode = "disabled"
         self.mode = normalized_mode
         self.file_path = str(file_path or "").strip()
+        self.env_file_path = str(env_file_path or "").strip()
         self.env_prefix = str(env_prefix or "").strip()
         self.http_url = str(http_url or "").strip()
         self.http_auth_token = str(http_auth_token or "").strip()
@@ -122,6 +128,9 @@ class ManagedSecretResolver:
         self._file_cache: dict[str, Any] | None = None
         self._file_loaded = False
         self._file_error = ""
+        self._env_file_cache: dict[str, Any] | None = None
+        self._env_file_loaded = False
+        self._env_file_error = ""
         self._http_cache: dict[str, Any] | None = None
         self._http_loaded = False
         self._http_error = ""
@@ -143,6 +152,7 @@ class ManagedSecretResolver:
         return cls(
             mode=str(os.getenv("SECRET_PROVIDER_MODE", "disabled") or "disabled"),
             file_path=str(os.getenv("SECRET_PROVIDER_FILE", "") or ""),
+            env_file_path=str(os.getenv("SECRET_PROVIDER_ENV_FILE", "") or ""),
             env_prefix=str(os.getenv("SECRET_PROVIDER_ENV_PREFIX", "") or ""),
             http_url=str(os.getenv("SECRET_PROVIDER_HTTP_URL", "") or ""),
             http_auth_token=str(os.getenv("SECRET_PROVIDER_HTTP_AUTH_TOKEN", "") or ""),
@@ -164,6 +174,10 @@ class ManagedSecretResolver:
     @property
     def file_loaded(self) -> bool:
         return self._file_loaded
+
+    @property
+    def env_file_loaded(self) -> bool:
+        return self._env_file_loaded
 
     @property
     def http_loaded(self) -> bool:
@@ -201,6 +215,76 @@ class ManagedSecretResolver:
             self._file_error = "Failed to parse JSON secret file."
             self._record_diagnostic(adapter="file", action="load", status="error", detail=self._file_error)
         return self._file_cache
+
+    def _load_env_file_secrets(self) -> dict[str, Any]:
+        if self._env_file_cache is not None:
+            return self._env_file_cache
+        self._env_file_error = ""
+        if not self.env_file_path:
+            self._env_file_cache = {}
+            self._env_file_loaded = False
+            self._env_file_error = "SECRET_PROVIDER_ENV_FILE is not configured."
+            self._record_diagnostic(
+                adapter="envfile",
+                action="load",
+                status="warn",
+                detail=self._env_file_error,
+            )
+            return self._env_file_cache
+        path = Path(self.env_file_path).expanduser()
+        if not path.exists():
+            self._env_file_cache = {}
+            self._env_file_loaded = False
+            self._env_file_error = f"Env file not found: {path}"
+            self._record_diagnostic(
+                adapter="envfile",
+                action="load",
+                status="warn",
+                detail=self._env_file_error,
+            )
+            return self._env_file_cache
+
+        secrets: dict[str, Any] = {}
+        try:
+            for raw_line in path.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[len("export ") :].strip()
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                clean_key = str(key or "").strip()
+                if not clean_key:
+                    continue
+                clean_value = str(value or "").strip()
+                if (
+                    len(clean_value) >= 2
+                    and clean_value[0] == clean_value[-1]
+                    and clean_value[0] in {'"', "'"}
+                ):
+                    clean_value = clean_value[1:-1]
+                secrets[clean_key] = clean_value
+            self._env_file_cache = secrets
+            self._env_file_loaded = bool(secrets)
+            self._record_diagnostic(
+                adapter="envfile",
+                action="load",
+                status="ok",
+                detail="Env file secrets loaded.",
+            )
+        except Exception:
+            self._env_file_cache = {}
+            self._env_file_loaded = False
+            self._env_file_error = "Failed to parse env file secret payload."
+            self._record_diagnostic(
+                adapter="envfile",
+                action="load",
+                status="error",
+                detail=self._env_file_error,
+            )
+        return self._env_file_cache
 
     def _load_http_secrets(self) -> dict[str, Any]:
         if self._http_cache is not None:
@@ -326,6 +410,37 @@ class ManagedSecretResolver:
         self._record_diagnostic(adapter="env", action="resolve", status="warn", detail=self._env_error)
         return None
 
+    def _resolve_from_env_file(self, key: str) -> str | None:
+        target = str(key or "").strip()
+        if not target:
+            return None
+        payload = self._load_env_file_secrets()
+        value = payload.get(target)
+        if value is None:
+            self._record_diagnostic(
+                adapter="envfile",
+                action="resolve",
+                status="warn",
+                detail=f"Env file secret not found for key '{target}'.",
+            )
+            return None
+        resolved = str(value).strip()
+        if not resolved:
+            self._record_diagnostic(
+                adapter="envfile",
+                action="resolve",
+                status="warn",
+                detail=f"Env file secret is empty for key '{target}'.",
+            )
+            return None
+        self._record_diagnostic(
+            adapter="envfile",
+            action="resolve",
+            status="ok",
+            detail=f"Resolved key '{target}' from env file.",
+        )
+        return resolved
+
     def _resolve_from_file(self, key_path: str) -> str | None:
         key = str(key_path or "").strip()
         if not key:
@@ -378,6 +493,8 @@ class ManagedSecretResolver:
             return None
         if self.mode == "env":
             return self._resolve_from_env(key) if provider == "env" else None
+        if self.mode == "envfile":
+            return self._resolve_from_env_file(key) if provider == "envfile" else None
         if self.mode == "file":
             return self._resolve_from_file(key) if provider == "file" else None
         if self.mode == "http":
@@ -389,6 +506,8 @@ class ManagedSecretResolver:
             return self._resolve_from_chain(key)
         if provider == "env":
             return self._resolve_from_env(key)
+        if provider == "envfile":
+            return self._resolve_from_env_file(key)
         if provider == "file":
             return self._resolve_from_file(key)
         if provider == "http":
@@ -404,6 +523,8 @@ class ManagedSecretResolver:
         for provider in self._chain_order:
             if provider == "env":
                 resolved = self._resolve_from_env(target)
+            elif provider == "envfile":
+                resolved = self._resolve_from_env_file(target)
             elif provider == "file":
                 resolved = self._resolve_from_file(target)
             elif provider == "http":
@@ -438,6 +559,12 @@ class ManagedSecretResolver:
                     "configured": True,
                     "loaded": True,
                     "last_error": self._env_error,
+                },
+                "envfile": {
+                    "configured": bool(self.env_file_path),
+                    "loaded": bool(self._env_file_loaded),
+                    "last_error": self._env_file_error,
+                    "path": self.env_file_path,
                 },
                 "file": {
                     "configured": bool(self.file_path),
@@ -480,6 +607,9 @@ class ManagedSecretResolver:
         self._file_cache = None
         self._file_loaded = False
         self._file_error = ""
+        self._env_file_cache = None
+        self._env_file_loaded = False
+        self._env_file_error = ""
         self._http_cache = None
         self._http_loaded = False
         self._http_error = ""
@@ -512,6 +642,8 @@ class ManagedSecretResolver:
                     status="ok",
                     detail="Environment adapter is available.",
                 )
+            elif adapter == "envfile":
+                _ = self._load_env_file_secrets()
             elif adapter == "file":
                 _ = self._load_file_secrets()
             elif adapter == "http":
@@ -522,7 +654,7 @@ class ManagedSecretResolver:
         snapshot = self.adapter_snapshot()
         summary_status = "ok"
         adapter_items = snapshot.get("adapters", {}) if isinstance(snapshot, dict) else {}
-        for name in ("file", "http", "vault"):
+        for name in ("envfile", "file", "http", "vault"):
             adapter_state = adapter_items.get(name, {}) if isinstance(adapter_items, dict) else {}
             configured = bool(adapter_state.get("configured", False))
             loaded = bool(adapter_state.get("loaded", False))

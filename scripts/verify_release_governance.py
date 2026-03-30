@@ -17,6 +17,11 @@ REQUIRED_RELEASE_WORKFLOW_SNIPPETS = {
     "uses: softprops/action-gh-release@v2",
     "Verify Tagged Artifact Version Policy",
     '--expect-tag "${GITHUB_REF_NAME}" --dist-dir "dist"',
+    "Set Release Runtime Metadata",
+    'if [[ "v${APP_VERSION}" != "$TAG" ]]; then',
+    'echo "SIXPX_IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"',
+    'echo "SIXPX_EXPECTED_API_VERSION=${APP_VERSION}" >> "$GITHUB_ENV"',
+    'echo "SIXPX_ENFORCE_TAG_API_MATCH=true" >> "$GITHUB_ENV"',
     "dist/SHA256SUMS.txt",
     "REQUIRE_ALL_PACKAGES=1 ./scripts/build_packages.sh",
 }

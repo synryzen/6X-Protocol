@@ -43,7 +43,7 @@ if [[ -z "${SECRET_ENCRYPTION_KEY_VALUE}" ]] && [[ -f .env ]]; then
 fi
 # Ensure smoke tests track latest relational schema boundary even if local docker/.env is stale.
 if [[ -z "${RELATIONAL_MAX_SCHEMA_VERSION:-}" ]]; then
-  export RELATIONAL_MAX_SCHEMA_VERSION=7
+  export RELATIONAL_MAX_SCHEMA_VERSION=8
 fi
 
 CURL_BASE_ARGS=(-fsS)
@@ -99,6 +99,11 @@ if [[ -z "$SECRET_PROVIDER_HTTP_LOADED" || "$SECRET_PROVIDER_HTTP_LOADED" == "nu
   echo "Expected secret_provider_http_loaded in /api/v1/meta"
   exit 1
 fi
+SECRET_PROVIDER_ENVFILE_LOADED="$(echo "$META_JSON" | jq -r '.secret_provider_envfile_loaded')"
+if [[ -z "$SECRET_PROVIDER_ENVFILE_LOADED" || "$SECRET_PROVIDER_ENVFILE_LOADED" == "null" ]]; then
+  echo "Expected secret_provider_envfile_loaded in /api/v1/meta"
+  exit 1
+fi
 SECRET_PROVIDER_VAULT_LOADED="$(echo "$META_JSON" | jq -r '.secret_provider_vault_loaded')"
 if [[ -z "$SECRET_PROVIDER_VAULT_LOADED" || "$SECRET_PROVIDER_VAULT_LOADED" == "null" ]]; then
   echo "Expected secret_provider_vault_loaded in /api/v1/meta"
@@ -111,6 +116,10 @@ if [[ -z "$RUNTIME_GOVERNANCE_STATUS" || "$RUNTIME_GOVERNANCE_STATUS" == "null" 
 fi
 SECRET_PROVIDER_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/secrets/provider)"
 echo "$SECRET_PROVIDER_JSON" | jq .
+if [[ "$(echo "$SECRET_PROVIDER_JSON" | jq -r '.envfile_loaded')" == "null" ]]; then
+  echo "Expected envfile_loaded in /api/v1/admin/secrets/provider"
+  exit 1
+fi
 SECRET_PROVIDER_ADAPTERS_JSON="$(curl_api http://127.0.0.1:8787/api/v1/admin/secrets/provider/adapters)"
 echo "$SECRET_PROVIDER_ADAPTERS_JSON" | jq .
 if [[ "$(echo "$SECRET_PROVIDER_ADAPTERS_JSON" | jq -r '.adapters | type')" != "object" ]]; then

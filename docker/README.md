@@ -68,15 +68,17 @@ Optional secret encryption baseline:
 - Rotate encrypted material using `POST /api/v1/admin/secrets/rotate` with `new_key_material`.
 
 Managed secret adapter baseline:
-- Configure `SECRET_PROVIDER_MODE` with one of: `disabled`, `env`, `file`, `http`, `vault`, `chain`.
+- Configure `SECRET_PROVIDER_MODE` with one of: `disabled`, `env`, `envfile`, `file`, `http`, `vault`, `chain`.
 - Resolve references in settings/integration configs using:
   - `env:YOUR_ENV_KEY` or `secret://env/YOUR_ENV_KEY`
+  - `envfile:YOUR_ENV_KEY` or `secret://envfile/YOUR_ENV_KEY`
   - `file:path.to.secret` or `secret://file/path.to.secret`
   - `http:path.to.secret` or `secret://http/path.to.secret` (from JSON fetched via HTTP provider URL)
   - `vault:path.to.secret` or `secret://vault/path.to.secret` (from Vault JSON/KV response payload)
+- Optional env-file provider path: `SECRET_PROVIDER_ENV_FILE` (default `/data/6x-protocol/managed-secrets.env`).
 - Optional file-backed provider path: `SECRET_PROVIDER_FILE` (default `/data/6x-protocol/managed-secrets.json`).
 - Optional env prefix: `SECRET_PROVIDER_ENV_PREFIX` (for prefixed env lookup fallback).
-- Optional chain mode lookup order: `SECRET_PROVIDER_CHAIN_ORDER` (default `env,file,http,vault`).
+- Optional chain mode lookup order: `SECRET_PROVIDER_CHAIN_ORDER` (default `env,envfile,file,http,vault`).
 - Optional HTTP provider settings:
   - `SECRET_PROVIDER_HTTP_URL`
   - `SECRET_PROVIDER_HTTP_AUTH_TOKEN`
@@ -121,6 +123,7 @@ Relational migration scaffold baseline:
   - `r0005_runtime_quality_constraints`
   - `r0006_runtime_evolution_checkpoints`
   - `r0007_runtime_schema_revision_audit`
+  - `r0008_runtime_schema_boundaries`
 - Runtime migration status route:
   - `GET /api/v1/admin/runtime/migrations`
   - Optional refresh: `GET /api/v1/admin/runtime/migrations?refresh=true`
@@ -232,6 +235,6 @@ Execution routing behavior:
 
 ## Remaining Milestones
 1. Replace preview `web` dashboard with production web frontend (workflow/canvas/runs/settings views).
-2. Continue feature-flagged Postgres repository cutover using the tracked `r0001-r0007` schema baseline.
+2. Continue feature-flagged Postgres repository cutover using the tracked `r0001-r0008` schema baseline.
 3. Expand secrets hardening (encrypted-at-rest provider adapters + rotation workflows).
 4. Complete deployment hardening beyond baseline (external secret stores + signed release digest policy).

@@ -428,6 +428,43 @@ RELATIONAL_REVISIONS: tuple[RelationalRevision, ...] = (
             """.strip(),
         ),
     ),
+    RelationalRevision(
+        revision="r0008_runtime_schema_boundaries",
+        description=(
+            "Add relational schema-boundary policy ledger for safer, auditable data evolution."
+        ),
+        statements=(
+            """
+            CREATE TABLE IF NOT EXISTS sixpx_schema_boundaries (
+                boundary_id BIGSERIAL PRIMARY KEY,
+                min_supported_schema_version INTEGER NOT NULL DEFAULT 1,
+                max_supported_schema_version INTEGER NOT NULL DEFAULT 0,
+                enforce_compatibility BOOLEAN NOT NULL DEFAULT TRUE,
+                allow_unknown_revisions BOOLEAN NOT NULL DEFAULT FALSE,
+                source TEXT NOT NULL DEFAULT 'runtime',
+                metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """.strip(),
+            """
+            CREATE INDEX IF NOT EXISTS idx_sixpx_schema_boundaries_recorded_at
+            ON sixpx_schema_boundaries (recorded_at DESC)
+            """.strip(),
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'sixpx_schema_boundaries_valid_range'
+                ) THEN
+                    ALTER TABLE sixpx_schema_boundaries
+                    ADD CONSTRAINT sixpx_schema_boundaries_valid_range
+                    CHECK (max_supported_schema_version >= min_supported_schema_version) NOT VALID;
+                END IF;
+            END
+            $$
+            """.strip(),
+        ),
+    ),
 )
 
 KNOWN_RELATIONAL_REVISIONS = {item.revision for item in RELATIONAL_REVISIONS}

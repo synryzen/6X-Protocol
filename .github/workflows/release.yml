@@ -37,6 +37,36 @@ jobs:
         run: |
           python3 scripts/verify_release_governance.py
 
+      - name: Set Release Runtime Metadata
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          APP_VERSION="$(
+            python3 - <<'PY'
+            from pathlib import Path
+            import re
+            text = Path("docker/api/app/main.py").read_text(encoding="utf-8")
+            matched = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', text)
+            print(matched.group(1) if matched else "")
+            PY
+          )"
+          if [[ -z "$APP_VERSION" ]]; then
+            echo "Unable to detect APP_VERSION from docker/api/app/main.py"
+            exit 1
+          fi
+          if [[ "v${APP_VERSION}" != "$TAG" ]]; then
+            echo "Tag/API version mismatch: tag=$TAG app=v${APP_VERSION}"
+            exit 1
+          fi
+          echo "SIXPX_IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "SIXPX_EXPECTED_IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "SIXPX_RELEASE_CHANNEL=ga" >> "$GITHUB_ENV"
+          echo "SIXPX_EXPECTED_RELEASE_CHANNEL=ga" >> "$GITHUB_ENV"
+          echo "SIXPX_BUILD_SHA=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "SIXPX_EXPECTED_BUILD_SHA=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "SIXPX_EXPECTED_API_VERSION=${APP_VERSION}" >> "$GITHUB_ENV"
+          echo "SIXPX_ENFORCE_TAG_API_MATCH=true" >> "$GITHUB_ENV"
+
       - name: Build Linux Packages
         run: |
           chmod +x scripts/build_*.sh

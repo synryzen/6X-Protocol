@@ -31,12 +31,17 @@ class ManagedSecretsTests(unittest.TestCase):
 
     def test_parse_secret_reference_supports_env_file_http_and_vault(self):
         self.assertEqual(("env", "OPENAI_TEST_KEY"), self.module.parse_secret_reference("env:OPENAI_TEST_KEY"))
+        self.assertEqual(("envfile", "OPENAI_TEST_KEY"), self.module.parse_secret_reference("envfile:OPENAI_TEST_KEY"))
         self.assertEqual(("file", "providers.openai.key"), self.module.parse_secret_reference("file:providers.openai.key"))
         self.assertEqual(("http", "providers.openai.key"), self.module.parse_secret_reference("http:providers.openai.key"))
         self.assertEqual(("vault", "providers.openai.key"), self.module.parse_secret_reference("vault:providers.openai.key"))
         self.assertEqual(
             ("env", "OPENAI_TEST_KEY"),
             self.module.parse_secret_reference("secret://env/OPENAI_TEST_KEY"),
+        )
+        self.assertEqual(
+            ("envfile", "OPENAI_TEST_KEY"),
+            self.module.parse_secret_reference("secret://envfile/OPENAI_TEST_KEY"),
         )
         self.assertEqual(
             ("file", "providers.openai.key"),
@@ -89,6 +94,18 @@ class ManagedSecretsTests(unittest.TestCase):
         )
         self.assertEqual("file-openai-secret", profiles[0]["config"].get("api_key"))
 
+    def test_envfile_mode_resolves_settings_ref(self):
+        env_file = self.data_dir / "managed-secrets.env"
+        env_file.write_text("OPENAI_TEST_KEY=envfile-secret\n", encoding="utf-8")
+        resolver = self.module.ManagedSecretResolver(mode="envfile", env_file_path=str(env_file))
+        settings = resolver.resolve_settings(
+            {
+                "openai_api_key_ref": "secret://envfile/OPENAI_TEST_KEY",
+                "openai_api_key": "",
+            }
+        )
+        self.assertEqual("envfile-secret", settings.get("openai_api_key"))
+
     def test_chain_mode_resolves_without_provider_prefix(self):
         os.environ["OPENAI_TEST_KEY"] = "env-chain-secret"
         resolver = self.module.ManagedSecretResolver(mode="chain")
@@ -104,13 +121,17 @@ class ManagedSecretsTests(unittest.TestCase):
         resolver = self.module.ManagedSecretResolver(
             mode="chain",
             file_path=str(self.data_dir / "missing-secrets.json"),
-            chain_order="file,env,http,vault",
+            chain_order="envfile,file,env,http,vault",
         )
         _ = resolver.resolve_reference("secret://file/providers.openai.api_key")
         snapshot = resolver.adapter_snapshot()
-        self.assertEqual(["file", "env", "http", "vault"], snapshot.get("chain_order", []))
+        self.assertEqual(
+            ["envfile", "file", "env", "http", "vault"],
+            snapshot.get("chain_order", []),
+        )
         adapters = snapshot.get("adapters", {})
         self.assertIn("file", adapters)
+        self.assertIn("envfile", adapters)
         self.assertIn("last_error", adapters.get("file", {}))
 
     def test_health_probe_and_recent_diagnostics_are_available(self):
