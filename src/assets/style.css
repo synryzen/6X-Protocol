@@ -7196,3 +7196,81 @@ window.app-window .settings-root .settings-adjust-row scale slider {
   min-width: 9px;
   min-height: 9px;
 }
+
+/* Premium studio v36: Bots + Integrations control rail and panel hierarchy */
+window.app-window .bots-root .studio-control-rail,
+window.app-window .integrations-root .studio-control-rail {
+  border-radius: 10px;
+  border: 1px solid alpha(#4f6b93, 0.74);
+  background: alpha(#132740, 0.66);
+  padding: 3px 6px;
+}
+
+window.app-window.theme-light .bots-root .studio-control-rail,
+window.app-window.theme-light .integrations-root .studio-control-rail {
+  border-color: alpha(#c4d6eb, 0.88);
+  background: alpha(#ebf3ff, 0.92);
+}
+
+window.app-window .bots-root .bots-editor-frame,
+window.app-window .bots-root .bots-editor-frame > border,
+window.app-window .bots-root .bots-library-frame,
+window.app-window .bots-root .bots-library-frame > border,
+window.app-window .integrations-root .integrations-workspace-frame,
+window.app-window .integrations-root .integrations-workspace-frame > border,
+window.app-window .integrations-root .integrations-library-frame,
+window.app-window .integrations-root .integrations-library-frame > border {
+  border-radius: 12px;
+  border: 1px solid alpha(#4e688f, 0.8);
+  background: alpha(#13263f, 0.74);
+}
+
+window.app-window.theme-light .bots-root .bots-editor-frame,
+window.app-window.theme-light .bots-root .bots-editor-frame > border,
+window.app-window.theme-light .bots-root .bots-library-frame,
+window.app-window.theme-light .bots-root .bots-library-frame > border,
+window.app-window.theme-light .integrations-root .integrations-workspace-frame,
+window.app-window.theme-light .integrations-root .integrations-workspace-frame > border,
+window.app-window.theme-light .integrations-root .integrations-library-frame,
+window.app-window.theme-light .integrations-root .integrations-library-frame > border {
+  border-color: alpha(#c2d5eb, 0.9);
+  background: alpha(#f7fbff, 0.92);
+}
+
+window.app-window .bots-root .studio-subpanel,
+window.app-window .bots-root .studio-subpanel > border,
+window.app-window .integrations-root .studio-subpanel,
+window.app-window .integrations-root .studio-subpanel > border {
+  border-radius: 10px;
+  border: 1px solid alpha(#4a6488, 0.78);
+  background: alpha(#12243b, 0.66);
+}
+
+window.app-window.theme-light .bots-root .studio-subpanel,
+window.app-window.theme-light .bots-root .studio-subpanel > border,
+window.app-window.theme-light .integrations-root .studio-subpanel,
+window.app-window.theme-light .integrations-root .studio-subpanel > border {
+  border-color: alpha(#c4d6eb, 0.88);
+  background: alpha(#f8fcff, 0.94);
+}
+
+window.app-window .bots-root .compact-segmented-row,
+window.app-window .integrations-root .compact-segmented-row {
+  border-radius: 9px;
+  padding: 2px;
+}
+
+window.app-window .bots-root .compact-segmented-button,
+window.app-window .integrations-root .compact-segmented-button {
+  min-height: 22px;
+  padding: 1px 8px;
+}
+
+window.app-window .bots-root entry,
+window.app-window .bots-root spinbutton,
+window.app-window .bots-root dropdown > button,
+window.app-window .integrations-root entry,
+window.app-window .integrations-root spinbutton,
+window.app-window .integrations-root dropdown > button {
+  min-height: 22px;
+}

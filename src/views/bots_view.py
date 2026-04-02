@@ -297,6 +297,7 @@ class BotsView(Gtk.Box):
         list_controls_row.add_css_class("canvas-toolbar-row")
         list_controls_row.add_css_class("compact-toolbar-row")
         list_controls_row.add_css_class("page-action-bar")
+        list_controls_row.add_css_class("studio-control-rail")
 
         self.search_entry = Gtk.Entry()
         self.search_entry.set_hexpand(True)
@@ -314,13 +315,28 @@ class BotsView(Gtk.Box):
 
         self.list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
 
+        list_shell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        list_shell.set_margin_top(6)
+        list_shell.set_margin_bottom(6)
+        list_shell.set_margin_start(6)
+        list_shell.set_margin_end(6)
+        list_shell.append(section_title)
+        list_shell.append(self.empty_label)
+        list_shell.append(self.status_label)
+        list_shell.append(self.list_box)
+
+        list_frame = Gtk.Frame()
+        list_frame.add_css_class("panel-card")
+        list_frame.add_css_class("entity-form-panel")
+        list_frame.add_css_class("bots-library-frame")
+        list_frame.set_child(list_shell)
+
+        form_frame.add_css_class("bots-editor-frame")
+
         self.append(header_box)
         self.append(list_controls_row)
         self.append(form_frame)
-        self.append(section_title)
-        self.append(self.empty_label)
-        self.append(self.status_label)
-        self.append(self.list_box)
+        self.append(list_frame)
 
         self.update_tuning_override_states()
         self.refresh_list()
@@ -354,6 +370,7 @@ class BotsView(Gtk.Box):
         panel = Gtk.Frame()
         panel.add_css_class("settings-subpanel")
         panel.add_css_class("canvas-edit-detail-frame")
+        panel.add_css_class("studio-subpanel")
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         body.add_css_class("settings-subpanel-body")

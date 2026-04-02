@@ -463,6 +463,7 @@ class IntegrationsView(Gtk.Box):
         header_action_row.add_css_class("canvas-toolbar-row")
         header_action_row.add_css_class("compact-toolbar-row")
         header_action_row.add_css_class("page-action-bar")
+        header_action_row.add_css_class("studio-control-rail")
         self.header_action_row = header_action_row
 
         self.search_entry = Gtk.Entry()
@@ -635,15 +636,29 @@ class IntegrationsView(Gtk.Box):
         workspace_frame = Gtk.Frame()
         workspace_frame.add_css_class("panel-card")
         workspace_frame.add_css_class("entity-form-panel")
+        workspace_frame.add_css_class("integrations-workspace-frame")
         workspace_frame.set_child(workspace_shell)
+
+        list_shell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        list_shell.set_margin_top(6)
+        list_shell.set_margin_bottom(6)
+        list_shell.set_margin_start(6)
+        list_shell.set_margin_end(6)
+        list_shell.append(section_title)
+        list_shell.append(self.empty_label)
+        list_shell.append(self.list_box)
+
+        list_frame = Gtk.Frame()
+        list_frame.add_css_class("panel-card")
+        list_frame.add_css_class("entity-form-panel")
+        list_frame.add_css_class("integrations-library-frame")
+        list_frame.set_child(list_shell)
 
         page_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         page_content.append(header_box)
         page_content.append(header_action_row)
         page_content.append(workspace_frame)
-        page_content.append(section_title)
-        page_content.append(self.empty_label)
-        page_content.append(self.list_box)
+        page_content.append(list_frame)
         page_content.set_hexpand(True)
         page_content.set_vexpand(True)
 
@@ -2159,6 +2174,7 @@ class IntegrationsView(Gtk.Box):
         panel = Gtk.Frame()
         panel.add_css_class("settings-subpanel")
         panel.add_css_class("canvas-edit-detail-frame")
+        panel.add_css_class("studio-subpanel")
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         body.add_css_class("settings-subpanel-body")
