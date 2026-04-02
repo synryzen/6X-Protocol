@@ -7054,3 +7054,145 @@ window.app-window.theme-light .canvas-node-port-hover {
   border-color: alpha(#2b6ccf, 0.72);
   background: alpha(#cfe4ff, 0.78);
 }
+
+/* Premium studio v35: AI settings control-surface rail */
+window.app-window .settings-root .settings-main-frame,
+window.app-window .settings-root .settings-main-frame > border {
+  border-radius: 14px;
+  border-color: alpha(#3c5272, 0.86);
+  background: alpha(#10213a, 0.76);
+}
+
+window.app-window.theme-light .settings-root .settings-main-frame,
+window.app-window.theme-light .settings-root .settings-main-frame > border {
+  border-color: alpha(#b7cbe4, 0.92);
+  background: alpha(#f5f9ff, 0.92);
+}
+
+window.app-window .settings-root .page-hero {
+  padding: 7px 10px;
+  border-radius: 11px;
+  border: 1px solid alpha(#4d6891, 0.72);
+  background: linear-gradient(180deg, alpha(#1c3254, 0.84) 0%, alpha(#14263f, 0.84) 100%);
+}
+
+window.app-window.theme-light .settings-root .page-hero {
+  border-color: alpha(#bfd2ea, 0.9);
+  background: linear-gradient(180deg, alpha(#f1f6ff, 0.95) 0%, alpha(#e7f0ff, 0.95) 100%);
+}
+
+window.app-window .settings-root .page-action-bar {
+  border-radius: 10px;
+  border: 1px solid alpha(#4f6b93, 0.72);
+  background: alpha(#12253f, 0.62);
+  padding: 3px 6px;
+}
+
+window.app-window.theme-light .settings-root .page-action-bar {
+  border-color: alpha(#c6d8ef, 0.88);
+  background: alpha(#e9f2ff, 0.9);
+}
+
+window.app-window .settings-root .settings-tab-bar {
+  border-radius: 10px;
+  border: 1px solid alpha(#4f6b93, 0.76);
+  background: alpha(#162b47, 0.64);
+  padding: 2px;
+}
+
+window.app-window.theme-light .settings-root .settings-tab-bar {
+  border-color: alpha(#c3d6ee, 0.88);
+  background: alpha(#eaf3ff, 0.94);
+}
+
+window.app-window .settings-root .settings-studio-tab {
+  min-height: 24px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 1px 8px;
+}
+
+window.app-window .settings-root .settings-studio-tab:hover {
+  border-color: alpha(#77a7df, 0.58);
+  background: alpha(#20395c, 0.42);
+}
+
+window.app-window .settings-root .settings-studio-tab:checked {
+  border-color: alpha(#f9b562, 0.88);
+  background: linear-gradient(180deg, alpha(#f4a340, 0.98) 0%, alpha(#dd7f1f, 0.98) 100%);
+}
+
+window.app-window.theme-light .settings-root .settings-studio-tab:hover {
+  border-color: alpha(#9dbbe3, 0.74);
+  background: alpha(#f6faff, 0.92);
+}
+
+window.app-window.theme-light .settings-root .settings-studio-tab:checked {
+  border-color: alpha(#ed8d2a, 0.9);
+  background: linear-gradient(180deg, alpha(#ffbe6b, 0.95) 0%, alpha(#f7a543, 0.95) 100%);
+}
+
+window.app-window .settings-root .settings-tab-text {
+  font-size: 10.4px;
+  font-weight: 650;
+}
+
+window.app-window .settings-root .settings-studio-tab:checked .settings-tab-text {
+  color: #13243a;
+}
+
+window.app-window.theme-light .settings-root .settings-studio-tab:checked .settings-tab-text {
+  color: #1f2f45;
+}
+
+window.app-window .settings-root .settings-tab-dot {
+  font-size: 8px;
+}
+
+window.app-window .settings-root .settings-tab-dot-mint {
+  color: #5eead4;
+}
+
+window.app-window .settings-root .settings-tab-dot-cyan {
+  color: #7dd3fc;
+}
+
+window.app-window .settings-root .settings-tab-dot-amber {
+  color: #fdba74;
+}
+
+window.app-window .settings-root .settings-tab-dot-violet {
+  color: #c4b5fd;
+}
+
+window.app-window .settings-root .settings-tab-dot-rose {
+  color: #fda4af;
+}
+
+window.app-window .settings-root .settings-subpanel,
+window.app-window .settings-root .settings-subpanel > border {
+  border-radius: 11px;
+  border-color: alpha(#4d6790, 0.76);
+  background: alpha(#12263f, 0.7);
+}
+
+window.app-window.theme-light .settings-root .settings-subpanel,
+window.app-window.theme-light .settings-root .settings-subpanel > border {
+  border-color: alpha(#c2d4ea, 0.9);
+  background: alpha(#f8fbff, 0.9);
+}
+
+window.app-window .settings-root .settings-adjust-row {
+  padding: 1px 4px;
+  border-radius: 8px;
+}
+
+window.app-window .settings-root .settings-adjust-row scale trough {
+  min-height: 4px;
+}
+
+window.app-window .settings-root .settings-adjust-row scale slider {
+  min-width: 9px;
+  min-height: 9px;
+}

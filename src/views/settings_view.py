@@ -63,13 +63,15 @@ class SettingsView(Gtk.Box):
         )
         self.settings = {}
         self.theme_preview_buttons: dict[str, Gtk.ToggleButton] = {}
+        self.settings_tab_buttons: dict[str, Gtk.ToggleButton] = {}
+        self._syncing_settings_tabs = False
         self._syncing_theme_preview = False
 
         header_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         header_box.add_css_class("page-hero")
 
         subtitle = Gtk.Label(
-            label="Configure AI providers, visual style, motion behavior, and background automation."
+            label="Model, provider, integration, and automation controls."
         )
         subtitle.set_wrap(True)
         subtitle.set_halign(Gtk.Align.START)
@@ -442,7 +444,7 @@ class SettingsView(Gtk.Box):
         self.ai_test_prompt_buffer = Gtk.TextBuffer()
         self.ai_test_prompt_view = Gtk.TextView(buffer=self.ai_test_prompt_buffer)
         self.ai_test_prompt_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        self.ai_test_prompt_view.set_size_request(-1, 78)
+        self.ai_test_prompt_view.set_size_request(-1, 64)
 
         prompt_frame = Gtk.Frame()
         prompt_frame.add_css_class("canvas-edit-detail-frame")
@@ -453,7 +455,7 @@ class SettingsView(Gtk.Box):
         self.ai_test_output_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         self.ai_test_output_view.set_editable(False)
         self.ai_test_output_view.set_cursor_visible(False)
-        self.ai_test_output_view.set_size_request(-1, 104)
+        self.ai_test_output_view.set_size_request(-1, 88)
 
         output_frame = Gtk.Frame()
         output_frame.add_css_class("canvas-edit-detail-frame")
@@ -515,10 +517,7 @@ class SettingsView(Gtk.Box):
         stack_actions.append(self.stack_search_entry)
         stack_actions.append(clear_stack_search_button)
 
-        stack_switcher = Gtk.StackSwitcher()
-        stack_switcher.set_stack(self.settings_stack)
-        stack_switcher.set_halign(Gtk.Align.START)
-        stack_switcher.add_css_class("settings-stack-switcher")
+        settings_tab_bar = self.build_settings_tab_bar()
 
         runtime_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         runtime_page.add_css_class("settings-page")
@@ -878,9 +877,14 @@ class SettingsView(Gtk.Box):
         self.settings_stack.add_titled(appearance_scroll, "appearance", "Appearance")
         self.settings_stack.add_titled(integrations_scroll, "integrations", "Integrations")
         self.settings_stack.add_titled(automation_scroll, "automation", "Automation")
+        self.settings_stack.connect(
+            "notify::visible-child-name",
+            self.on_settings_stack_visible_child_changed,
+        )
+        self.sync_settings_tab_bar("runtime")
 
         content_box.append(stack_actions)
-        content_box.append(stack_switcher)
+        content_box.append(settings_tab_bar)
         content_box.append(self.settings_stack)
         content_box.append(self.status_label)
 
@@ -959,6 +963,82 @@ class SettingsView(Gtk.Box):
 
     def on_clear_stack_search(self, _button):
         self.stack_search_entry.set_text("")
+
+    def build_settings_tab_bar(self) -> Gtk.Box:
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        row.add_css_class("settings-tab-bar")
+
+        tab_specs = [
+            ("runtime", "Model Hub", "settings-tab-dot-mint"),
+            ("test", "AI Test", "settings-tab-dot-cyan"),
+            ("appearance", "Appearance", "settings-tab-dot-amber"),
+            ("integrations", "Integrations", "settings-tab-dot-violet"),
+            ("automation", "Automation", "settings-tab-dot-rose"),
+        ]
+
+        self.settings_tab_buttons = {}
+        for key, label, dot_class in tab_specs:
+            button = Gtk.ToggleButton()
+            button.set_hexpand(True)
+            button.add_css_class("settings-studio-tab")
+            button.connect("toggled", self.on_settings_tab_toggled, key)
+
+            content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            content.set_halign(Gtk.Align.CENTER)
+
+            dot = Gtk.Label(label="●")
+            dot.add_css_class("settings-tab-dot")
+            dot.add_css_class(dot_class)
+
+            text = Gtk.Label(label=label)
+            text.add_css_class("settings-tab-text")
+
+            content.append(dot)
+            content.append(text)
+            button.set_child(content)
+
+            row.append(button)
+            self.settings_tab_buttons[key] = button
+
+        return row
+
+    def on_settings_tab_toggled(self, button: Gtk.ToggleButton, key: str):
+        if self._syncing_settings_tabs:
+            return
+
+        if not button.get_active():
+            if not any(item.get_active() for item in self.settings_tab_buttons.values()):
+                self._syncing_settings_tabs = True
+                button.set_active(True)
+                self._syncing_settings_tabs = False
+            return
+
+        self._syncing_settings_tabs = True
+        try:
+            for other_key, other in self.settings_tab_buttons.items():
+                if other_key != key and other.get_active():
+                    other.set_active(False)
+        finally:
+            self._syncing_settings_tabs = False
+
+        if self.settings_stack.get_visible_child_name() != key:
+            self.settings_stack.set_visible_child_name(key)
+
+    def on_settings_stack_visible_child_changed(self, stack: Gtk.Stack, _param):
+        self.sync_settings_tab_bar(stack.get_visible_child_name() or "runtime")
+
+    def sync_settings_tab_bar(self, selected: str):
+        self._syncing_settings_tabs = True
+        try:
+            normalized = str(selected or "runtime").strip().lower()
+            if normalized not in self.settings_tab_buttons:
+                normalized = "runtime"
+            for key, button in self.settings_tab_buttons.items():
+                should_be_active = key == normalized
+                if button.get_active() != should_be_active:
+                    button.set_active(should_be_active)
+        finally:
+            self._syncing_settings_tabs = False
 
     def focus_widget(self, widget: Gtk.Widget):
         try:
